@@ -1,8 +1,11 @@
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
+import { Slot, SplashScreen } from 'expo-router';
 import { useEffect } from 'react';
+import { Provider } from 'react-redux';
 import { TamaguiProvider } from 'tamagui';
-
+import { useFCM } from '~/hooks/useFCM';
+import { store } from '~/redux/store';
+import { initializeTokenCache } from '~/utils/token';
 import config from '../tamagui.config';
 
 export default function Layout() {
@@ -10,8 +13,10 @@ export default function Layout() {
     Inter: require('@tamagui/font-inter/otf/Inter-Medium.otf'),
     InterBold: require('@tamagui/font-inter/otf/Inter-Bold.otf'),
   });
-
+  const { fcmToken } = useFCM();
+  console.log(fcmToken);
   useEffect(() => {
+    initializeTokenCache();
     if (loaded) {
       SplashScreen.hideAsync();
     }
@@ -21,7 +26,9 @@ export default function Layout() {
 
   return (
     <TamaguiProvider config={config}>
-      <Stack />
+      <Provider store={store}>
+        <Slot />
+      </Provider>
     </TamaguiProvider>
   );
 }
