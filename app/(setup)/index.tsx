@@ -10,6 +10,9 @@ import { RootState } from '~/redux/store';
 import { updateProfile } from '~/redux/thunks/profile';
 import { Profile } from '~/types/profile';
 
+
+
+
 export default function Setup() {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -61,7 +64,7 @@ export default function Setup() {
 
       if (result?.status === 'success') {
         alert('Profile updated successfully!');
-        router.replace('/');
+        router.replace('/chat');
       } else {
         alert(result?.message || 'Failed to update profile. Please try again.');
       }
@@ -116,7 +119,7 @@ export default function Setup() {
             label="Bio"
             placeholder="Enter your bio"
             value={formData?.bio || ''}
-            onChange={(value) => handleChange('phone', value)}
+            onChange={(value) => handleChange('bio', value)}
           />
 
           <InputField
