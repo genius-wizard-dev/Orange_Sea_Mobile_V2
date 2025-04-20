@@ -1,19 +1,34 @@
 import { StyleSheet } from 'react-native'
-import React from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { Avatar, YStack, XStack, Text } from 'tamagui'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { useSelector } from 'react-redux'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { useSelector, useDispatch } from 'react-redux'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { getProfile } from "../../../redux/thunks/profile";
+import { formatDate } from "../../utils/formatDate";
 
 const AccountAndSecurity = () => {
+    const dispatch = useDispatch();
     const { profile } = useSelector((state) => state.profile);
     const router = useRouter();
+
+    useFocusEffect(
+        useCallback(() => {
+            dispatch(getProfile());
+        }, [dispatch])
+    );
 
     const handleNavigateToUpdate = () => {
         router.push({
             pathname: '/setting/update/updateProfile',
             params: { goBackTo: '/setting/accountAndSecurity' }, // Truyền tham số goBackTo
+        });
+    };
+    const handleNavigateChangePassword = () => {
+        router.push({
+            pathname: '/setting/security/changePassword',
+            params: { goBackTo: '/setting/accountAndSecurity' }, 
         });
     };
 
@@ -24,6 +39,7 @@ const AccountAndSecurity = () => {
             image: profile?.avatar,
             title: "Chỉnh sửa thông tin",
             name: profile?.name,
+            birthday: profile?.birthday ? formatDate(profile?.birthday) : '',
             description: "null",
             action: () => handleNavigateToUpdate(),
         },
@@ -49,18 +65,19 @@ const AccountAndSecurity = () => {
 
     const securityGroup = [
         {
-            icon: "shield-checkmark-outline",
-            title: "Kiểm tra bảo mật",
-            description: "2 vấn đề bảo mật cần xử lý",
+            icon: "phone-portrait-outline",
+            title: "Thiết bị đăng nhập",
+            description: "Quản lý thiết bị đăng nhập",
             descriptionColor: "$yellow10",
             action: () => router.push('/security-check'),
         },
-        // {
-        //     icon: "lock-closed-outline",
-        //     title: "Khóa ứng dụng",
-        //     description: "Đang tắt",
-        //     action: () => router.push('/app-lock'),
-        // },
+        {
+            icon: "lock-closed-outline",
+            title: "Mật khẩu",
+            description: "Đổi mật khẩu đăng nhập",
+            descriptionColor: "$yellow10",
+            action: () => handleNavigateChangePassword()
+        },
     ]
 
     const renderItem = (item) => (
@@ -92,7 +109,7 @@ const AccountAndSecurity = () => {
             <YStack flex={1} >
                 <Text fontSize="$5">{item.title}</Text>
                 {item.description && (
-                    <Text fontSize="$4" color={item.descriptionColor || "$gray10"}>
+                    <Text marginTop={6} fontSize="$4" color={item.descriptionColor || "$gray10"}>
                         {item.type == "profile" ?
                             <Text
                                 fontWeight={700}

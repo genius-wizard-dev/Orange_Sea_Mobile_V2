@@ -13,13 +13,14 @@ export default function AppLayout() {
   const { profile: userProfile } = useSelector((state: RootState) => state.profile);
   const [hasRegister, setHasRegister] = useState(false);
 
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = await getAccessToken();
         setHasToken(!!token);
         const email = await getEmailFromSecureStore();
-        console.log(email);
+        // console.log(email);
         setHasRegister(!!email);
         if (token) {
           await dispatch(getProfile() as any);
@@ -48,7 +49,8 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (!userProfile?.isSetup) {
+
+  if (userProfile?.isSetup) {
     return <Redirect href="/(tabs)/chat" />;
   }
 

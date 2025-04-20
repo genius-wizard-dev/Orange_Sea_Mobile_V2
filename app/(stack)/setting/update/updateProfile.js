@@ -1,121 +1,175 @@
-// Trong màn hình updateProfile (updateProfile.js)
-import { useLocalSearchParams, useRouter, useSearchParams } from 'expo-router';
-import { TouchableOpacity, Image } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { View, YStack, XStack, Avatar, Text, Input, Button } from 'tamagui';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, TouchableOpacity } from 'react-native';
+import { YStack, XStack, Button, Avatar } from 'tamagui';
 import HeaderLeft from '../../../../components/header/HeaderLeft';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { useEffect, useState } from 'react';
+import InputField from '~/components/InputField';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
+import { updateProfile } from '../../../../redux/thunks/profile';
+import { formatDate } from '../../../utils/formatDate';
 
 export default function UpdateProfile() {
     const router = useRouter();
-    const { goBackTo } = useLocalSearchParams()
+    const dispatch = useDispatch();
+    const { goBackTo } = useLocalSearchParams();
     const { profile } = useSelector((state) => state.profile);
+
+    const [formData, setFormData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (profile) {
+            setFormData({
+                ...profile,
+                birthday: profile.birthday ? formatDate(profile.birthday) : ''
+            });
+        }
+    }, [profile]);
+
+    const handleChange = (field, value) => {
+        if (formData) {
+            setFormData({
+                ...formData,
+                [field]: value,
+            });
+        }
+    };
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            handleChange('avatar', result.assets[0].uri);
+        }
+    };
+
+    const handleClearField = (field) => {
+        handleChange(field, '');
+    };
+
+    const handleSubmit = async () => {
+        if (!formData?.name || !formData?.birthday) {
+            alert('Vui lòng điền đầy đủ thông tin');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const formDataToSend = new FormData();
+
+            // Xử lý ảnh nếu có
+            if (formData.avatar && formData.avatar.startsWith('file:')) {
+                const filename = formData.avatar.split('/').pop();
+                const match = /\.(\w+)$/.exec(filename || '');
+                const type = match ? `image/${match[1]}` : 'image';
+                
+                formDataToSend.append('avatar', {
+                    uri: formData.avatar,
+                    name: filename,
+                    type,
+                });
+            }
+
+            // Thêm các trường khác
+            formDataToSend.append('name', formData.name);
+            formDataToSend.append('birthday', formData.birthday);
+
+            const result = await dispatch(updateProfile(formDataToSend)).unwrap();
+
+            if (result?.status === 'success') {
+                alert('cập nhật thông tin thàng công');
+                router.back();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Có lỗi xảy ra khi cập nhật');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <YStack flex={1} backgroundColor="$gray2">
             <HeaderLeft goBack={goBackTo} title="Chỉnh sửa thông tin" />
-
-            <YStack padding="$4" space="$4">
-                {/* Avatar Section */}
-                <XStack alignItems="center" justifyContent="center" marginVertical="$4">
-                    <Avatar circular size="$10">
-                        <Avatar.Image source={{ uri: profile?.avatar }} />
+            
+            <XStack padding="$4" space="$4">
+                {/* Left side - Avatar */}
+                <YStack>
+                    <Avatar circular size="$10" marginBottom="$2">
+                        <Avatar.Image source={{ uri: formData?.avatar }} />
                         <Avatar.Fallback backgroundColor="$gray5">
                             <Ionicons name="person-outline" size={40} color="#666" />
                         </Avatar.Fallback>
                     </Avatar>
-                    <TouchableOpacity
-                        style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            right: '35%',
-                            backgroundColor: '#fff',
-                            padding: 8,
-                            borderRadius: 20,
-                            borderWidth: 1,
-                            borderColor: '#E8E8E8'
-                        }}
+                    <Button
+                        size="$2"
+                        onPress={pickImage}
+                        backgroundColor="$blue10"
+                        color="white"
                     >
-                        <Ionicons name="camera-outline" size={24} color="#666" />
-                    </TouchableOpacity>
-                </XStack>
-
-                {/* Form Fields */}
-                <YStack space="$4">
-                    <YStack>
-                        <Text color="$gray11" fontSize="$4" marginBottom="$2">Họ và tên</Text>
-                        <Input
-                            size="$4"
-                            borderWidth={1}
-                            borderColor="#E8E8E8"
-                            backgroundColor="white"
-                            defaultValue={profile?.name}
-                        />
-                    </YStack>
-
-                    <YStack>
-                        <Text color="$gray11" fontSize="$4" marginBottom="$2">Ngày sinh</Text>
-                        <XStack
-                            backgroundColor="white"
-                            borderWidth={1}
-                            borderColor="#E8E8E8"
-                            padding="$3"
-                            borderRadius="$4"
-                            alignItems="center"
-                            justifyContent="space-between"
-                        >
-                            <Text>23/10/1995</Text>
-                            <Ionicons name="chevron-forward-outline" size={24} color="#666" />
-                        </XStack>
-                    </YStack>
-
-                    <YStack>
-                        <Text color="$gray11" fontSize="$4" marginBottom="$2">Giới tính</Text>
-                        <XStack space="$4">
-                            <XStack
-                                backgroundColor="white"
-                                borderWidth={1}
-                                borderColor="#0866ff"
-                                padding="$3"
-                                borderRadius="$4"
-                                alignItems="center"
-                                space="$2"
-                                flex={1}
-                            >
-                                <View backgroundColor="#0866ff" borderRadius={20} padding={2}>
-                                    <Ionicons name="checkmark-outline" size={16} color="white" />
-                                </View>
-                                <Text>Nam</Text>
-                            </XStack>
-                            <XStack
-                                backgroundColor="white"
-                                borderWidth={1}
-                                borderColor="#E8E8E8"
-                                padding="$3"
-                                borderRadius="$4"
-                                alignItems="center"
-                                space="$2"
-                                flex={1}
-                            >
-                                <View borderWidth={1} borderColor="#666" borderRadius={20} padding={2}>
-                                    <Ionicons name="checkmark-outline" size={16} color="transparent" />
-                                </View>
-                                <Text>Nữ</Text>
-                            </XStack>
-                        </XStack>
-                    </YStack>
+                        Đổi ảnh
+                    </Button>
                 </YStack>
 
-                {/* Save Button */}
-                <Button
-                    backgroundColor="#0866ff"
-                    color="white"
-                    size="$4"
-                    marginTop="$4"
-                >
-                    LƯU
-                </Button>
-            </YStack>
+                {/* Right side - Input fields */}
+                <YStack flex={1} space="$4">
+                    <InputField
+                        id="name"
+                        label="Họ và tên"
+                        value={formData?.name || ''}
+                        onChange={(value) => handleChange('name', value)}
+                        placeholder="Nhập họ và tên"
+                        rightElement={
+                            formData?.name ? (
+                                <TouchableOpacity 
+                                    onPress={() => handleClearField('name')}
+                                    style={{ padding: 8 }}
+                                >
+                                    <Ionicons name="close-circle" size={20} color="#666" />
+                                </TouchableOpacity>
+                            ) : null
+                        }
+                    />
+
+                    <InputField
+                        id="birthday"
+                        label="Ngày sinh"
+                        value={formData?.birthday || ''}
+                        onChange={(value) => handleChange('birthday', value)}
+                        placeholder="DD/MM/YYYY"
+                        type="date"
+                        rightElement={
+                            formData?.birthday ? (
+                                <TouchableOpacity 
+                                    onPress={() => handleClearField('birthday')}
+                                    style={{ padding: 8 }}
+                                >
+                                    <Ionicons name="close-circle" size={20} color="#666" />
+                                </TouchableOpacity>
+                            ) : null
+                        }
+                    />
+                </YStack>
+            </XStack>
+
+            <Button
+                backgroundColor="#0866ff"
+                color="white"
+                size="$4"
+                margin="$4"
+                onPress={handleSubmit}
+                disabled={isLoading}
+                icon={isLoading ? <ActivityIndicator color="white" /> : null}
+            >
+                {isLoading ? 'Đang lưu...' : 'LƯU'}
+            </Button>
         </YStack>
     );
 }

@@ -48,6 +48,15 @@ export default function StackLayout() {
         }}
       />
 
+
+      <Stack.Screen
+        name="setting/security/changePassword"
+        options={{
+          title: 'Đổi mật khẩu',
+          headerShown: false,
+        }}
+      />
+
       <Stack.Screen
         name="setting/update/updateProfile"
         options={{

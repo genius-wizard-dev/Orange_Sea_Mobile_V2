@@ -1,12 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useRouter } from 'expo-router';
-import { useSelector } from 'react-redux';
+import { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { Button, Image, Stack, Text, XStack, YStack } from 'tamagui';
 import { RootState } from '~/redux/store';
+import { getProfile } from '~/redux/thunks/profile';
 import { removeAccessToken, removeRefreshToken } from '~/utils/token';
 
-export default function Setting() {
+export default function Me() {
+  const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.profile);
+
+  useEffect(() => {
+    dispatch(getProfile() as any);
+  }, [dispatch]);
+
   const router = useRouter();
   const handleProfile = (profileId: string) => {
     router.push({
