@@ -92,7 +92,7 @@ export default function Info() {
             {profile?.name}
           </Text>
           <Text fontSize={16} color="$gray10">
-            {profile?.bio || 'UEHer'}
+            {profile?.bio || 'Chưa có tiểu sử'}
           </Text>
         </YStack>
 

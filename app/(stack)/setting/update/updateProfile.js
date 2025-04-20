@@ -69,7 +69,7 @@ export default function UpdateProfile() {
                 const filename = formData.avatar.split('/').pop();
                 const match = /\.(\w+)$/.exec(filename || '');
                 const type = match ? `image/${match[1]}` : 'image';
-                
+
                 formDataToSend.append('avatar', {
                     uri: formData.avatar,
                     name: filename,
@@ -98,7 +98,7 @@ export default function UpdateProfile() {
     return (
         <YStack flex={1} backgroundColor="$gray2">
             <HeaderLeft goBack={goBackTo} title="Chỉnh sửa thông tin" />
-            
+
             <XStack padding="$4" space="$4">
                 {/* Left side - Avatar */}
                 <YStack>
@@ -128,7 +128,7 @@ export default function UpdateProfile() {
                         placeholder="Nhập họ và tên"
                         rightElement={
                             formData?.name ? (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     onPress={() => handleClearField('name')}
                                     style={{ padding: 8 }}
                                 >
@@ -137,26 +137,16 @@ export default function UpdateProfile() {
                             ) : null
                         }
                     />
-
                     <InputField
                         id="birthday"
-                        label="Ngày sinh"
-                        value={formData?.birthday || ''}
-                        onChange={(value) => handleChange('birthday', value)}
-                        placeholder="DD/MM/YYYY"
+                        label="Birthday"
+                        value={formData?.birthday || null}
                         type="date"
-                        rightElement={
-                            formData?.birthday ? (
-                                <TouchableOpacity 
-                                    onPress={() => handleClearField('birthday')}
-                                    style={{ padding: 8 }}
-                                >
-                                    <Ionicons name="close-circle" size={20} color="#666" />
-                                </TouchableOpacity>
-                            ) : null
-                        }
+                        onChange={(value) => handleChange('birthday', value)}
+                        placeholder="Select your birthday"
                     />
                 </YStack>
+
             </XStack>
 
             <Button
