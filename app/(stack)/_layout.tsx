@@ -29,6 +29,11 @@ export default function StackLayout() {
         },
       }}
     >
+
+
+
+
+
       <Stack.Screen
         name="profile/[id]"
         options={{
@@ -73,6 +78,19 @@ export default function StackLayout() {
           title: 'Quyền riêng tư',
         }}
       />
+
+
+
+
+
+      <Stack.Screen
+        name="contact/listRequestFriend"
+        options={{
+          title: 'Lời mời kết bạn',
+          headerShown: false,
+        }}
+      />
+
     </Stack>
   );
 }
