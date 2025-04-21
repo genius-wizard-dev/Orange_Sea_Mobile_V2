@@ -48,7 +48,11 @@
       "package": "com.orangesea.app"
     },
     "extra": {
+<<<<<<< HEAD
       "API_BASE_URL": "http://192.168.111.116:8000",
+=======
+      "API_BASE_URL": "http://192.168.2.216:8000",
+>>>>>>> 1-create-ui-profile-friend-chat
       "router": {
         "origin": false
       },
