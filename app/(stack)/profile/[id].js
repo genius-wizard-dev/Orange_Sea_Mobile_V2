@@ -5,9 +5,12 @@ import { useEffect, useState } from 'react';
 import { ENDPOINTS } from '../../../service/api.endpoint';
 import apiService from '../../../service/api.service';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { getProfile } from '~/redux/thunks/profile';
+import HeaderLeft from '~/components/header/HeaderLeft';
 
 export default function Info() {
+  const dispatch = useDispatch();
   const { profile } = useSelector((state) => state.profile);
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -15,7 +18,7 @@ export default function Info() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const id = params.id;
-  const goBack = params.goBack;
+  const { goBackTo } = useLocalSearchParams()
 
   const fetchInfo = async () => {
     setLoading(true);
@@ -36,16 +39,25 @@ export default function Info() {
   };
 
   useEffect(() => {
+    dispatch(getProfile());
     fetchInfo();
-  }, [id]);
+  }, [id, dispatch]);
 
-  if (loading) {
+  // Thêm log chi tiết hơn để debug
+  // console.log("Current profile:", profile);
+  // console.log("Current profile ID:", profile?._id);
+  // console.log("Param ID:", id);
+
+  // Đợi cả profile và info load xong
+  if (loading || !profile) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" space="$4">
         <Spinner size="large" color="#E94057" />
       </YStack>
     );
   }
+
+  const isOwnProfile = profile.id === id;
 
   if (error) {
     return (
@@ -60,6 +72,7 @@ export default function Info() {
 
   return (
     <YStack flex={1} backgroundColor="white">
+      <HeaderLeft goBack={goBackTo} title="Trang cá nhân" />
       {/* Cover Image */}
       <View
         style={{
@@ -69,6 +82,7 @@ export default function Info() {
           backgroundColor: '#E94057',
         }}
       >
+
       </View>
 
       {/* Profile Info Section */}
@@ -80,7 +94,7 @@ export default function Info() {
           borderWidth={4}
           borderColor="white"
         >
-          <Avatar.Image source={{ uri: profile?.avatar }} />
+          <Avatar.Image source={{ uri: info?.avatar }} />
           <Avatar.Fallback>
             <Ionicons name="person" size={50} color="#666" />
           </Avatar.Fallback>
@@ -89,30 +103,86 @@ export default function Info() {
         {/* Name and Bio */}
         <YStack marginTop={10} space={4}>
           <Text fontSize={24} fontWeight="bold">
-            {profile?.name}
+            {info?.name || 'Chưa có tên'}
           </Text>
           <Text fontSize={16} color="$gray10">
-            {profile?.bio || 'Chưa có tiểu sử'}
+            {info?.bio || 'Chưa có tiểu sử'}
           </Text>
+        </YStack>
+
+        {/* Thông tin chi tiết */}
+        <YStack marginTop={20} space={10}>
+          {info?.email && (
+            <XStack space={10} alignItems="center">
+              <Ionicons name="mail-outline" size={20} color="#666" />
+              <Text>{info.email}</Text>
+            </XStack>
+          )}
+          {info?.phone && (
+            <XStack space={10} alignItems="center">
+              <Ionicons name="call-outline" size={20} color="#666" />
+              <Text>{info.phone}</Text>
+            </XStack>
+          )}
+          {info?.location && (
+            <XStack space={10} alignItems="center">
+              <Ionicons name="location-outline" size={20} color="#666" />
+              <Text>{info.location}</Text>
+            </XStack>
+          )}
         </YStack>
 
         {/* Buttons Section */}
         <XStack marginTop={20} space={15}>
-          <Button
-            flex={1}
-            width="100%"
-            backgroundColor="white"
-            borderWidth={1}
-            borderColor="#E8E8E8"
-            borderRadius={15}
-            padding={15}
-            pressStyle={{ opacity: 0.7 }}
-          >
-            <XStack alignItems="center" space={10} width="100%" height={100} justifyContent="center">
-              <Ionicons name="images-outline" size={24} color="#666" />
-              <Text fontWeight="500">Ảnh của tôi</Text>
+          {isOwnProfile ? (
+            // Nút cho profile của chính mình
+            <Button
+              flex={1}
+              backgroundColor="white"
+              borderWidth={1}
+              borderColor="#E8E8E8"
+              borderRadius={15}
+              padding={10}
+              pressStyle={{ opacity: 0.7 }}
+            >
+              <XStack alignItems="center" space={15}>
+                <Ionicons name="create-outline" size={24} color="#666" />
+                <Text fontWeight="500">Chỉnh sửa thông tin</Text>
+              </XStack>
+            </Button>
+          ) : (
+            // Nút cho profile của người khác
+            <XStack flex={1} space={10}>
+              <Button
+                flex={1}
+                backgroundColor="white"
+                borderWidth={1}
+                borderColor="#E94057"
+                borderRadius={15}
+                padding={7}
+                pressStyle={{ opacity: 0.7 }}
+                onPress={() => {/* Xử lý logic kết bạn */ }}
+              >
+                <XStack alignItems="center" space={5}>
+                  <Ionicons name="person-add-outline" size={20} color="#E94057" />
+                  <Text color="#E94057" fontWeight="500">Kết bạn</Text>
+                </XStack>
+              </Button>
+              <Button
+                flex={1}
+                backgroundColor="#E94057"
+                borderRadius={15}
+                padding={10}
+                pressStyle={{ opacity: 0.7 }}
+                onPress={() => {/* Xử lý logic nhắn tin */ }}
+              >
+                <XStack alignItems="center" space={5}>
+                  <Ionicons name="chatbubble-outline" size={20} color="white" />
+                  <Text color="white" fontWeight="500">Nhắn tin</Text>
+                </XStack>
+              </Button>
             </XStack>
-          </Button>
+          )}
         </XStack>
       </YStack>
     </YStack>

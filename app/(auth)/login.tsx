@@ -67,6 +67,7 @@ export default function Login() {
       const response = await apiService.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, loginData);
       if (response.status === 'success' && response.data) {
         setAccessToken(response.data.access_token);
+        console.log(response.data.access_token);
         setRefreshToken(response.data.refresh_token);
 
         const profileRes: ProfileResponse = await dispatch(getProfile() as any).unwrap();

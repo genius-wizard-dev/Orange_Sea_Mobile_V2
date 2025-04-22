@@ -21,4 +21,10 @@ export const ENDPOINTS = {
     GET_BY_USERNAME: (username: string) => `${BASE_ENDPOINT}/account/username/${username}`,
     PASSWORD: (id: string) => `${BASE_ENDPOINT}/account/${id}/password`,
   },
+  GROUP: {
+    LIST: `${BASE_ENDPOINT}/group`,
+  },
+  FRIEND:{
+    SEARCH_BY_PHONE: (keyword: string) => `${BASE_ENDPOINT}/friend/search/${keyword}`,
+  }
 };

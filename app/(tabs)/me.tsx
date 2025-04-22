@@ -32,7 +32,7 @@ export default function Me() {
   };
   const settingOptions = [
     {
-      type:"profile",
+      type: "profile",
       icon: 'person-outline',
       image: profile ? profile?.avatar : "",
       title: profile ? profile.name : 'Tài khoản',
@@ -66,8 +66,8 @@ export default function Me() {
               alignItems="center"
               paddingVertical={15}
               paddingHorizontal={15}
-              backgroundColor={option.type=="profile" ? "#eaeaea" : "#ffffff"}
-              marginBottom={option.type=="profile" ? 20 : 0}
+              backgroundColor={option.type == "profile" ? "#eaeaea" : "#ffffff"}
+              marginBottom={option.type == "profile" ? 20 : 0}
               borderRadius={15}
               borderWidth={1}
               borderColor="#E8E8E8"
@@ -106,7 +106,7 @@ export default function Me() {
                 <Text fontSize={16} fontWeight="600" color="black">
                   {option.title}
                 </Text>
-                {option.description!="null" && (
+                {option.description != "null" && (
                   <Text fontSize={14} color="#666" marginTop={2}>
                     {option.description}
                   </Text>
