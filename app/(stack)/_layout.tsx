@@ -31,12 +31,19 @@ export default function StackLayout() {
     >
       {/* chat */}
       <Stack.Screen
+        name="chat/chatDetail"
+        options={{
+          title: 'Chi tiết tin nhắn',
+          headerShown: false,
+        }}
+      />
+      {/* <Stack.Screen
         name="chat/chatSetting"
         options={{
           title: 'Tin nhắn',
           headerShown: false,
         }}
-      />
+      /> */}
 
 
       {/* Me */}

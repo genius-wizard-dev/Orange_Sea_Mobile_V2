@@ -8,6 +8,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSelector, useDispatch } from 'react-redux';
 import { getProfile } from '~/redux/thunks/profile';
 import HeaderLeft from '~/components/header/HeaderLeft';
+import { getFriendshipStatus, sendFriendRequest, getFriendList, getReceivedRequests, getSentRequests } from '~/redux/thunks/friend';
 
 export default function Info() {
   const dispatch = useDispatch();
@@ -19,6 +20,7 @@ export default function Info() {
   const [error, setError] = useState(null);
   const id = params.id;
   const { goBackTo } = useLocalSearchParams()
+  const friendState = useSelector((state) => state.friend);
 
   const fetchInfo = async () => {
     setLoading(true);
@@ -41,6 +43,11 @@ export default function Info() {
   useEffect(() => {
     dispatch(getProfile());
     fetchInfo();
+    if (!isOwnProfile) {
+      dispatch(getFriendList());
+      dispatch(getReceivedRequests());
+      dispatch(getSentRequests());
+    }
   }, [id, dispatch]);
 
   // Thêm log chi tiết hơn để debug
@@ -49,7 +56,7 @@ export default function Info() {
   // console.log("Param ID:", id);
 
   // Đợi cả profile và info load xong
-  if (loading || !profile) {
+  if (loading || !profile || friendState.loading) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" space="$4">
         <Spinner size="large" color="#E94057" />
@@ -58,6 +65,99 @@ export default function Info() {
   }
 
   const isOwnProfile = profile.id === id;
+
+  const renderFriendshipButton = () => {
+    const friendsList = friendState.friends || [];
+    const sentRequests = friendState.sentRequests || [];
+    const receivedRequests = friendState.receivedRequests || [];
+
+    // console.log('Current Profile ID:', id);
+    console.log('Friends List:', friendsList);
+
+    // Sửa lại cách check friend status
+    const isFriend = friendsList.some(friend => 
+      friend.profileId === id
+    );
+    const hasSentRequest = sentRequests.some(req => 
+      req.profileId === id
+    );
+    const hasReceivedRequest = receivedRequests.some(req => 
+      req.profileId === id
+    );
+
+    if (isFriend) {
+      return (
+        <Button
+          flex={1}
+          backgroundColor="white"
+          borderWidth={1}
+          borderColor="#E94057"
+          borderRadius={15}
+          padding={7}
+          onPress={() => {
+            const friendship = friendsList.find(f => f.profileId === id);
+            dispatch(deleteFriend(friendship.id));
+          }}
+        >
+          <XStack alignItems="center" space={5}>
+            <Ionicons name="person-outline" size={20} color="#E94057" />
+            <Text color="#E94057">Bạn bè</Text>
+          </XStack>
+        </Button>
+      );
+    }
+
+    if (hasSentRequest) {
+      return (
+        <Button
+          flex={1}
+          backgroundColor="white"
+          borderWidth={1}
+          borderColor="#666"
+          borderRadius={15}
+          padding={7}
+          disabled={true}
+        >
+          <XStack alignItems="center" space={5}>
+            <Ionicons name="time-outline" size={20} color="#666" />
+            <Text color="#666">Đã gửi lời mời</Text>
+          </XStack>
+        </Button>
+      );
+    }
+
+    if (hasReceivedRequest) {
+      const request = receivedRequests.find(req => req.senderId === id);
+      return (
+        <Button
+          flex={1}
+          backgroundColor="#E94057"
+          borderRadius={15}
+          padding={7}
+          onPress={() => dispatch(handleFriendRequest({ requestId: request.id, action: 'accept' }))}
+        >
+          <Text color="white">Chấp nhận lời mời</Text>
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        flex={1}
+        backgroundColor="white"
+        borderWidth={1}
+        borderColor="#E94057"
+        borderRadius={15}
+        padding={7}
+        onPress={() => dispatch(sendFriendRequest(id))}
+      >
+        <XStack alignItems="center" space={5}>
+          <Ionicons name="person-add-outline" size={20} color="#E94057" />
+          <Text color="#E94057">Kết bạn</Text>
+        </XStack>
+      </Button>
+    );
+  };
 
   if (error) {
     return (
@@ -153,28 +253,13 @@ export default function Info() {
           ) : (
             // Nút cho profile của người khác
             <XStack flex={1} space={10}>
-              <Button
-                flex={1}
-                backgroundColor="white"
-                borderWidth={1}
-                borderColor="#E94057"
-                borderRadius={15}
-                padding={7}
-                pressStyle={{ opacity: 0.7 }}
-                onPress={() => {/* Xử lý logic kết bạn */ }}
-              >
-                <XStack alignItems="center" space={5}>
-                  <Ionicons name="person-add-outline" size={20} color="#E94057" />
-                  <Text color="#E94057" fontWeight="500">Kết bạn</Text>
-                </XStack>
-              </Button>
+              {renderFriendshipButton()}
               <Button
                 flex={1}
                 backgroundColor="#E94057"
                 borderRadius={15}
                 padding={10}
                 pressStyle={{ opacity: 0.7 }}
-                onPress={() => {/* Xử lý logic nhắn tin */ }}
               >
                 <XStack alignItems="center" space={5}>
                   <Ionicons name="chatbubble-outline" size={20} color="white" />
