@@ -7,22 +7,22 @@ import socketService from '../../service/socket.service';
 
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
-  async (messageData, { dispatch }) => {
+  async (messageData, { dispatch, rejectWithValue }) => {
     try {
-      dispatch(setLoading(true));
-      const response = await apiService.post(ENDPOINTS.CHAT.SEND, messageData);
-      // Khi nhận response từ server, cập nhật lại message trong store
-      dispatch(updateMessage({
-        ...response,
-        isMyMessage: true // Đánh dấu là tin nhắn của mình
-      }));
+
+      const response = await apiService.post(ENDPOINTS.CHAT.SEND, {
+        groupId: messageData.groupId,
+        message: messageData.message,
+        type: messageData.type,
+        senderId: messageData.senderId
+      });
+
+      // console.log(response)
+
       return response;
+
     } catch (error) {
-      console.error('Send message error:', error);
-      dispatch(setError(error.message));
-      throw error;
-    } finally {
-      dispatch(setLoading(false));
+      return rejectWithValue(error.message);
     }
   }
 );
@@ -118,7 +118,7 @@ export const initializeSocket = createAsyncThunk(
   async (_, { dispatch }) => {
     try {
       const socket = socketService.connect();
-      
+
       socket.on('connect', () => {
         dispatch(setSocketConnected(true));
       });

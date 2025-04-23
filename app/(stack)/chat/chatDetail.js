@@ -1,66 +1,132 @@
-import { StyleSheet, View, TextInput, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native'
-import React, { useState, useRef, useEffect } from 'react'
-import { Text, XStack, YStack, Image } from 'tamagui'
+import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native'
+import React, { useEffect, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
-import HeaderChatDetail from '../../../components/header/HeaderChatDetail'
-import { Ionicons, FontAwesome } from '@expo/vector-icons'
 import { useDispatch, useSelector } from 'react-redux'
+import HeaderChatDetail from '../../../components/header/HeaderChatDetail'
+import MessageList from '../../../components/chat/MessageList'
+import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
-import { sendMessage, fetchMessages } from '../../../redux/thunks/chat'
-import { addMessage, setCurrentChat } from '../../../redux/slices/chatSlice';
+import { sendMessage } from '../../../redux/thunks/chat'
+import { addMessage, setCurrentChat, clearMessages, setMessages, addPendingMessage, updateMessageStatus } from '../../../redux/slices/chatSlice'
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
     const { socket, messages } = useSelector(state => state.chat);
+    const { profile } = useSelector(state => state.profile);
     const { groupId, profileId } = useLocalSearchParams();
-    const [message, setMessage] = useState('');
-    const scrollViewRef = useRef();
     const { goBack } = useLocalSearchParams();
+    const [isLoading, setIsLoading] = useState(true);
+    const messageListRef = React.useRef(null);
 
     useEffect(() => {
+        // Clear messages khi vào chat mới
+        dispatch(clearMessages());
+
         const socket = socketService.getSocket();
+        console.log('Socket object:', socket);
+
         if (socket && groupId && profileId) {
-            // Đăng ký socket với profile
-            socket.emit('register', { profileId });
+            // Kiểm tra socket listeners hiện tại
+            console.log('Current socket listeners:', socket._events);
 
-            // Mở cuộc trò chuyện
-            socket.emit('open', { profileId, groupId });
+            // Đăng ký event handlers trước khi emit
+            socket.on('connect', () => {
+                console.log('Socket connected successfully');
+            });
 
-            // Đánh dấu đã đọc
-            socket.emit('markAsRead', { profileId, groupId });
+            socket.on('disconnect', () => {
+                console.log('Socket disconnected');
+            });
+
+            socket.on('error', (error) => {
+                console.log('Socket error:', error);
+            });
+
+            // Emit events sau khi đã setup listeners
+            console.log('About to emit register event...');
+            socket.emit('register', { profileId }, (response) => {
+                console.log('Register event callback:', response);
+            });
+
+            console.log('About to emit open event...');
+            socket.emit('open', { profileId, groupId }, (response) => {
+                // console.log('Open event callback:', response);
+                if (response?.status === 'success' && response?.lastMessages) {
+                    console.log('Processing messages:', response.lastMessages.length);
+
+                    // Cập nhật messages trong store với format đúng
+                    const formattedMessages = response.lastMessages.map(msg => ({
+                        id: msg.id,
+                        message: msg.content,
+                        senderId: msg.senderId,
+                        groupId: msg.groupId,
+                        createdAt: msg.createdAt,
+                        type: msg.type,
+                        imageUrl: msg.imageUrl,
+                        videoUrl: msg.videoUrl,
+                        stickerUrl: msg.stickerUrl,
+                        isRecalled: msg.isRecalled,
+                        sender: msg.sender,
+                        isMyMessage: msg.senderId === profileId
+                    }));
+
+                    // Set tất cả messages một lần
+                    dispatch(setMessages(formattedMessages));
+                    console.log('Messages updated in store:', formattedMessages.length);
+                }
+                setIsLoading(false);
+            });
 
             // Lắng nghe các sự kiện
-            socket.on('send', (data) => {
-                // Xử lý tin nhắn mới
-                dispatch(addMessage(data));
-            });
+            socket.on('newMessage', (message) => {
+                if (message.groupId === groupId) {
+                    // Kiểm tra xem có phải tin nhắn của chính mình không
+                    const isMyMessage = message.senderId === profileId;
 
-            socket.on('recall', (data) => {
-                // Xử lý thu hồi tin nhắn
-                dispatch(updateMessage({ id: data.messageId, recalled: true }));
-            });
+                    const formattedMessage = {
+                        id: message.id,
+                        message: message.content,
+                        senderId: message.senderId,
+                        groupId: message.groupId,
+                        createdAt: message.createdAt,
+                        type: message.type,
+                        imageUrl: message.imageUrl,
+                        videoUrl: message.videoUrl,
+                        stickerUrl: message.stickerUrl,
+                        isRecalled: message.isRecalled,
+                        sender: message.sender,
+                        isMyMessage: isMyMessage,
+                        isPending: false
+                    };
 
-            socket.on('delete', (data) => {
-                // Xử lý xóa tin nhắn
-                dispatch(deleteMessage(data.messageId));
+                    // Nếu là tin nhắn của người khác, thêm trực tiếp vào store
+                    if (!isMyMessage) {
+                        dispatch(addMessage(formattedMessage));
+                    }
+                }
             });
 
             return () => {
-                // Cleanup khi rời khỏi màn hình chat
-                socket.emit('leave', { profileId, groupId });
+                console.log('Cleaning up socket connections');
+                if (socket.connected) {
+                    socket.emit('leave', { profileId, groupId });
+                }
+                socket.off('connect');
+                socket.off('disconnect');
+                socket.off('error');
+                socket.off('open');
                 socket.off('send');
                 socket.off('recall');
                 socket.off('delete');
             };
+        } else {
+            console.log('Socket or required params missing:', {
+                socketExists: !!socket,
+                groupId,
+                profileId
+            });
         }
-    }, [groupId, profileId]);
-
-    // Fetch messages khi vào màn hình
-    useEffect(() => {
-        if (groupId) {
-            dispatch(fetchMessages({ groupId }));
-        }
-    }, [groupId]);
+    }, [socket, groupId, profileId, dispatch]);
 
     useEffect(() => {
         dispatch(setCurrentChat({ groupId, profileId }));
@@ -69,159 +135,98 @@ const ChatDetail = () => {
         };
     }, [groupId, profileId]);
 
+    const handleSendMessage = async (messageText) => {
+        const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const pendingMessage = {
+            tempId,
+            id: tempId,
+            message: messageText,
+            senderId: profileId,
+            groupId: groupId,
+            type: 'TEXT',
+            createdAt: new Date().toISOString(),
+            sender: profile,
+            isMyMessage: true,
+            isPending: true
+        };
 
+        dispatch(addPendingMessage(pendingMessage));
 
-    const handleSendMessage = () => {
-        if (message.trim()) {
-            const messageData = {
-                message: message.trim(),
+        try {
+            const response = await dispatch(sendMessage({
+                message: messageText,
                 groupId: groupId,
                 senderId: profileId,
-                type: 'TEXT' // Default type for text messages
-            };
+                type: 'TEXT'
+            })).unwrap();
 
-            console.log('Sending message data:', messageData);
+            if (response?.status === 'success') {
+                const socket = socketService.getSocket();
+                socket.emit('send', {
+                    messageId: response.data.messageId,
+                    groupId: response.data.groupId,
+                    senderId: response.data.senderId,
+                });
 
-            if (!messageData.groupId || !messageData.senderId) {
-                console.error('Missing required fields:', messageData);
-                return;
+                // Cập nhật tin nhắn với dữ liệu từ response
+                dispatch(updateMessageStatus({
+                    tempId,
+                    newMessage: {
+                        id: response.data.messageId,
+                        message: messageText, // Giữ nguyên nội dung tin nhắn
+                        senderId: profileId,
+                        groupId: groupId,
+                        createdAt: response.data.createdAt || new Date().toISOString(),
+                        type: 'TEXT',
+                        sender: profile,
+                        isMyMessage: true,
+                        isPending: false
+                    }
+                }));
             }
-
-            // Thêm message vào store để UI cập nhật ngay
-            dispatch(addMessage({
-                ...messageData,
-                id: Date.now().toString(),
-                isMyMessage: true
-            }));
-
-            // Gửi lên server
-            dispatch(sendMessage(messageData));
-            setMessage('');
+        } catch (error) {
+            console.error('Error sending message:', error);
         }
     };
 
-    const formatTime = (timestamp) => {
-        if (!timestamp) return '';
-        const date = new Date(timestamp);
-        if (isNaN(date.getTime())) return '?';
-
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
-    };
-
-    const renderMessage = (msg) => {
-        const isMyMessage = msg.senderId === profileId;
-        return (
-            <XStack
-                key={msg.id}
-                justifyContent={isMyMessage ? 'flex-end' : 'flex-start'}
-                paddingHorizontal={10}
-                marginVertical={5}
-                width="100%"
-            >
-                {!isMyMessage && (
-                    <Image
-                        source={{ uri: 'https://placeholder.com/avatar' }}
-                        width={30}
-                        height={30}
-                        borderRadius={15}
-                        marginRight={8}
-                    />
-                )
-                }
-                <YStack
-                    backgroundColor={isMyMessage ? '#0084ff' : '#e4e6eb'}
-                    padding={10}
-                    borderRadius={15}
-                    maxWidth="70%"
-                >
-                    <Text color={isMyMessage ? 'white' : 'black'}>
-                        {msg.message} {/* Chỉ dùng trường message */}
-                    </Text>
-                    <Text
-                        fontSize={12}
-                        color={isMyMessage ? '#e4e6eb' : '#65676b'}
-                        textAlign="right"
-                        marginTop={4}
-                    >
-                        {formatTime(msg.createdAt)}
-                    </Text>
-                </YStack>
-            </XStack>
-        );
+    const handleInputFocus = () => {
+        messageListRef.current?.scrollToEnd();
     };
 
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.container}
+            style={[styles.container, { marginBottom: 0 }]}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            enabled
         >
-            <HeaderChatDetail
-                goBack={goBack}
-                title="Chat Detail"
-            />
-
+            <HeaderChatDetail goBack={goBack} title="Chat Detail" />
             <View style={styles.contentContainer}>
-                <ScrollView
-                    style={styles.messageContainer}
-                    ref={scrollViewRef}
-                    onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-                >
-                    {messages.map(renderMessage)}
-                </ScrollView>
-
-                <XStack style={styles.inputContainer}>
-                    <XStack space="$2" flex={1} backgroundColor="#f0f2f5" borderRadius={20} alignItems="center" padding={5}>
-                        <Ionicons name="happy-outline" size={24} color="#65676b" />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Tin nhắn"
-                            value={message}
-                            onChangeText={setMessage}
-                            multiline
-                            maxLength={1000}
-                        />
-                        <Ionicons name="images-outline" size={24} color="#65676b" />
-                        <FontAwesome name="microphone" size={24} color="#65676b" />
-                    </XStack>
-                    <Pressable onPress={handleSendMessage}>
-                        <XStack padding={10}>
-                            <Ionicons name="send" size={24} color="#0084ff" />
-                        </XStack>
-                    </Pressable>
-                </XStack>
+                <MessageList
+                    ref={messageListRef}
+                    messages={messages}
+                    profileId={profileId}
+                    isLoading={isLoading}
+                />
+                <MessageInput 
+                    onSendMessage={handleSendMessage} 
+                    onFocusInput={handleInputFocus}
+                />
             </View>
         </KeyboardAvoidingView>
     );
 };
 
-export default ChatDetail;
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white'
+        backgroundColor: 'white',
     },
     contentContainer: {
         flex: 1,
-    },
-    messageContainer: {
-        flex: 1,
-        paddingVertical: 10
-    },
-    inputContainer: {
-        padding: 10,
-        borderTopWidth: 1,
-        borderTopColor: '#e4e6eb',
-        backgroundColor: 'white',
-        minHeight: 60
-    },
-    input: {
-        flex: 1,
-        fontSize: 16,
-        paddingHorizontal: 10,
-        maxHeight: 100
+        marginBottom: 0,
+        paddingBottom: 0
     }
 });
+
+export default ChatDetail;

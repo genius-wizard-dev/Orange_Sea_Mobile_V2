@@ -14,6 +14,8 @@ const Chat = () => {
     dispatch(getListGroup());
   }, [dispatch]);
 
+  console.log(groups)
+
   if (loading) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center">
@@ -33,8 +35,9 @@ const Chat = () => {
     >
       {Array.isArray(groups) && groups.length > 0 ? (
         groups.map((group) => {
+          // Tìm người dùng khác trong cuộc trò chuyện (không phải bản thân)
           const otherParticipant = group.isGroup ? null :
-            group.participants.find(p => p.role === 'MEMBER')?.user;
+            group.participants?.find(p => p?.user?.id !== profile?.id)?.user;
 
           const displayName = group.isGroup ?
             group.name :
@@ -42,9 +45,13 @@ const Chat = () => {
 
           const avatar = group.isGroup ?
             'https://i.pravatar.cc/150?img=1' :
-            otherParticipant?.avatar;
+            otherParticipant?.avatar || 'https://i.pravatar.cc/150?img=1';
 
-            console.log(group.messages[0])
+          const lastMessage = group.messages?.[0];
+          const lastMessageContent = lastMessage?.content || "Không có tin nhắn";
+          const lastMessageTime = lastMessage?.updatedAt ? 
+            new Date(lastMessage.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+            : '';
 
           return (
             <XStack
@@ -55,14 +62,16 @@ const Chat = () => {
               borderColor="$gray5"
               alignItems="center"
               pressStyle={{ opacity: 0.8 }}
-              onPress={() => router.push({
-                pathname: '/chat/chatDetail',
-                params: {
-                  groupId: group.id,
-                  profileId: otherParticipant.id,
-                  goBack: '/chat'
-                }
-              })}
+              onPress={() => {
+                router.push({
+                  pathname: '/chat/chatDetail',
+                  params: {
+                    groupId: group.id,
+                    profileId: profile?.id,
+                    goBack: '/chat'
+                  }
+                });
+              }}
             >
               <Image
                 source={{ uri: avatar }}
@@ -75,13 +84,12 @@ const Chat = () => {
                   {displayName}
                 </Text>
                 <Text fontSize={14} color="$gray10">
-                    {profile.id===group.messages[0]?.senderId ? "Bạn: " : ""}
-                  {group.messages.length > 0 ? group.messages[0].content || "No message" :"?"
-                  }
+                  {lastMessage && profile?.id === lastMessage?.senderId ? "Bạn: " : ""}
+                  {lastMessageContent}
                 </Text>
               </YStack>
               <Text fontSize={12} color="$gray9">
-                {new Date(group.messages[0].updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {lastMessageTime}
               </Text>
             </XStack>
           );

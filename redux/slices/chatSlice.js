@@ -20,7 +20,14 @@ const chatSlice = createSlice({
       state.error = action.payload;
     },
     addMessage: (state, action) => {
-      state.messages.push(action.payload);
+      // Chỉ thêm tin nhắn nếu chưa tồn tại
+      const exists = state.messages.some(msg => 
+        msg.id === action.payload.id || 
+        (msg.tempId && msg.tempId === action.payload.tempId)
+      );
+      if (!exists) {
+        state.messages.push(action.payload);
+      }
     },
     deleteMessage: (state, action) => {
       state.messages = state.messages.filter(msg => msg.id !== action.payload);
@@ -47,8 +54,25 @@ const chatSlice = createSlice({
       state.messages.push(action.payload);
     },
     setMessages: (state, action) => {
-      state.messages = action.payload;
+      // Thay vì gán trực tiếp, đảm bảo là array và sắp xếp theo thời gian
+      state.messages = Array.isArray(action.payload) ?
+        action.payload.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+        : [];
     },
+    addPendingMessage: (state, action) => {
+      state.messages.push(action.payload);
+    },
+    updateMessageStatus: (state, action) => {
+      const { tempId, newMessage } = action.payload;
+      const index = state.messages.findIndex(msg => msg.tempId === tempId);
+      if (index !== -1) {
+        state.messages[index] = {
+          ...state.messages[index],
+          ...newMessage,
+          tempId: undefined // Xóa tempId khi đã có ID thật
+        };
+      }
+    }
   }
 });
 
@@ -63,7 +87,9 @@ export const {
   setSocket,
   setSocketConnected,
   handleSocketMessage,
-  setMessages
+  setMessages,
+  addPendingMessage,
+  updateMessageStatus
 } = chatSlice.actions;
 
 export default chatSlice.reducer;
