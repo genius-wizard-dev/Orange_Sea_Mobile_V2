@@ -6,7 +6,10 @@ const initialState = {
   loading: false,
   error: null,
   currentChat: null,
-  isConnected: false
+  isConnected: false,
+  unreadCounts: {},
+  notifications: [],
+  lastMessages: {}
 };
 
 const chatSlice = createSlice({
@@ -72,6 +75,25 @@ const chatSlice = createSlice({
           tempId: undefined // Xóa tempId khi đã có ID thật
         };
       }
+    },
+    setUnreadCounts: (state, action) => {
+      const unreadData = {};
+      action.payload.forEach(item => {
+        unreadData[item.groupId] = item.unreadCount;
+      });
+      state.unreadCounts = unreadData;
+    },
+    updateUnreadCounts: (state, action) => {
+      action.payload.forEach(update => {
+        state.unreadCounts[update.groupId] = update.unreadCount;
+      });
+    },
+    updateLastMessage: (state, action) => {
+      const { groupId } = action.payload;
+      state.lastMessages[groupId] = action.payload;
+    },
+    updateChatNotification: (state, action) => {
+      state.notifications.push(action.payload);
     }
   }
 });
@@ -89,7 +111,11 @@ export const {
   handleSocketMessage,
   setMessages,
   addPendingMessage,
-  updateMessageStatus
+  updateMessageStatus,
+  setUnreadCounts,
+  updateUnreadCounts,
+  updateLastMessage,
+  updateChatNotification
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -1,21 +1,10 @@
-import React, { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
-import { FlatList, View, Text, StyleSheet } from 'react-native';
-import { Spinner } from 'tamagui';
+import React, { useEffect, useImperativeHandle, useRef } from 'react';
+import { View, FlatList, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import MessageItem from './MessageItem';
 
-const DateDivider = ({ date }) => {
-    return (
-        <View style={styles.dateDividerContainer}>
-            <View style={styles.dateLine} />
-            <Text style={styles.dateText}>{date}</Text>
-            <View style={styles.dateLine} />
-        </View>
-    );
-};
+const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) => {
 
-const MessageList = forwardRef(({ messages, profileId, isLoading }, ref) => {
     const flatListRef = useRef(null);
-
     useImperativeHandle(ref, () => ({
         scrollToEnd: () => {
             if (flatListRef.current) {
@@ -28,63 +17,57 @@ const MessageList = forwardRef(({ messages, profileId, isLoading }, ref) => {
         flatListRef.current?.scrollToEnd({ animated: true });
     }, [messages]);
 
-    const groupMessagesByDate = (messages) => {
-        const grouped = [];
-        let currentDate = '';
 
-        messages.forEach((msg) => {
-            const messageDate = new Date(msg.createdAt);
-            const formattedDate = messageDate.toLocaleDateString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric'
-            });
+    const formatMessageTime = (timestamp) => {
+        const date = new Date(timestamp);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
 
-            if (formattedDate !== currentDate) {
-                grouped.push({
-                    type: 'date',
-                    date: formattedDate,
-                    id: `date-${formattedDate}`
-                });
-                currentDate = formattedDate;
-            }
-            grouped.push({
-                type: 'message',
-                ...msg
-            });
+        // Format giờ:phút
+        const time = date.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit'
         });
 
-        return grouped;
+        // Nếu là today hoặc yesterday thì hiển thị tương ứng
+        if (date.toDateString() === today.toDateString()) {
+            return `Hôm nay, ${time}`;
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return `Hôm qua, ${time}`;
+        }
+
+        // Ngày khác thì hiển thị đầy đủ
+        const fullDate = date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        return `${fullDate}, ${time}`;
     };
 
-    if (isLoading) {
-        return (
-            <View style={styles.loadingContainer}>
-                <Spinner size="large" color="$orange10" />
-            </View>
-        );
-    }
+    console.log('Messages in MessageList:', messages?.length);
 
-    const groupedMessages = groupMessagesByDate(messages);
+    const renderMessage = ({ item }) => (
+        <MessageItem 
+            msg={item}
+            isMyMessage={item.senderId === profileId}
+        />
+    );
+
+    if (isLoading) {
+        return <View style={styles.center}><Text>Đang tải...</Text></View>;
+    }
 
     return (
         <FlatList
             ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={item => item.id || item.tempId || Math.random().toString()}
             style={styles.container}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            data={groupedMessages}
-            keyExtractor={item => item.type === 'date' ? item.id : (item.tempId || item.id)}
-            renderItem={({ item }) => {
-                if (item.type === 'date') {
-                    return <DateDivider date={item.date} />;
-                }
-                return (
-                    <MessageItem
-                        msg={item}
-                        isMyMessage={item.senderId === profileId}
-                    />
-                );
-            }}
+            onContentSizeChange={() => flatListRef?.current?.scrollToEnd()}
+            inverted={false}
         />
     );
 });
@@ -92,29 +75,12 @@ const MessageList = forwardRef(({ messages, profileId, isLoading }, ref) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingVertical: 10,
-        marginBottom: 0
+        padding: 10,
     },
-    loadingContainer: {
+    center: {
         flex: 1,
         justifyContent: 'center',
-        alignItems: 'center'
-    },
-    dateDividerContainer: {
-        flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        marginVertical: 10
-    },
-    dateLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#E5E5E5'
-    },
-    dateText: {
-        marginHorizontal: 10,
-        color: '#666',
-        fontSize: 12
     }
 });
 

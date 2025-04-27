@@ -13,3 +13,18 @@ export const getListGroup = createAsyncThunk('group/list', async (_, { rejectWit
         return rejectWithValue(error.message);
     }
 });
+
+export const getGroupDetail = createAsyncThunk(
+    'group/detail',
+    async (groupId, { rejectWithValue }) => {
+        try {
+            const res = await apiService.get(ENDPOINTS.GROUP.DETAIL(groupId));
+            if (res.status === 'fail') {
+                throw new Error(`Group detail fetch failed: ${res.message}`);
+            }
+            return res;
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);

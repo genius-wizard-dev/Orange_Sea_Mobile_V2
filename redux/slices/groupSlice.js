@@ -1,10 +1,12 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getListGroup } from '../thunks/group';
+import { getListGroup, getGroupDetail } from '../thunks/group';
 
 const initialState = {
     loading: false,
     error: null,
     groups: [],
+    groupDetails: {}, // Thêm object để lưu chi tiết từng group
+    detailLoading: false,
 };
 
 const groupSlice = createSlice({
@@ -16,6 +18,12 @@ const groupSlice = createSlice({
         },
         clearGroups: (state) => {
             state.groups = [];
+        },
+        updateGroup: (state, action) => {
+            const index = state.groups.findIndex(g => g.id === action.payload.id);
+            if (index !== -1) {
+                state.groups[index] = action.payload;
+            }
         },
     },
     extraReducers: (builder) => {
@@ -32,9 +40,24 @@ const groupSlice = createSlice({
             .addCase(getListGroup.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
+            })
+            .addCase(getGroupDetail.pending, (state) => {
+                state.detailLoading = true;
+            })
+            .addCase(getGroupDetail.fulfilled, (state, action) => {
+                state.detailLoading = false;
+                const detail = action.payload.data || action.payload;
+                console.log('Processing group detail:', JSON.stringify(detail, null, 2));
+                
+                // Lưu detail và đảm bảo user object được giữ nguyên
+                state.groupDetails[detail.id] = detail;
+            })
+            .addCase(getGroupDetail.rejected, (state, action) => {
+                state.detailLoading = false;
+                state.error = action.payload;
             });
     },
 });
 
-export const { clearGroupError, clearGroups } = groupSlice.actions;
+export const { clearGroupError, clearGroups, updateGroup } = groupSlice.actions;
 export default groupSlice.reducer;

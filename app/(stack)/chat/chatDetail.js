@@ -51,35 +51,39 @@ const ChatDetail = () => {
             console.log('About to emit open event...');
             socket.emit('open', { profileId, groupId }, (response) => {
                 // console.log('Open event callback:', response);
-                if (response?.status === 'success' && response?.lastMessages) {
-                    console.log('Processing messages:', response.lastMessages.length);
+                if (response?.status === 'success' && response?.messages) {
+                    console.log('Processing messages:', response.messages.length);
 
-                    // Cập nhật messages trong store với format đúng
-                    const formattedMessages = response.lastMessages.map(msg => ({
+                    // Định dạng lại messages từ response
+                    const formattedMessages = response.messages.map(msg => ({
                         id: msg.id,
                         message: msg.content,
                         senderId: msg.senderId,
                         groupId: msg.groupId,
                         createdAt: msg.createdAt,
                         type: msg.type,
-                        imageUrl: msg.imageUrl,
-                        videoUrl: msg.videoUrl,
-                        stickerUrl: msg.stickerUrl,
+                        imageUrl: msg.fileUrl,
                         isRecalled: msg.isRecalled,
                         sender: msg.sender,
-                        isMyMessage: msg.senderId === profileId
+                        isMyMessage: msg.senderId === profileId,
+                        isPending: false
                     }));
 
-                    // Set tất cả messages một lần
+                    // console.log('Formatted messages:', formattedMessages);
                     dispatch(setMessages(formattedMessages));
-                    console.log('Messages updated in store:', formattedMessages.length);
                 }
                 setIsLoading(false);
             });
 
             // Lắng nghe các sự kiện
             socket.on('newMessage', (message) => {
+                console.log('Socket newMessage event triggered');
+                console.log('Received message:', message);
+                console.log('Current groupId:', groupId);
+                console.log('Message groupId:', message.groupId);
+
                 if (message.groupId === groupId) {
+                    console.log('Message matches current group');
                     // Kiểm tra xem có phải tin nhắn của chính mình không
                     const isMyMessage = message.senderId === profileId;
 
@@ -103,6 +107,8 @@ const ChatDetail = () => {
                     if (!isMyMessage) {
                         dispatch(addMessage(formattedMessage));
                     }
+                } else {
+                    console.log('Message does not match current group');
                 }
             });
 
@@ -135,9 +141,26 @@ const ChatDetail = () => {
         };
     }, [groupId, profileId]);
 
+    const registerProfile = async () => {
+        return new Promise((resolve, reject) => {
+            const socket = socketService.getSocket();
+            socket.emit('register', { profileId }, (response) => {
+                console.log('Register response in chat:', response);
+                if (response?.status === 'success') {
+                    resolve(true);
+                } else {
+                    reject(new Error('Failed to register profile'));
+                }
+            });
+        });
+    };
+
     const handleSendMessage = async (messageText) => {
+        const socket = socketService.getSocket();
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const pendingMessage = {
+
+        // Thêm vào store để hiển thị loading
+        dispatch(addPendingMessage({
             tempId,
             id: tempId,
             message: messageText,
@@ -148,11 +171,43 @@ const ChatDetail = () => {
             sender: profile,
             isMyMessage: true,
             isPending: true
-        };
-
-        dispatch(addPendingMessage(pendingMessage));
+        }));
 
         try {
+            // Kiểm tra kết nối socket và đăng ký lại nếu cần
+            if (!socket.connected) {
+                await new Promise((resolve) => {
+                    socket.connect();
+                    socket.once('connect', resolve);
+                });
+            }
+
+            console.log(profileId, " pf")
+
+            // Đảm bảo profile được đăng ký
+            // await new Promise((resolve, reject) => {
+            //     socket.emit('register', { profileId }, (registerResponse) => {
+            //         console.log('Register response:', registerResponse);
+            //         if (registerResponse?.status === 'success') {
+            //             resolve();
+            //         } else {
+            //             // Thử đăng ký lại một lần nữa
+            //             socket.emit('register', { profileId }, (retryResponse) => {
+            //                 if (retryResponse?.status === 'success') {
+            //                     resolve();
+            //                 } else {
+            //                     reject(new Error('Failed to register profile after retry'));
+            //                 }
+            //             });
+            //         }
+            //     });
+            // });
+            socket.emit('register', { profileId }, (response) => {
+                console.log('Register event callback:', response);
+            });
+
+
+            // Gửi tin nhắn qua API
             const response = await dispatch(sendMessage({
                 message: messageText,
                 groupId: groupId,
@@ -161,31 +216,55 @@ const ChatDetail = () => {
             })).unwrap();
 
             if (response?.status === 'success') {
-                const socket = socketService.getSocket();
-                socket.emit('send', {
-                    messageId: response.data.messageId,
-                    groupId: response.data.groupId,
-                    senderId: response.data.senderId,
-                });
-
-                // Cập nhật tin nhắn với dữ liệu từ response
-                dispatch(updateMessageStatus({
-                    tempId,
-                    newMessage: {
-                        id: response.data.messageId,
-                        message: messageText, // Giữ nguyên nội dung tin nhắn
-                        senderId: profileId,
+                console.log('API Response:', response.data);
+                
+                // Gửi socket event
+                await new Promise((resolve) => {
+                    socket.emit('send', {
+                        
+                        messageId: response.data.id,
                         groupId: groupId,
-                        createdAt: response.data.createdAt || new Date().toISOString(),
-                        type: 'TEXT',
-                        sender: profile,
-                        isMyMessage: true,
-                        isPending: false
-                    }
-                }));
+                        senderId: profileId,
+                        content: messageText
+
+                    }, (acknowledgement) => {
+                        console.log('Socket acknowledgement:', acknowledgement);
+                        resolve(acknowledgement);
+                        // Cập nhật UI bất kể kết quả socket
+                        dispatch(updateMessageStatus({
+                            tempId,
+                            newMessage: {
+                                id: response.data.id,
+                                message: messageText,
+                                senderId: profileId,
+                                groupId: groupId,
+                                createdAt: response.data.createdAt || new Date().toISOString(),
+                                type: 'TEXT',
+                                sender: profile,
+                                isMyMessage: true,
+                                isPending: false
+                            }
+                        }));
+                    });
+                });
             }
         } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('Error in handleSendMessage:', error);
+            dispatch(updateMessageStatus({
+                tempId,
+                newMessage: {
+                    id: tempId,
+                    message: messageText,
+                    senderId: profileId,
+                    groupId: groupId,
+                    createdAt: new Date().toISOString(),
+                    type: 'TEXT',
+                    sender: profile,
+                    isMyMessage: true,
+                    isPending: false,
+                    error: 'Không thể gửi tin nhắn'
+                }
+            }));
         }
     };
 

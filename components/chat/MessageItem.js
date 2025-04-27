@@ -24,7 +24,8 @@ const MessageItem = ({ msg, isMyMessage }) => (
             backgroundColor={isMyMessage ? '#0084ff' : '#e4e6eb'}
             padding={10}
             borderRadius={15}
-            maxWidth="70%"
+            maxWidth="80%" // Bỏ maxWidth cố định
+            width="auto" // Thêm width auto để tự động theo nội dung
         >
             {!isMyMessage && msg.sender && (
                 <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
@@ -34,8 +35,17 @@ const MessageItem = ({ msg, isMyMessage }) => (
             ) : (
                 <>
                     {msg.type === 'TEXT' && (
-                        <XStack alignItems="center" space="$2">
-                            <Text color={isMyMessage ? 'white' : 'black'}>{msg.message}</Text>
+                        <XStack 
+                            alignItems="center" 
+                            space="$2"
+                            flexWrap="wrap" // Thêm để text có thể wrap xuống dòng
+                        >
+                            <Text 
+                                color={isMyMessage ? 'white' : 'black'}
+                                flexShrink={1} // Thêm để text có thể co lại
+                            >
+                                {msg.message}
+                            </Text>
                             {msg.isPending && (
                                 <ActivityIndicator size="small" color={isMyMessage ? 'white' : '#65676b'} />
                             )}
