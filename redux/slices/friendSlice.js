@@ -5,7 +5,8 @@ import {
     getReceivedRequests,
     handleFriendRequest,
     deleteFriend,
-    getSentRequests
+    getSentRequests,
+    checkFriendshipStatus
 } from '../thunks/friend';
 
 const initialState = {
@@ -14,6 +15,8 @@ const initialState = {
     friends: [],
     receivedRequests: [],
     sentRequests: [],
+    friendshipStatus: null,
+    sentRequestsLoading: false,
 };
 
 const friendSlice = createSlice({
@@ -45,7 +48,10 @@ const friendSlice = createSlice({
             })
             .addCase(sendFriendRequest.fulfilled, (state, action) => {
                 state.loading = false;
-                state.sentRequests.push(action.payload);
+                // Thêm request mới vào danh sách đã gửi
+                if (action.payload.data) {
+                    state.sentRequests.push(action.payload.data);
+                }
             })
             .addCase(sendFriendRequest.rejected, (state, action) => {
                 state.loading = false;
@@ -53,8 +59,13 @@ const friendSlice = createSlice({
             })
             // Handle handleFriendRequest
             .addCase(handleFriendRequest.fulfilled, (state, action) => {
-                if (action.payload.action === 'accept') {
+                if (action.payload.action === 'ACCEPT') {
                     state.friends.push(action.payload);
+                    // Cập nhật friendshipStatus khi chấp nhận kết bạn
+                    state.friendshipStatus = {
+                        isFriend: true,
+                        friendshipId: action.payload.data?.id || action.payload.id
+                    };
                 }
                 state.receivedRequests = state.receivedRequests.filter(
                     request => request.id !== action.payload.requestId
@@ -67,8 +78,27 @@ const friendSlice = createSlice({
                 );
             })
             // Handle getSentRequests
+            .addCase(getSentRequests.pending, (state) => {
+                state.sentRequestsLoading = true;
+            })
             .addCase(getSentRequests.fulfilled, (state, action) => {
+                state.sentRequestsLoading = false;
                 state.sentRequests = action.payload;
+            })
+            .addCase(getSentRequests.rejected, (state) => {
+                state.sentRequestsLoading = false;
+            })
+            // Handle checkFriendshipStatus
+            .addCase(checkFriendshipStatus.fulfilled, (state, action) => {
+                console.log('checkFriendshipStatus raw response:', action.payload);
+                // API chỉ trả về { isFriend: true/false }
+                state.friendshipStatus = {
+                    isFriend: action.payload.isFriend,
+                    // Tạm thời bỏ friendshipId vì API không trả về
+                };
+            })
+            .addCase(checkFriendshipStatus.rejected, (state, action) => {
+                state.error = action.payload;
             });
     },
 });

@@ -33,11 +33,12 @@ export const ENDPOINTS = {
   FRIEND: {
     SEARCH_BY_PHONE: (keyword: string) => `${BASE_ENDPOINT}/friend/search/${keyword}`,
     SEND_REQUEST: `${BASE_ENDPOINT}/friend`,
-    RECEIVED_REQUESTS: `${BASE_ENDPOINT}/friend/requests/received`,
-    SENT_REQUESTS: `${BASE_ENDPOINT}/friend/requests/sent`,
+    LIST_RECEIVED_REQUESTS: `${BASE_ENDPOINT}/friend/requests/received`,
+    LIST_SENT_REQUESTS: `${BASE_ENDPOINT}/friend/requests/sent`,
     HANDLE_REQUEST: (requestId: string) => `${BASE_ENDPOINT}/friend/requests/${requestId}`,
     LIST: `${BASE_ENDPOINT}/friend`,
     DELETE: (friendshipId: string) => `${BASE_ENDPOINT}/friend/delete/${friendshipId}`,
+    CHECK_FRIENDSHIP: (profileId: string) => `${BASE_ENDPOINT}/friend/check/${profileId}`,
   },
   CHAT: {
     SEND: `${BASE_ENDPOINT}/chat/send`,

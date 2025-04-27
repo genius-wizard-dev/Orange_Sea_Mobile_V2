@@ -65,6 +65,8 @@ export default function Login() {
       };
 
       const response = await apiService.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, loginData);
+
+
       if (response.status === 'success' && response.data) {
         setAccessToken(response.data.access_token);
         console.log(response.data.access_token);
@@ -76,11 +78,18 @@ export default function Login() {
           setPassword('');
           router.replace('/');
         }
+
+
       } else {
+        console.log(response)
+
         setError(response.message || 'Login failed');
       }
+
+
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      const errorMessage = err.response?.data?.message || err.message || 'An error occurred during login';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
