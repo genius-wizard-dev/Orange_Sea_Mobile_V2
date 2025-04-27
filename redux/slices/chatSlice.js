@@ -94,7 +94,41 @@ const chatSlice = createSlice({
     },
     updateChatNotification: (state, action) => {
       state.notifications.push(action.payload);
+    },
+    markGroupAsRead: (state, action) => {
+      const { groupId } = action.payload;
+      // Reset unread count cho group
+      state.unreadCounts[groupId] = 0;
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase('chat/messageReceived', (state, action) => {
+        const message = action.payload;
+        
+        // Cập nhật tin nhắn mới nhất và unread count
+        if (message.groupId) {
+          // Cập nhật tin nhắn mới
+          state.lastMessages[message.groupId] = {
+            content: message.content,
+            senderId: message.senderId,
+            createdAt: message.createdAt,
+            groupId: message.groupId,
+            sender: message.sender
+          };
+
+          // Tăng unread count nếu không phải current chat
+          if (state.currentChat?.groupId !== message.groupId) {
+            state.unreadCounts[message.groupId] = 
+              (state.unreadCounts[message.groupId] || 0) + 1;
+          }
+        }
+      })
+      .addCase('chat/unreadCountsUpdated', (state, action) => {
+        action.payload.forEach(update => {
+          state.unreadCounts[update.groupId] = update.unreadCount;
+        });
+      });
   }
 });
 
@@ -115,7 +149,8 @@ export const {
   setUnreadCounts,
   updateUnreadCounts,
   updateLastMessage,
-  updateChatNotification
+  updateChatNotification,
+  markGroupAsRead
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

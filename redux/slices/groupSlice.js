@@ -20,11 +20,29 @@ const groupSlice = createSlice({
             state.groups = [];
         },
         updateGroup: (state, action) => {
-            const index = state.groups.findIndex(g => g.id === action.payload.id);
-            if (index !== -1) {
-                state.groups[index] = action.payload;
+            // Nếu là array thì cập nhật toàn bộ groups
+            if (Array.isArray(action.payload)) {
+                state.groups = action.payload;
+            } 
+            // Nếu là object thì cập nhật một group
+            else {
+                const index = state.groups.findIndex(g => g.id === action.payload.id);
+                if (index !== -1) {
+                    state.groups[index] = action.payload;
+                }
             }
         },
+        updateGroupMessages: (state, action) => {
+            const { groupId, message } = action.payload;
+            const groupIndex = state.groups.findIndex(g => g.id === groupId);
+            if (groupIndex !== -1) {
+                const group = state.groups[groupIndex];
+                state.groups[groupIndex] = {
+                    ...group,
+                    messages: [message, ...(group.messages || [])]
+                };
+            }
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -59,5 +77,5 @@ const groupSlice = createSlice({
     },
 });
 
-export const { clearGroupError, clearGroups, updateGroup } = groupSlice.actions;
+export const { clearGroupError, clearGroups, updateGroup, updateGroupMessages } = groupSlice.actions;
 export default groupSlice.reducer;
