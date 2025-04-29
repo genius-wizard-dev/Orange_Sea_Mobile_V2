@@ -67,14 +67,27 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     };
 
     console.log('Messages in MessageList:', messages?.length);
+    // console.log('Messages :', messages);
 
     const renderMessage = ({ item }) => {
-        // console.log('Rendering message:', item.id, 'isPending:', item.isPending);
+        // Kiểm tra xem tin nhắn có phải của người dùng hiện tại không
+        const isMyMessage = item.senderId === profileId;
+        
+        // console.log('Rendering message:', {
+        //     id: item.id,
+        //     senderId: item.senderId,
+        //     profileId: profileId,
+        //     isMyMessage: isMyMessage
+        // });
+
         return (
             <MessageItem 
-                key={`${item.id}_${forceUpdate}`} // Thêm forceUpdate vào key
-                msg={item}
-                isMyMessage={item.senderId === profileId}
+                key={`${item.id}_${forceUpdate}`}
+                msg={{
+                    ...item,
+                    isMyMessage // Ghi đè isMyMessage dựa trên so sánh senderId và profileId
+                }}
+                isMyMessage={isMyMessage}
             />
         );
     };
@@ -86,9 +99,9 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     return (
         <FlatList
             ref={flatListRef}
-            data={[...messages].reverse()}
+            data={messages ? [...messages].reverse() : []}
             renderItem={renderMessage}
-            keyExtractor={item => `${item.id || item.tempId}_${forceUpdate}`} // Cập nhật keyExtractor
+            keyExtractor={item => `${item.id || item.tempId}_${forceUpdate}`}
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
             onLayout={scrollToBottom}
@@ -97,7 +110,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10
             }}
-            extraData={forceUpdate} // Thêm extraData để force re-render
+            extraData={[forceUpdate, profileId]} // Thêm profileId vào extraData
         />
     );
 });

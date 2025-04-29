@@ -1,4 +1,4 @@
-import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native'
+import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
@@ -145,17 +145,28 @@ const ChatDetail = () => {
             });
 
             socket.on('messageRecalled', (data) => {
-                if (data.messageId) {
-                    dispatch(updateMessage({ 
-                        id: data.messageId, 
-                        recalled: true 
-                    }));
+                if (data.messageId && data.groupId === groupId) {
+                    console.log("nhận được dữ liệu thu hồi:", data);
+                    // Cập nhật tin nhắn trong redux store
+                    dispatch({
+                        type: 'chat/updateMessage',
+                        payload: {
+                            id: data.messageId,
+                            isRecalled: true,
+                        }
+                    });
                 }
             });
 
             socket.on('messageDeleted', (data) => {
-                if (data.messageId) {
-                    dispatch(deleteMessage(data.messageId));
+                if (data.messageId && data.groupId === groupId) {
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: {
+                            messageId: data.messageId,
+                            groupId: data.groupId
+                        }
+                    });
                 }
             });
 
@@ -266,18 +277,26 @@ const ChatDetail = () => {
                 goBack={goBack} 
                 title={partnerName} 
             />
-            <View style={styles.contentContainer}>
-                <MessageList
-                    ref={messageListRef}
-                    messages={messages}
-                    profileId={profileId}
-                    isLoading={isLoading}
-                />
-                <MessageInput 
-                    onSendMessage={handleSendMessage} 
-                    onFocusInput={handleInputFocus}
-                />
-            </View>
+            <ImageBackground 
+                source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
+                // Hoặc dùng màu nền solid nếu chưa có ảnh
+                // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
+                style={styles.backgroundImage}
+                resizeMode="cover"
+            >
+                <View style={styles.contentContainer}>
+                    <MessageList
+                        ref={messageListRef}
+                        messages={messages}
+                        profileId={profileId}
+                        isLoading={isLoading}
+                    />
+                    <MessageInput 
+                        onSendMessage={handleSendMessage} 
+                        onFocusInput={handleInputFocus}
+                    />
+                </View>
+            </ImageBackground>
         </KeyboardAvoidingView>
     );
 };
@@ -287,10 +306,14 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'white',
     },
+    backgroundImage: {
+        flex: 1,
+        width: '100%',
+    },
     contentContainer: {
         flex: 1,
         marginBottom: 0,
-        paddingBottom: 0
+        paddingBottom: 0,
     }
 });
 

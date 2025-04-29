@@ -37,17 +37,21 @@ const chatSlice = createSlice({
       }
     },
     deleteMessage: (state, action) => {
+      // Xóa tin nhắn khỏi mảng messages
       state.messages = state.messages.filter(msg => msg.id !== action.payload);
+      // Force update để trigger re-render
+      state.messages = [...state.messages];
     },
     updateMessage: (state, action) => {
       const index = state.messages.findIndex(msg => msg.id === action.payload.id);
       if (index !== -1) {
         state.messages[index] = {
           ...state.messages[index],
-          ...action.payload,
-          isRecalled: action.payload.recalled // Update isRecalled status
+          ...action.payload
         };
       }
+      // Force update để trigger re-render
+      state.messages = [...state.messages];
     },
     setCurrentChat: (state, action) => {
       state.currentChat = action.payload;
@@ -146,6 +150,14 @@ const chatSlice = createSlice({
         action.payload.forEach(update => {
           state.unreadCounts[update.groupId] = update.unreadCount;
         });
+      })
+      .addCase('chat/messageDeleted', (state, action) => {
+        const { messageId, groupId } = action.payload;
+        if (groupId === state.currentChat?.groupId) {
+          // Xóa tin nhắn nếu đang ở trong chat hiện tại
+          state.messages = state.messages.filter(msg => msg.id !== messageId);
+          state.messages = [...state.messages];
+        }
       });
   }
 });

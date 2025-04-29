@@ -8,6 +8,7 @@ import { recallMessage, deleteMessageThunk } from '../../redux/thunks/chat';
 import MessageOptionsPopover from './MessageOptionsPopover';
 import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
 import { Popover } from '@tamagui/popover';
+import socketService from '../../service/socket.service';
 
 const MessageItem = ({ msg, isMyMessage }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -61,6 +62,16 @@ const MessageItem = ({ msg, isMyMessage }) => {
                     );
                     return;
                 }
+
+                // Emit socket event khi thu hồi thành công
+                const socket = socketService.getSocket();
+                if (socket) {
+                    console.log("đã gửi socket thu hòi")
+                    socket.emit('recall', {
+                        messageId: msg.id,
+                        groupId: msg.groupId
+                    });
+                }
             } catch (error) {
                 Alert.alert(
                     'Lỗi thu hồi',
@@ -70,18 +81,33 @@ const MessageItem = ({ msg, isMyMessage }) => {
             }
             handleClose();
         }
-    }, [msg.id, dispatch]);
+    }, [msg.id, msg.groupId, dispatch]);
 
     const handleDelete = useCallback(async () => {
         if (msg.id) {
             try {
-                await dispatch(deleteMessageThunk(msg.id));
+                const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
+                if (result.status === 'success') {
+                    // Emit socket event khi xóa thành công
+                    const socket = socketService.getSocket();
+                    if (socket) {
+                        socket.emit('delete', {
+                            messageId: msg.id,
+                            groupId: msg.groupId,
+                            userId: msg.senderId
+                        });
+                    }
+                }
             } catch (error) {
-                console.log('Xóa thất bại:', error);
+                Alert.alert(
+                    'Lỗi xóa tin nhắn',
+                    error.message || 'Không thể xóa tin nhắn',
+                    [{ text: 'Đã hiểu', style: 'default' }]
+                );
             }
             handleClose();
         }
-    }, [msg.id, dispatch]);
+    }, [msg.id, msg.groupId, msg.senderId, dispatch]);
 
     return (
         <MessageOptionsPopover
@@ -108,7 +134,6 @@ const MessageItem = ({ msg, isMyMessage }) => {
                         // backgroundColor={isPressed ? 'rgba(0,0,0,0.05)' : 'transparent'}
                         borderRadius={15}
                         padding={2}
-                        // elevation={isPressed ? 8 : 0}
                         // shadowColor="black"
                         // shadowOffset={{ width: 0, height: 4 }}
                         // shadowOpacity={isPressed ? 0.3 : 0}
@@ -126,19 +151,21 @@ const MessageItem = ({ msg, isMyMessage }) => {
                             <YStack
                                 backgroundColor={isMyMessage ? '#FF7A1E' : '#e4e6eb'}
                                 padding={10}
+                                marginTop={5}
                                 borderRadius={15}
                                 maxWidth="90%"
                                 width="auto"
+                                elevation={1}
                             >
-                                {!isMyMessage && msg.sender && (
+                                {/* {!isMyMessage && msg.sender && (
                                     <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
-                                )}
+                                )} */}
                                 {msg.isRecalled ? (
                                     <XStack alignItems="center">
-                                        <Text 
-                                            color={isMyMessage ? 'white' : '#65676b'} 
+                                        <Text
+                                            color={isMyMessage ? 'white' : '#65676b'}
                                             fontStyle="italic"
-                                            // textAlign={isMyMessage ? 'right' : 'left'}
+                                        // textAlign={isMyMessage ? 'right' : 'left'}
                                         >
                                             Tin nhắn đã thu hồi
                                         </Text>
