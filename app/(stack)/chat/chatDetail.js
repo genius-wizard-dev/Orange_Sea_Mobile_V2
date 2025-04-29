@@ -45,9 +45,9 @@ const ChatDetail = () => {
                 console.log('Register event callback:', response);
                 if (response?.status === 'success') {
                     // Đánh dấu đã đọc khi vào chat
-                    socket.emit('markAsRead', { 
-                        profileId, 
-                        groupId 
+                    socket.emit('markAsRead', {
+                        profileId,
+                        groupId
                     }, (markResponse) => {
                         console.log('Mark as read response:', markResponse);
                         if (markResponse?.status === 'success') {
@@ -145,28 +145,37 @@ const ChatDetail = () => {
             });
 
             socket.on('messageRecalled', (data) => {
-                if (data.messageId && data.groupId === groupId) {
-                    console.log("nhận được dữ liệu thu hồi:", data);
-                    // Cập nhật tin nhắn trong redux store
-                    dispatch({
-                        type: 'chat/updateMessage',
-                        payload: {
-                            id: data.messageId,
-                            isRecalled: true,
-                        }
-                    });
+                if (data.messageId) {
+                    dispatch(updateMessage({
+                        id: data.messageId,
+                        recalled: true
+                    }));
+                    if (data.messageId && data.groupId === groupId) {
+                        console.log("nhận được dữ liệu thu hồi:", data);
+                        // Cập nhật tin nhắn trong redux store
+                        dispatch({
+                            type: 'chat/updateMessage',
+                            payload: {
+                                id: data.messageId,
+                                isRecalled: true,
+                            }
+                        });
+                    }
                 }
             });
 
             socket.on('messageDeleted', (data) => {
-                if (data.messageId && data.groupId === groupId) {
-                    dispatch({
-                        type: 'chat/messageDeleted',
-                        payload: {
-                            messageId: data.messageId,
-                            groupId: data.groupId
-                        }
-                    });
+                if (data.messageId) {
+                    dispatch(deleteMessage(data.messageId));
+                    if (data.messageId && data.groupId === groupId) {
+                        dispatch({
+                            type: 'chat/messageDeleted',
+                            payload: {
+                                messageId: data.messageId,
+                                groupId: data.groupId
+                            }
+                        });
+                    }
                 }
             });
 
@@ -201,6 +210,9 @@ const ChatDetail = () => {
         };
     }, [groupId, profileId]);
 
+
+
+
     const handleSendMessage = async (messageText) => {
         const socket = socketService.getSocket();
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -220,7 +232,7 @@ const ChatDetail = () => {
 
         // Thêm tin nhắn pending vào messages array
         dispatch(setMessages([...messages, pendingMessage]));
-        
+
         try {
             await socketService.registerProfile(profileId);
             const response = await dispatch(sendMessage({
@@ -240,7 +252,7 @@ const ChatDetail = () => {
                 };
 
                 // Cập nhật messages array với tin nhắn mới
-                const updatedMessages = messages.map(msg => 
+                const updatedMessages = messages.map(msg =>
                     msg.tempId === tempId ? newMessage : msg
                 );
 
@@ -273,11 +285,11 @@ const ChatDetail = () => {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             enabled
         >
-            <ChatHeaderComponent 
-                goBack={goBack} 
-                title={partnerName} 
+            <ChatHeaderComponent
+                goBack={goBack}
+                title={partnerName}
             />
-            <ImageBackground 
+            <ImageBackground
                 source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
                 // Hoặc dùng màu nền solid nếu chưa có ảnh
                 // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
@@ -291,8 +303,8 @@ const ChatDetail = () => {
                         profileId={profileId}
                         isLoading={isLoading}
                     />
-                    <MessageInput 
-                        onSendMessage={handleSendMessage} 
+                    <MessageInput
+                        onSendMessage={handleSendMessage}
                         onFocusInput={handleInputFocus}
                     />
                 </View>

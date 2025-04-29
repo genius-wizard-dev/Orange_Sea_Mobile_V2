@@ -13,7 +13,8 @@ const initialState = {
   isConnected: false,
   unreadCounts: {},
   notifications: [],
-  lastMessages: {}
+  lastMessages: {},
+  userStatuses: {}, // Thêm trạng thái người dùng
 };
 
 const chatSlice = createSlice({
@@ -28,8 +29,8 @@ const chatSlice = createSlice({
     },
     addMessage: (state, action) => {
       // Chỉ thêm tin nhắn nếu chưa tồn tại
-      const exists = state.messages.some(msg => 
-        msg.id === action.payload.id || 
+      const exists = state.messages.some(msg =>
+        msg.id === action.payload.id ||
         (msg.tempId && msg.tempId === action.payload.tempId)
       );
       if (!exists) {
@@ -79,7 +80,7 @@ const chatSlice = createSlice({
           }
           return acc;
         }, new Map());
-        
+
         state.messages = Array.from(uniqueMessages.values())
           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       }
@@ -121,13 +122,17 @@ const chatSlice = createSlice({
       const { groupId } = action.payload;
       // Reset unread count cho group
       state.unreadCounts[groupId] = 0;
-    }
+    },
+    statusUpdated: (state, action) => {
+      const { profileId, isOnline, isActive } = action.payload;
+      state.userStatuses[profileId] = { isOnline, isActive };
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase('chat/messageReceived', (state, action) => {
         const message = action.payload;
-        
+
         // Cập nhật tin nhắn mới nhất và unread count
         if (message.groupId) {
           // Cập nhật tin nhắn mới
@@ -141,7 +146,7 @@ const chatSlice = createSlice({
 
           // Tăng unread count nếu không phải current chat
           if (state.currentChat?.groupId !== message.groupId) {
-            state.unreadCounts[message.groupId] = 
+            state.unreadCounts[message.groupId] =
               (state.unreadCounts[message.groupId] || 0) + 1;
           }
         }
@@ -180,7 +185,8 @@ export const {
   updateUnreadCounts,
   updateLastMessage,
   updateChatNotification,
-  markGroupAsRead
+  markGroupAsRead,
+  statusUpdated,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

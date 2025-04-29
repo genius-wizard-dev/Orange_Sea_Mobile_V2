@@ -11,7 +11,6 @@ import { initializeSocket } from '~/redux/thunks/chat';
 
 function AppContent() {
   const dispatch = useDispatch();
-  const { fcmToken } = useFCM();
 
   useEffect(() => {
     dispatch(initializeSocket());

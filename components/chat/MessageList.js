@@ -66,29 +66,60 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         return `${fullDate}, ${time}`;
     };
 
+    const isSameDay = (date1, date2) => {
+        if (!date1 || !date2) return false;
+        const d1 = new Date(date1);
+        const d2 = new Date(date2);
+        return d1.getDate() === d2.getDate() &&
+            d1.getMonth() === d2.getMonth() &&
+            d1.getFullYear() === d2.getFullYear();
+    };
+
+    const formatDateHeader = (date) => {
+        return new Date(date).toLocaleDateString('vi-VN', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+
     console.log('Messages in MessageList:', messages?.length);
     // console.log('Messages :', messages);
 
-    const renderMessage = ({ item }) => {
-        // Kiểm tra xem tin nhắn có phải của người dùng hiện tại không
+    const renderMessage = ({ item, index, messages }) => {
         const isMyMessage = item.senderId === profileId;
         
-        // console.log('Rendering message:', {
-        //     id: item.id,
-        //     senderId: item.senderId,
-        //     profileId: profileId,
-        //     isMyMessage: isMyMessage
-        // });
+        // Kiểm tra tin nhắn trước đó
+        const prevMessage = index < messages.length - 1 ? messages[index + 1] : null;
+        const showAvatar = !isMyMessage && (!prevMessage || 
+            prevMessage.senderId !== item.senderId || 
+            (new Date(item.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 60000)
+        );
+
+        // Kiểm tra ngày
+        const showDateHeader = !prevMessage || !isSameDay(item.createdAt, prevMessage.createdAt);
 
         return (
-            <MessageItem 
-                key={`${item.id}_${forceUpdate}`}
-                msg={{
-                    ...item,
-                    isMyMessage // Ghi đè isMyMessage dựa trên so sánh senderId và profileId
-                }}
-                isMyMessage={isMyMessage}
-            />
+            <View>
+                {showDateHeader && (
+                    <View style={styles.dateHeaderContainer}>
+                        <View style={styles.dateHeaderLine} />
+                        <Text style={styles.dateHeaderText}>
+                            {formatDateHeader(item.createdAt)}
+                        </Text>
+                        <View style={styles.dateHeaderLine} />
+                    </View>
+                )}
+                <MessageItem 
+                    key={`${item.id}_${forceUpdate}`}
+                    msg={{
+                        ...item,
+                        isMyMessage
+                    }}
+                    isMyMessage={isMyMessage}
+                    showAvatar={showAvatar}
+                />
+            </View>
         );
     };
 
@@ -100,7 +131,11 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         <FlatList
             ref={flatListRef}
             data={messages ? [...messages].reverse() : []}
-            renderItem={renderMessage}
+            renderItem={({ item, index }) => renderMessage({ 
+                item, 
+                index, 
+                messages: messages ? [...messages].reverse() : [] 
+            })}
             keyExtractor={item => `${item.id || item.tempId}_${forceUpdate}`}
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
@@ -127,6 +162,24 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    dateHeaderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 20,
+        paddingHorizontal: 10
+    },
+    dateHeaderLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: '#E5E5E5'
+    },
+    dateHeaderText: {
+        color: '#65676b',
+        fontSize: 12,
+        marginHorizontal: 10,
+        fontWeight: '500'
     }
 });
 

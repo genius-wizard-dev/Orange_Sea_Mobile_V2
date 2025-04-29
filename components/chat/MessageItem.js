@@ -1,7 +1,7 @@
 import { XStack, YStack, Text, Image, Button, Adapt } from 'tamagui';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { formatTime } from '../../utils/time';
-import { ActivityIndicator, Pressable, Alert } from 'react-native';
+import { ActivityIndicator, Pressable, Alert, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { recallMessage, deleteMessageThunk } from '../../redux/thunks/chat';
@@ -10,7 +10,7 @@ import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
 import { Popover } from '@tamagui/popover';
 import socketService from '../../service/socket.service';
 
-const MessageItem = ({ msg, isMyMessage }) => {
+const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
     const pressTimeoutRef = useRef(null);
@@ -140,7 +140,7 @@ const MessageItem = ({ msg, isMyMessage }) => {
                         shadowRadius={6}
                     >
                         <XStack alignItems="center" space>
-                            {!isMyMessage && msg.sender && (
+                            {!isMyMessage && showAvatar && msg.sender && (
                                 <Image
                                     source={{ uri: msg.sender.avatarUrl || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
                                     width={30}
@@ -148,14 +148,18 @@ const MessageItem = ({ msg, isMyMessage }) => {
                                     borderRadius={15}
                                 />
                             )}
+                            {!isMyMessage && !showAvatar && (
+                                <View style={{ width: 10 }} /> // Placeholder để giữ khoảng cách
+                            )}
                             <YStack
                                 backgroundColor={isMyMessage ? '#FF7A1E' : '#e4e6eb'}
                                 padding={10}
                                 marginTop={5}
                                 borderRadius={15}
-                                maxWidth="90%"
+                                maxWidth="96%"
                                 width="auto"
                                 elevation={1}
+                                
                             >
                                 {/* {!isMyMessage && msg.sender && (
                                     <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
@@ -167,7 +171,7 @@ const MessageItem = ({ msg, isMyMessage }) => {
                                             fontStyle="italic"
                                         // textAlign={isMyMessage ? 'right' : 'left'}
                                         >
-                                            Tin nhắn đã thu hồi
+                                            Tin nhắn đã được thu hồi
                                         </Text>
                                     </XStack>
                                 ) : (
