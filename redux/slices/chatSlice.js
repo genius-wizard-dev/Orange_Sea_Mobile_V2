@@ -5,7 +5,11 @@ const initialState = {
   messages: [],
   loading: false,
   error: null,
-  currentChat: null,
+  currentChat: {
+    groupId: null,
+    members: [],
+    messages: []
+  },
   isConnected: false,
   unreadCounts: {},
   notifications: [],
@@ -38,7 +42,11 @@ const chatSlice = createSlice({
     updateMessage: (state, action) => {
       const index = state.messages.findIndex(msg => msg.id === action.payload.id);
       if (index !== -1) {
-        state.messages[index] = action.payload;
+        state.messages[index] = {
+          ...state.messages[index],
+          ...action.payload,
+          isRecalled: action.payload.recalled // Update isRecalled status
+        };
       }
     },
     setCurrentChat: (state, action) => {
@@ -57,10 +65,20 @@ const chatSlice = createSlice({
       state.messages.push(action.payload);
     },
     setMessages: (state, action) => {
-      // Thay vì gán trực tiếp, đảm bảo là array và sắp xếp theo thời gian
-      state.messages = Array.isArray(action.payload) ?
-        action.payload.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-        : [];
+      // Đảm bảo không mất tin nhắn khi cập nhật
+      if (Array.isArray(action.payload)) {
+        // Lọc ra các tin nhắn unique dựa trên id hoặc tempId
+        const uniqueMessages = action.payload.reduce((acc, curr) => {
+          const key = curr.id || curr.tempId;
+          if (!acc.has(key)) {
+            acc.set(key, curr);
+          }
+          return acc;
+        }, new Map());
+        
+        state.messages = Array.from(uniqueMessages.values())
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      }
     },
     addPendingMessage: (state, action) => {
       state.messages.push(action.payload);

@@ -25,7 +25,7 @@ const Chat = () => {
       
       if (Array.isArray(groupResult)) {
         const nonGroupChats = groupResult.filter(group => !group.isGroup);
-        console.log('Non group chats:', JSON.stringify(nonGroupChats, null, 2));
+        // console.log('Non group chats:', JSON.stringify(nonGroupChats, null, 2));
 
         await Promise.all(
           nonGroupChats.map(async (group) => {

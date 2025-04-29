@@ -1,13 +1,24 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-const ChatHeaderComponent = () => {
+const ChatHeaderComponent = ({ goBack, title }) => {
     const router = useRouter();
+    
+    const handleBackPress = () => {
+        if (goBack) {
+            router.push(goBack);
+        } else {
+            router.back()
+        }
+    };
+
     return (
-        <View>
-            <TouchableOpacity onPress={() => router.push('/chat/chatSetting')} style={{ padding: 10, backgroundColor: '#1E90FF', borderRadius: 5, flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="settings-outline" size={25} color="#fff" />
+        <View style={styles.header}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                <Ionicons name="arrow-back" size={25} color="#fff" />
+                <Text style={styles.title}>{title}</Text>
             </TouchableOpacity>
         </View>
     )
@@ -15,4 +26,19 @@ const ChatHeaderComponent = () => {
 
 export default ChatHeaderComponent
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+    header: {
+        backgroundColor: '#FF7A1E',
+        padding: 10,
+    },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    title: {
+        color: '#fff',
+        fontSize: 18,
+        marginLeft: 10,
+        fontWeight: '500'
+    }
+})

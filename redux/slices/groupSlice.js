@@ -65,7 +65,7 @@ const groupSlice = createSlice({
             .addCase(getGroupDetail.fulfilled, (state, action) => {
                 state.detailLoading = false;
                 const detail = action.payload.data || action.payload;
-                console.log('Processing group detail:', JSON.stringify(detail, null, 2));
+                // console.log('Processing group detail:', JSON.stringify(detail, null, 2));
                 
                 // Lưu detail và đảm bảo user object được giữ nguyên
                 state.groupDetails[detail.id] = detail;

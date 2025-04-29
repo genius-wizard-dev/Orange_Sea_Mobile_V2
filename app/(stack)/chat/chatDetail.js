@@ -2,28 +2,42 @@ import { StyleSheet, View, KeyboardAvoidingView, Platform } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
-import HeaderChatDetail from '../../../components/header/HeaderChatDetail'
+import ChatHeaderComponent from '../../../components/header/ChatHeaderComponent'
 import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { sendMessage } from '../../../redux/thunks/chat'
-import { addMessage, setCurrentChat, clearMessages, setMessages, addPendingMessage, updateMessageStatus, markGroupAsRead } from '../../../redux/slices/chatSlice'
+import { addMessage, setCurrentChat, clearMessages, setMessages, addPendingMessage, updateMessageStatus, markGroupAsRead, deleteMessage } from '../../../redux/slices/chatSlice'
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
-    const { socket, messages } = useSelector(state => state.chat);
+    const { socket, messages, currentChat } = useSelector(state => state.chat);
     const { profile } = useSelector(state => state.profile);
     const { groupId, profileId } = useLocalSearchParams();
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
+    const { groups, groupDetails } = useSelector((state) => state.group);
+    const [partnerName, setPartnerName] = useState('Chat');
+
+    useEffect(() => {
+        if (groupDetails && groupId) {
+            const groupDetail = groupDetails[groupId];
+            if (groupDetail?.participants) {
+                const otherParticipant = groupDetail.participants.find(
+                    p => p?.userId !== profileId
+                )?.user;
+                setPartnerName(otherParticipant?.name || 'Chat');
+            }
+        }
+    }, [groupDetails, groupId, profileId]);
 
     useEffect(() => {
         // Clear messages khi vào chat mới
         dispatch(clearMessages());
 
         const socket = socketService.getSocket();
-        console.log('Socket object:', socket);
+        // console.log('Socket object:', socket);
 
         if (socket && groupId && profileId) {
             // Đăng ký socket và mở chat
@@ -130,6 +144,21 @@ const ChatDetail = () => {
                 }
             });
 
+            socket.on('messageRecalled', (data) => {
+                if (data.messageId) {
+                    dispatch(updateMessage({ 
+                        id: data.messageId, 
+                        recalled: true 
+                    }));
+                }
+            });
+
+            socket.on('messageDeleted', (data) => {
+                if (data.messageId) {
+                    dispatch(deleteMessage(data.messageId));
+                }
+            });
+
             return () => {
                 console.log('Cleaning up socket connections');
                 if (socket.connected) {
@@ -142,6 +171,8 @@ const ChatDetail = () => {
                 socket.off('send');
                 socket.off('recall');
                 socket.off('delete');
+                socket.off('messageRecalled');
+                socket.off('messageDeleted');
             };
         } else {
             console.log('Socket or required params missing:', {
@@ -163,7 +194,7 @@ const ChatDetail = () => {
         const socket = socketService.getSocket();
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        dispatch(addPendingMessage({
+        const pendingMessage = {
             tempId,
             id: tempId,
             message: messageText,
@@ -174,13 +205,13 @@ const ChatDetail = () => {
             sender: profile,
             isMyMessage: true,
             isPending: true
-        }));
+        };
 
+        // Thêm tin nhắn pending vào messages array
+        dispatch(setMessages([...messages, pendingMessage]));
+        
         try {
-            // 1. Đảm bảo profile được đăng ký
             await socketService.registerProfile(profileId);
-
-            // 2. Gửi tin nhắn qua API
             const response = await dispatch(sendMessage({
                 message: messageText,
                 groupId: groupId,
@@ -188,41 +219,35 @@ const ChatDetail = () => {
                 type: 'TEXT'
             })).unwrap();
 
-            if (response?.status === 'success') {
-                // 3. Emit socket event
+            if (response?.status === 'success' && response?.data) {
+                const newMessage = {
+                    ...pendingMessage,
+                    id: response.data.id,
+                    tempId: undefined,
+                    isPending: false,
+                    createdAt: response.data.createdAt || new Date().toISOString(),
+                };
+
+                // Cập nhật messages array với tin nhắn mới
+                const updatedMessages = messages.map(msg => 
+                    msg.tempId === tempId ? newMessage : msg
+                );
+
+                dispatch(setMessages([...updatedMessages, newMessage]));
+
+                // Emit socket event
                 socket.emit('send', {
                     messageId: response.data.id,
                     groupId: groupId,
                     senderId: profileId,
                     content: messageText
                 });
-
-                // 4. Cập nhật UI
-                dispatch(updateMessageStatus({
-                    tempId,
-                    newMessage: {
-                        id: response.data.id,
-                        message: messageText,
-                        senderId: profileId,
-                        groupId: groupId,
-                        createdAt: response.data.createdAt || new Date().toISOString(),
-                        type: 'TEXT',
-                        sender: profile,
-                        isMyMessage: true,
-                        isPending: false
-                    }
-                }));
             }
         } catch (error) {
             console.error('Error in handleSendMessage:', error);
-            dispatch(updateMessageStatus({
-                tempId,
-                newMessage: {
-                    ...pendingMessage,
-                    isPending: false,
-                    error: 'Không thể gửi tin nhắn'
-                }
-            }));
+            // Xóa tin nhắn pending nếu gửi thất bại
+            const filteredMessages = messages.filter(msg => msg.tempId !== tempId);
+            dispatch(setMessages(filteredMessages));
         }
     };
 
@@ -237,7 +262,10 @@ const ChatDetail = () => {
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             enabled
         >
-            <HeaderChatDetail goBack={goBack} title="Chat Detail" />
+            <ChatHeaderComponent 
+                goBack={goBack} 
+                title={partnerName} 
+            />
             <View style={styles.contentContainer}>
                 <MessageList
                     ref={messageListRef}

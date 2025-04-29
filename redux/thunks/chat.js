@@ -9,7 +9,6 @@ export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async (messageData, { dispatch, rejectWithValue }) => {
     try {
-
       const response = await apiService.post(ENDPOINTS.CHAT.SEND, {
         groupId: messageData.groupId,
         message: messageData.message,
@@ -17,10 +16,19 @@ export const sendMessage = createAsyncThunk(
         senderId: messageData.senderId
       });
 
-      // console.log(response)
+      // Đảm bảo response có ID thật trước khi trả về
+      if (response?.status === 'success' && response?.data?.id) {
+        return {
+          ...response,
+          data: {
+            ...response.data,
+            id: response.data.id, // Đảm bảo có id thật
+            tempId: undefined // Xóa tempId nếu có
+          }
+        };
+      }
 
       return response;
-
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -49,26 +57,40 @@ export const recallMessage = createAsyncThunk(
   'chat/recallMessage',
   async (messageId, { dispatch }) => {
     try {
-      dispatch(setLoading(true));
-      await apiService.put(ENDPOINTS.CHAT.RECALL(messageId));
-      dispatch(updateMessage({ id: messageId, recalled: true }));
+      const response = await apiService.put(ENDPOINTS.CHAT.RECALL(messageId));
+      // Trả về trực tiếp response để xử lý ở component
+      return response;
     } catch (error) {
-      dispatch(setError(error.message));
-      throw error;
-    } finally {
-      dispatch(setLoading(false));
+      // Ném lỗi với message từ API hoặc message mặc định
+      throw error.response?.data || { 
+        status: 'error',
+        message: 'Không thể thu hồi tin nhắn' 
+      };
     }
   }
 );
 
 export const deleteMessageThunk = createAsyncThunk(
   'chat/deleteMessage',
-  async (messageId, { dispatch }) => {
+  async (messageId, { dispatch, getState }) => {
     try {
       dispatch(setLoading(true));
-      await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
-      dispatch(deleteMessage(messageId));
+      const response = await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
+
+      if (response.status === 'success') {
+        // Emit socket event để thông báo cho người khác
+        const socket = socketService.getSocket();
+        if (socket) {
+          socket.emit('delete', { messageId });
+        }
+
+        dispatch(deleteMessage(messageId));
+        return response;
+      }
+
+      throw new Error('Xóa tin nhắn thất bại');
     } catch (error) {
+      console.log('Lỗi xóa tin nhắn:', error.message);
       dispatch(setError(error.message));
       throw error;
     } finally {

@@ -26,6 +26,7 @@
     "@reduxjs/toolkit": "^2.6.1",
     "@tamagui/animations-react-native": "^1.125.8",
     "@tamagui/font-inter": "^1.125.8",
+    "@tamagui/lucide-icons": "^1.126.4",
     "@tamagui/react-native-media-driver": "^1.125.8",
     "@tamagui/shorthands": "^1.125.8",
     "@tamagui/themes": "^1.125.8",
