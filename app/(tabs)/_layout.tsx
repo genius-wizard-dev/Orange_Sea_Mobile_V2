@@ -1,11 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
+import HeaderSearchComponent from '~/components/HeaderSearchComponent';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#E94057',
+        tabBarActiveTintColor: '#FF7A1E',
         tabBarInactiveTintColor: '#B5B5B5',
         tabBarStyle: {
           height: 70,
@@ -23,23 +25,48 @@ export default function TabLayout() {
         tabBarShowLabel: false,
       }}>
       <Tabs.Screen
-        name="home"
+        name="chat"
         options={{
-          title: 'Trang chủ',
+          title: 'Nhắn tin',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={30} color={color} />
+            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={30} color={color} />
           ),
-          headerShown: false,
+          headerShown: true,
+          header: () => <HeaderSearchComponent />
+
         }}
       />
       <Tabs.Screen
-        name="setting"
+        name="contact"
         options={{
-          title: 'Cài đặt',
+          title: 'Liên hệ',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={30} color={color} />
+            <Ionicons name={focused ? 'call' : 'call-outline'} size={30} color={color} />
           ),
-          headerShown: false,
+          headerShown: true,
+          header: () => <HeaderSearchComponent />
+        }}
+      />
+      <Tabs.Screen
+        name="timeline"
+        options={{
+          title: 'Kết nối',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'share-social' : 'share-social-outline'} size={30} color={color} />
+          ),
+          headerShown: true,
+          header: () => <HeaderSearchComponent />
+        }}
+      />
+      <Tabs.Screen
+        name="me"
+        options={{
+          title: 'Cá nhân',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={30} color={color} />
+          ),
+          headerShown: true,
+          header: () => <HeaderSearchComponent />
         }}
       />
     </Tabs>

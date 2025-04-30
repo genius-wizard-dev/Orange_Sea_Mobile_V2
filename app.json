@@ -48,7 +48,7 @@
       "package": "com.orangesea.app"
     },
     "extra": {
-      "API_BASE_URL": "http://192.168.1.20:8000",
+      "API_BASE_URL": "http://192.168.1.38:8000",
       "router": {
         "origin": false
       },

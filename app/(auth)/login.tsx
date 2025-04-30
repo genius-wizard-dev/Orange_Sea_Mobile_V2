@@ -1,15 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, router } from 'expo-router';
-import { useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, TouchableWithoutFeedback } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Alert,
+} from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useDispatch } from 'react-redux';
-import { Button, Form, H1, Image, Input, Separator, Text, XStack, YStack } from 'tamagui';
+import {
+  Button,
+  Form,
+  H1,
+  Image,
+  Input,
+  Separator,
+  Text,
+  XStack,
+  YStack,
+} from 'tamagui';
 import { getProfile } from '~/redux/thunks/profile';
 import { ENDPOINTS } from '~/service/api.endpoint';
 import apiService from '~/service/api.service';
 import { LoginRequest, LoginResponse } from '~/types/auth.login';
 import { ProfileResponse } from '~/types/profile';
-import { setAccessToken, setRefreshToken } from '~/utils/token';
+import {
+  getFcmTokenFromSecureStore,
+  setAccessToken,
+  setRefreshToken,
+} from '~/utils/token';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -20,16 +41,12 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const dispatch = useDispatch();
 
+  
   const validateForm = () => {
     const errors: { username?: string; password?: string } = {};
 
-    if (!username.trim()) {
-      errors.username = 'Username is required';
-    }
-
-    if (!password.trim()) {
-      errors.password = 'Password is required';
-    }
+    if (!username.trim()) errors.username = 'Username is required';
+    if (!password.trim()) errors.password = 'Password is required';
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -37,9 +54,7 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      if (!validateForm()) {
-        return;
-      }
+      if (!validateForm()) return;
 
       setLoading(true);
       setError('');
@@ -50,21 +65,31 @@ export default function Login() {
       };
 
       const response = await apiService.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, loginData);
-      console.log(response);
+
+
       if (response.status === 'success' && response.data) {
         setAccessToken(response.data.access_token);
+        console.log(response.data.access_token);
         setRefreshToken(response.data.refresh_token);
+
         const profileRes: ProfileResponse = await dispatch(getProfile() as any).unwrap();
         if (profileRes.status === 'success') {
           setUsername('');
           setPassword('');
           router.replace('/');
         }
+
+
       } else {
+        console.log(response)
+
         setError(response.message || 'Login failed');
       }
+
+
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      const errorMessage = err.response?.data?.message || err.message || 'An error occurred during login';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -91,31 +116,25 @@ export default function Login() {
           padding={20}
           backgroundColor="$background"
           space="$4">
-          {/* Logo */}
           <Image
             source={require('~/assets/logo_icon_text.png')}
             alt="Logo"
-            width={120}
-            height={120}
+            width={250}
+            height={170}
             marginBottom={40}
           />
 
-          <H1 color="$primary" marginBottom={30}>
-            Welcome Back
-          </H1>
-
           <Form width="100%" onSubmit={handleLogin} paddingHorizontal="$2">
-            {error ? (
-              <Text color="$red10" marginBottom="$3" textAlign="center">
+            {error && (
+              <Text color="$red10" marginBottom="$5" textAlign="center">
                 {error}
               </Text>
-            ) : null}
+            )}
 
             <YStack space="$4" width="100%">
               {/* Username Input */}
               <YStack>
                 <XStack
-                  width="100%"
                   alignItems="center"
                   borderWidth={1}
                   borderColor={fieldErrors.username ? '$red10' : '$gray8'}
@@ -148,7 +167,6 @@ export default function Login() {
               {/* Password Input */}
               <YStack>
                 <XStack
-                  width="100%"
                   alignItems="center"
                   borderWidth={1}
                   borderColor={fieldErrors.password ? '$red10' : '$gray8'}
@@ -185,20 +203,21 @@ export default function Login() {
                 )}
               </YStack>
 
-              {/* Forgot Password Link */}
-              <XStack width="100%" justifyContent="flex-end">
+              {/* Forgot Password */}
+              <XStack justifyContent="flex-end">
                 <Text color="$primary" onPress={handleForgotPassword} fontSize="$2">
                   Forgot Password?
                 </Text>
               </XStack>
 
+              {/* Login Button */}
               <Button
-                backgroundColor="#E94057"
+                backgroundColor="#FF7A1E"
                 borderRadius={15}
                 height={55}
                 marginTop={30}
                 pressStyle={{
-                  backgroundColor: '#E94057',
+                  backgroundColor: '#FF7A1E',
                   borderWidth: 0,
                   scale: 0.98,
                 }}
@@ -209,7 +228,7 @@ export default function Login() {
                 </Text>
               </Button>
 
-              {/* Register Section */}
+              {/* Register */}
               <YStack alignItems="center" marginTop="$4" space="$2">
                 <Separator />
                 <XStack space="$2" marginTop="$2">
