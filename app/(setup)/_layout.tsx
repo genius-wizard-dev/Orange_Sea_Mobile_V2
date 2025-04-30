@@ -49,7 +49,6 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-
   if (userProfile?.isSetup) {
     return <Redirect href="/(tabs)/chat" />;
   }

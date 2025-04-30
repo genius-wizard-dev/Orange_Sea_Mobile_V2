@@ -29,18 +29,33 @@ export default function StackLayout() {
         },
       }}
     >
+      {/* chat */}
+      <Stack.Screen
+        name="chat/chatDetail"
+        options={{
+          title: 'Chi tiết tin nhắn',
+          headerShown: false,
+        }}
+      />
+      {/* <Stack.Screen
+        name="chat/chatSetting"
+        options={{
+          title: 'Tin nhắn',
+          headerShown: false,
+        }}
+      /> */}
+
+
+      {/* Me */}
+
       <Stack.Screen
         name="profile/[id]"
         options={{
           title: 'Trang cá nhân',
+          headerShown: false,
         }}
       />
-      <Stack.Screen
-        name="setting/meSetting"
-        options={{
-          title: 'Cài đặt',
-        }}
-      />
+
       <Stack.Screen
         name="setting/accountAndSecurity"
         options={{
@@ -65,14 +80,41 @@ export default function StackLayout() {
         }}
       />
 
-
-
       <Stack.Screen
         name="setting/rolePrivate"
         options={{
           title: 'Quyền riêng tư',
         }}
       />
+      <Stack.Screen
+        name="setting/meSetting"
+        options={{
+          title: 'Cài đặt',
+        }}
+      />
+
+
+      {/* contact */}
+
+      <Stack.Screen
+        name="contact/listRequestFriend"
+        options={{
+          title: 'Lời mời kết bạn',
+          headerShown: false,
+        }}
+      />
+
+      {/* friend */}
+
+      <Stack.Screen
+        name="friend/addFriend"
+        options={{
+          title: 'Thêm bạn bè',
+          headerShown: false,
+        }}
+      />
+
+
     </Stack>
   );
 }

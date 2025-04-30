@@ -97,6 +97,10 @@ export default function Setup() {
     };
 
 
+    const handleGenderSelect = (selectedGender) => {
+        handleChange('gender', selectedGender);
+    };
+
     const handleSubmit = async () => {
         if (!formData || !validateForm()) return;
 
@@ -124,6 +128,7 @@ export default function Setup() {
             // Thêm các trường khác
             formDataToSend.append('name', formData.name);
             formDataToSend.append('phone', formData.phone);
+            formDataToSend.append('gender', formData.gender || 'M'); // Mặc định là nam nếu không chọn
             if (formData.bio) formDataToSend.append('bio', formData.bio);
             formDataToSend.append('birthday', formData.birthday);
 
@@ -143,7 +148,7 @@ export default function Setup() {
 
     return (
         <ScrollView backgroundColor="$background" padding="$4" flex={1}>
-            <YStack space="$4" paddingTop="$6">
+            <YStack space="$4" paddingTop="$6" paddingBottom="$8">
                 <YStack alignItems="center" space="$2">
                     <H3 fontWeight="bold" color="#E94057">
                         Hoàn thành thông tin cá nhân
@@ -199,6 +204,30 @@ export default function Setup() {
                         onChange={(value) => handleChange('birthday', value)}
                         placeholder="Select your birthday"
                     />
+
+                    <YStack space="$2">
+                        <Text color="$gray11">Giới tính *</Text>
+                        <YStack flexDirection="row" space="$2">
+                            <Button
+                                flex={1}
+                                backgroundColor={formData?.gender === 'M' ? '#E94057' : '$gray5'}
+                                onPress={() => handleGenderSelect('M')}
+                                height={45}
+                                borderRadius={10}
+                            >
+                                <Text color={formData?.gender === 'M' ? 'white' : '$gray11'}>Nam</Text>
+                            </Button>
+                            <Button
+                                flex={1}
+                                backgroundColor={formData?.gender === 'F' ? '#E94057' : '$gray5'}
+                                onPress={() => handleGenderSelect('F')}
+                                height={45}
+                                borderRadius={10}
+                            >
+                                <Text color={formData?.gender === 'F' ? 'white' : '$gray11'}>Nữ</Text>
+                            </Button>
+                        </YStack>
+                    </YStack>
 
                     <Button
                         size="$4"

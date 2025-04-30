@@ -9,5 +9,5 @@
       "~/*": ["*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "app/(stack)/profile/[id].js"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "app/(stack)/profile/[id].js", "app/(tabs)/contact.js", "app/(tabs)/chat.js", "app/_layout.js"]
 }
