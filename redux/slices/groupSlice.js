@@ -1,12 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getListGroup, getGroupDetail } from '../thunks/group';
+import * as groupThunks from '../thunks/group';
 
 const initialState = {
     loading: false,
     error: null,
     groups: [],
-    groupDetails: {}, // Thêm object để lưu chi tiết từng group
-    detailLoading: false,
+    groupDetails: {},
+    searchResults: [],
+    currentOperation: null
 };
 
 const groupSlice = createSlice({
@@ -20,12 +21,9 @@ const groupSlice = createSlice({
             state.groups = [];
         },
         updateGroup: (state, action) => {
-            // Nếu là array thì cập nhật toàn bộ groups
             if (Array.isArray(action.payload)) {
                 state.groups = action.payload;
-            } 
-            // Nếu là object thì cập nhật một group
-            else {
+            } else {
                 const index = state.groups.findIndex(g => g.id === action.payload.id);
                 if (index !== -1) {
                     state.groups[index] = action.payload;
@@ -42,40 +40,82 @@ const groupSlice = createSlice({
                     messages: [message, ...(group.messages || [])]
                 };
             }
+        },
+        resetSearchResults: (state) => {
+            state.searchResults = [];
         }
     },
     extraReducers: (builder) => {
         builder
-            .addCase(getListGroup.pending, (state) => {
+            .addCase(groupThunks.getListGroup.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(getListGroup.fulfilled, (state, action) => {
+            .addCase(groupThunks.getListGroup.fulfilled, (state, action) => {
                 state.loading = false;
-                state.groups = action.payload;
-                console.log(action.payload)
+                state.groups = action.payload.data || action.payload;
             })
-            .addCase(getListGroup.rejected, (state, action) => {
+            .addCase(groupThunks.getListGroup.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             })
-            .addCase(getGroupDetail.pending, (state) => {
+            .addCase(groupThunks.getGroupDetail.pending, (state) => {
                 state.detailLoading = true;
             })
-            .addCase(getGroupDetail.fulfilled, (state, action) => {
+            .addCase(groupThunks.getGroupDetail.fulfilled, (state, action) => {
                 state.detailLoading = false;
                 const detail = action.payload.data || action.payload;
-                // console.log('Processing group detail:', JSON.stringify(detail, null, 2));
-                
-                // Lưu detail và đảm bảo user object được giữ nguyên
                 state.groupDetails[detail.id] = detail;
             })
-            .addCase(getGroupDetail.rejected, (state, action) => {
+            .addCase(groupThunks.getGroupDetail.rejected, (state, action) => {
                 state.detailLoading = false;
                 state.error = action.payload;
+            })
+            .addCase(groupThunks.createGroup.fulfilled, (state, action) => {
+                state.groups.unshift(action.payload.data);
+            })
+            .addCase(groupThunks.searchGroups.fulfilled, (state, action) => {
+                state.searchResults = action.payload.data;
+            })
+            .addCase(groupThunks.deleteGroup.fulfilled, (state, action) => {
+                state.groups = state.groups.filter(group => group.id !== action.payload.groupId);
+                delete state.groupDetails[action.payload.groupId];
+            })
+            .addCase(groupThunks.leaveGroup.fulfilled, (state, action) => {
+                state.groups = state.groups.filter(group => group.id !== action.payload.groupId);
+                delete state.groupDetails[action.payload.groupId];
+            })
+            .addCase(groupThunks.renameGroup.fulfilled, (state, action) => {
+                const { groupId, name } = action.payload.data;
+                const group = state.groups.find(g => g.id === groupId);
+                if (group) {
+                    group.name = name;
+                }
+                if (state.groupDetails[groupId]) {
+                    state.groupDetails[groupId].name = name;
+                }
+            })
+            .addCase(groupThunks.addParticipant.fulfilled, (state, action) => {
+                const { groupId, participant } = action.payload.data;
+                if (state.groupDetails[groupId]) {
+                    state.groupDetails[groupId].participants.push(participant);
+                }
+            })
+            .addCase(groupThunks.removeParticipant.fulfilled, (state, action) => {
+                const { groupId, participantId } = action.payload.data;
+                if (state.groupDetails[groupId]) {
+                    state.groupDetails[groupId].participants = 
+                        state.groupDetails[groupId].participants.filter(p => p.id !== participantId);
+                }
+            })
+            .addCase(groupThunks.transferOwnership.fulfilled, (state, action) => {
+                const { groupId, newOwnerId } = action.payload.data;
+                if (state.groupDetails[groupId]) {
+                    state.groupDetails[groupId].ownerId = newOwnerId;
+                }
             });
-    },
+    }
 });
 
-export const { clearGroupError, clearGroups, updateGroup, updateGroupMessages } = groupSlice.actions;
+export const { clearGroupError, clearGroups, updateGroup, updateGroupMessages, resetSearchResults } = groupSlice.actions;
 export default groupSlice.reducer;
