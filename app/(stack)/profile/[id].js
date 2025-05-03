@@ -39,7 +39,7 @@ export default function Info() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const id = params.id;
-  const { goBackTo } = useLocalSearchParams();
+  const { goBack } = useLocalSearchParams();
   const [friendshipStatus, setFriendshipStatus] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -319,7 +319,7 @@ export default function Info() {
 
   const renderLoadingState = () => (
     <YStack flex={1} backgroundColor="white">
-      <HeaderLeft goBack={goBackTo} title="Trang cá nhân" />
+      <HeaderLeft goBack={goBack} title="Trang cá nhân" />
       <View style={{ height: 150, backgroundColor: '#E94057' }} />
       <YStack paddingHorizontal={20}>
         <View style={{
@@ -350,7 +350,7 @@ export default function Info() {
 
   return (
     <YStack flex={1} backgroundColor="white">
-      <HeaderLeft goBack={goBackTo} title="Trang cá nhân" />
+      <HeaderLeft goBack={goBack} title="Trang cá nhân" />
       {/* Cover Image */}
       <View
         style={{
