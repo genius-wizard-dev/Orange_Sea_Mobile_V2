@@ -36,6 +36,13 @@ const HeaderSearchComponent = () => {
         });
     }
 
+    const handleLinkCreateGroup = () => {
+        router.push({
+            pathname: '/group/createGroup',
+            params: { goBackTo: '/chat' },
+        });
+    }
+
     return (
         <>
             <View style={styles.headerContainer}>
@@ -93,10 +100,7 @@ const HeaderSearchComponent = () => {
                         <Button
                             size="$5"
                             width="100%"
-                            onPress={() => {
-                                setOpen(false);
-                                navigation.navigate('NewDirectMessage');
-                            }}
+                            onPress={() => handleLinkCreateGroup()}
                             icon={<Ionicons name="people-outline" size={20} color="currentColor" />}
                         >
                             Tạo nhóm

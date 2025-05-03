@@ -1,5 +1,4 @@
 import { createSlice } from '@reduxjs/toolkit';
-import io from 'socket.io-client';
 
 const initialState = {
   messages: [],
@@ -14,7 +13,7 @@ const initialState = {
   unreadCounts: {},
   notifications: [],
   lastMessages: {},
-  userStatuses: {}, // Thêm trạng thái người dùng
+  userStatuses: {},
 };
 
 const chatSlice = createSlice({
@@ -38,10 +37,8 @@ const chatSlice = createSlice({
       }
     },
     deleteMessage: (state, action) => {
-      // Xóa tin nhắn khỏi mảng messages
-      state.messages = state.messages.filter(msg => msg.id !== action.payload);
-      // Force update để trigger re-render
-      state.messages = [...state.messages];
+      const messageId = action.payload;
+      state.messages = state.messages.filter(msg => msg.id !== messageId);
     },
     updateMessage: (state, action) => {
       const index = state.messages.findIndex(msg => msg.id === action.payload.id);
@@ -60,14 +57,8 @@ const chatSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
     },
-    setSocket: (state, action) => {
-      state.socket = action.payload;
-    },
     setSocketConnected: (state, action) => {
       state.isConnected = action.payload;
-    },
-    handleSocketMessage: (state, action) => {
-      state.messages.push(action.payload);
     },
     setMessages: (state, action) => {
       // Đảm bảo không mất tin nhắn khi cập nhật
@@ -84,9 +75,6 @@ const chatSlice = createSlice({
         state.messages = Array.from(uniqueMessages.values())
           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       }
-    },
-    addPendingMessage: (state, action) => {
-      state.messages.push(action.payload);
     },
     updateMessageStatus: (state, action) => {
       const { tempId, newMessage } = action.payload;
@@ -115,9 +103,6 @@ const chatSlice = createSlice({
       const { groupId } = action.payload;
       state.lastMessages[groupId] = action.payload;
     },
-    updateChatNotification: (state, action) => {
-      state.notifications.push(action.payload);
-    },
     markGroupAsRead: (state, action) => {
       const { groupId } = action.payload;
       // Reset unread count cho group
@@ -126,6 +111,30 @@ const chatSlice = createSlice({
     statusUpdated: (state, action) => {
       const { profileId, isOnline, isActive } = action.payload;
       state.userStatuses[profileId] = { isOnline, isActive };
+    },
+    recallMessage: (state, action) => {
+      const { messageId, groupId } = action.payload;
+      
+      // Tìm và cập nhật tin nhắn trong mảng messages
+      const messageIndex = state.messages.findIndex(msg => msg.id === messageId);
+      if (messageIndex !== -1) {
+        state.messages[messageIndex] = {
+          ...state.messages[messageIndex],
+          isRecalled: true
+        };
+        
+        // Gán lại để đảm bảo re-render
+        state.messages = [...state.messages];
+      }
+      
+      // Cập nhật tin nhắn mới nhất nếu cần
+      if (state.lastMessages[groupId]?.id === messageId) {
+        state.lastMessages[groupId] = {
+          ...state.lastMessages[groupId],
+          isRecalled: true,
+          content: 'Tin nhắn đã được thu hồi'
+        };
+      }
     },
   },
   extraReducers: (builder) => {
@@ -151,18 +160,30 @@ const chatSlice = createSlice({
           }
         }
       })
-      .addCase('chat/unreadCountsUpdated', (state, action) => {
-        action.payload.forEach(update => {
-          state.unreadCounts[update.groupId] = update.unreadCount;
-        });
-      })
       .addCase('chat/messageDeleted', (state, action) => {
+        const { messageId } = action.payload;
+        
+        // Xóa tin nhắn khỏi danh sách messages
+        state.messages = state.messages.filter(msg => msg.id !== messageId);
+
+        // Force update để trigger re-render
+        state.messages = [...state.messages];
+
+        console.log('Đã xóa tin nhắn:', messageId);
+      })
+      .addCase('chat/messageRecalled', (state, action) => {
         const { messageId, groupId } = action.payload;
-        if (groupId === state.currentChat?.groupId) {
-          // Xóa tin nhắn nếu đang ở trong chat hiện tại
-          state.messages = state.messages.filter(msg => msg.id !== messageId);
-          state.messages = [...state.messages];
-        }
+        
+        // Sử dụng reducer đã định nghĩa sẵn để tái sử dụng logic
+        const recallAction = {
+          type: 'recallMessage',
+          payload: { messageId, groupId }
+        };
+        
+        chatSlice.caseReducers.recallMessage(state, recallAction);
+        
+        // Thêm log để debug
+        console.log('📱 Tin nhắn đã được cập nhật trạng thái thu hồi:', messageId);
       });
   }
 });
@@ -175,18 +196,15 @@ export const {
   updateMessage,
   setCurrentChat,
   clearMessages,
-  setSocket,
   setSocketConnected,
-  handleSocketMessage,
   setMessages,
-  addPendingMessage,
   updateMessageStatus,
   setUnreadCounts,
   updateUnreadCounts,
   updateLastMessage,
-  updateChatNotification,
   markGroupAsRead,
   statusUpdated,
+  recallMessage,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

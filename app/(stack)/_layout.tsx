@@ -114,6 +114,18 @@ export default function StackLayout() {
         }}
       />
 
+      {/* group */}
+
+      <Stack.Screen
+        name="group/createGroup"
+        options={{
+          title: 'Tạo nhóm',
+          headerShown: false,
+        }}
+      />
+
+
+
 
     </Stack>
   );

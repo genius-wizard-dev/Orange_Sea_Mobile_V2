@@ -103,19 +103,6 @@ const Chat = () => {
     }
   }, [profile?.id, dispatch]);
 
-  // useEffect(() => {
-  //   const socket = socketService.getSocket();
-  //   if (socket) {
-  //     socket.on('userStatusUpdate', (data) => {
-  //       dispatch(updateUserStatus(data));
-  //     });
-  //   }
-  //   return () => {
-  //     if (socket) {
-  //       socket.off('userStatusUpdate');
-  //     }
-  //   };
-  // }, []);
 
   if (loading) {
     return (
@@ -135,8 +122,6 @@ const Chat = () => {
     // Lấy userId từ participant
     const otherUserId = otherParticipant?.userId;
     const userStatus = otherParticipant ? userStatuses[otherParticipant.userId] : null;
-
-
 
 
 

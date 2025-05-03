@@ -38,6 +38,15 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         }
     }, [messages]);
 
+    // Force update khi có thay đổi trong messages, đặc biệt là isRecalled
+    useEffect(() => {
+        if (messages?.length > 0) {
+            let hasRecalledMessages = messages.some(m => m.isRecalled);
+            console.log('Has recalled messages:', hasRecalledMessages);
+            setForceUpdate(prev => prev + 1);
+        }
+    }, [messages, messages?.some(m => m.isRecalled)]);
+
     const formatMessageTime = (timestamp) => {
         const date = new Date(timestamp);
         const today = new Date();
@@ -87,6 +96,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     // console.log('Messages :', messages);
 
     const renderMessage = ({ item, index, messages }) => {
+        // console.log(`Rendering message ${index}: ID=${item.id}, isRecalled=${item.isRecalled}`);
         const isMyMessage = item.senderId === profileId;
         
         // Kiểm tra tin nhắn trước đó
@@ -145,7 +155,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10
             }}
-            extraData={[forceUpdate, profileId]} // Thêm profileId vào extraData
+            extraData={[forceUpdate, profileId, messages.length]} // Thêm messages.length
         />
     );
 });

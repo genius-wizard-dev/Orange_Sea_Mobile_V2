@@ -7,7 +7,7 @@ import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { sendMessage } from '../../../redux/thunks/chat'
-import { addMessage, setCurrentChat, clearMessages, setMessages, addPendingMessage, updateMessageStatus, markGroupAsRead, deleteMessage } from '../../../redux/slices/chatSlice'
+import { addMessage, setCurrentChat, clearMessages, setMessages, markGroupAsRead, deleteMessage, updateMessage } from '../../../redux/slices/chatSlice'
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
@@ -33,92 +33,52 @@ const ChatDetail = () => {
     }, [groupDetails, groupId, profileId]);
 
     useEffect(() => {
-        // Clear messages khi vào chat mới
         dispatch(clearMessages());
-
         const socket = socketService.getSocket();
-        // console.log('Socket object:', socket);
+        setIsLoading(true);
 
         if (socket && groupId && profileId) {
-            // Đăng ký socket và mở chat
-            socket.emit('register', { profileId }, (response) => {
-                console.log('Register event callback:', response);
-                if (response?.status === 'success') {
-                    // Đánh dấu đã đọc khi vào chat
-                    socket.emit('markAsRead', {
-                        profileId,
-                        groupId
-                    }, (markResponse) => {
-                        console.log('Mark as read response:', markResponse);
-                        if (markResponse?.status === 'success') {
-                            // Cập nhật state để xóa badge số tin nhắn chưa đọc
-                            dispatch(markGroupAsRead({ groupId }));
+            const initializeChat = async () => {
+                try {
+                    console.log('Starting chat initialization...');
+                    
+                    // Đợi kết quả register
+                    const registerResult = await socketService.registerChat(profileId, groupId, dispatch);
+                    // console.log('🔄 Register chat result:', registerResult);
+                    
+                    if (registerResult?.status === 'success') {
+                        // Chỉ mở chat nếu register thành công
+                        const openResult = await socketService.openChat(profileId, groupId, dispatch);
+                        // console.log('📖 Open chat result:', openResult);
+                        
+                        if (openResult?.status === 'success') {
+                            console.log('✅ Chat initialized successfully');
+                            setIsLoading(false);
+                            return;
                         }
-                    });
+                    }
+                    
+                    // Nếu có lỗi
+                    console.log('❌ Failed to initialize chat');
+                    setIsLoading(false);
+                } catch (error) {
+                    console.error('❌ Chat initialization error:', error);
+                    setIsLoading(false);
                 }
-            });
+            };
 
-            // Kiểm tra socket listeners hiện tại
-            console.log('Current socket listeners:', socket._events);
+            initializeChat();
 
-            // Đăng ký event handlers trước khi emit
-            socket.on('connect', () => {
-                console.log('Socket connected successfully');
-            });
+            // Basic socket handlers
+            socket.on('connect', () => console.log('Socket connected successfully'));
+            socket.on('disconnect', () => console.log('Socket disconnected'));
+            socket.on('error', (error) => console.log('Socket error:', error));
 
-            socket.on('disconnect', () => {
-                console.log('Socket disconnected');
-            });
-
-            socket.on('error', (error) => {
-                console.log('Socket error:', error);
-            });
-
-            // Emit events sau khi đã setup listeners
-            console.log('About to emit register event...');
-            socket.emit('register', { profileId }, (response) => {
-                console.log('Register event callback:', response);
-            });
-
-            console.log('About to emit open event...');
-            socket.emit('open', { profileId, groupId }, (response) => {
-                // console.log('Open event callback:', response);
-                if (response?.status === 'success' && response?.messages) {
-                    console.log('Processing messages:', response.messages.length);
-
-                    // Định dạng lại messages từ response
-                    const formattedMessages = response.messages.map(msg => ({
-                        id: msg.id,
-                        message: msg.content,
-                        senderId: msg.senderId,
-                        groupId: msg.groupId,
-                        createdAt: msg.createdAt,
-                        type: msg.type,
-                        imageUrl: msg.fileUrl,
-                        isRecalled: msg.isRecalled,
-                        sender: msg.sender,
-                        isMyMessage: msg.senderId === profileId,
-                        isPending: false
-                    }));
-
-                    // console.log('Formatted messages:', formattedMessages);
-                    dispatch(setMessages(formattedMessages));
-                }
-                setIsLoading(false);
-            });
-
-            // Lắng nghe các sự kiện
+            // New message handler
             socket.on('newMessage', (message) => {
-                console.log('Socket newMessage event triggered');
-                console.log('Received message:', message);
-                console.log('Current groupId:', groupId);
-                console.log('Message groupId:', message.groupId);
-
+                console.log("nhan duoc tin nhan", message);
                 if (message.groupId === groupId) {
-                    console.log('Message matches current group');
-                    // Kiểm tra xem có phải tin nhắn của chính mình không
                     const isMyMessage = message.senderId === profileId;
-
                     const formattedMessage = {
                         id: message.id,
                         message: message.content,
@@ -135,71 +95,61 @@ const ChatDetail = () => {
                         isPending: false
                     };
 
-                    // Nếu là tin nhắn của người khác, thêm trực tiếp vào store
                     if (!isMyMessage) {
                         dispatch(addMessage(formattedMessage));
                     }
-                } else {
-                    console.log('Message does not match current group');
                 }
             });
 
+            // Thêm xử lý sự kiện messageRecalled
             socket.on('messageRecalled', (data) => {
-                if (data.messageId) {
-                    dispatch(updateMessage({
-                        id: data.messageId,
-                        recalled: true
-                    }));
-                    if (data.messageId && data.groupId === groupId) {
-                        console.log("nhận được dữ liệu thu hồi:", data);
-                        // Cập nhật tin nhắn trong redux store
-                        dispatch({
-                            type: 'chat/updateMessage',
-                            payload: {
-                                id: data.messageId,
-                                isRecalled: true,
-                            }
-                        });
-                    }
+                console.log('Nhận sự kiện messageRecalled trong chatDetail:', data);
+                const { messageId, groupId: recalledGroupId } = data;
+                
+                // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+                if (recalledGroupId === groupId && messageId) {
+                    // Buộc cập nhật tin nhắn thu hồi
+                    dispatch({
+                        type: 'chat/messageRecalled',
+                        payload: {
+                            messageId,
+                            groupId: recalledGroupId
+                        }
+                    });
+                    
+                    // Thông báo cập nhật giao diện
+                    console.log('Đã cập nhật tin nhắn thu hồi:', messageId);
                 }
             });
 
+            // Thêm listener cho messageDeleted
             socket.on('messageDeleted', (data) => {
-                if (data.messageId) {
-                    dispatch(deleteMessage(data.messageId));
-                    if (data.messageId && data.groupId === groupId) {
-                        dispatch({
-                            type: 'chat/messageDeleted',
-                            payload: {
-                                messageId: data.messageId,
-                                groupId: data.groupId
-                            }
-                        });
-                    }
+                console.log('Nhận sự kiện messageDeleted trong chatDetail:', data);
+                const { messageId, groupId: deletedGroupId, userId } = data;
+                
+                // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+                if (deletedGroupId === groupId && messageId) {
+                    // Xử lý xóa tin nhắn khỏi UI
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: { messageId, userId }
+                    });
+                    console.log('Đã xóa tin nhắn:', messageId);
                 }
             });
 
             return () => {
-                console.log('Cleaning up socket connections');
-                if (socket.connected) {
-                    socket.emit('leave', { profileId, groupId });
+                // Sử dụng leaveChat từ socketService
+                if (socket?.connected) {
+                    socketService.leaveChat(profileId, groupId);
                 }
                 socket.off('connect');
                 socket.off('disconnect');
                 socket.off('error');
-                socket.off('open');
-                socket.off('send');
-                socket.off('recall');
-                socket.off('delete');
+                socket.off('newMessage');
                 socket.off('messageRecalled');
-                socket.off('messageDeleted');
+                socket.off('messageDeleted'); // Thêm dòng này
             };
-        } else {
-            console.log('Socket or required params missing:', {
-                socketExists: !!socket,
-                groupId,
-                profileId
-            });
         }
     }, [socket, groupId, profileId, dispatch]);
 
@@ -209,9 +159,6 @@ const ChatDetail = () => {
             dispatch(setCurrentChat(null));
         };
     }, [groupId, profileId]);
-
-
-
 
     const handleSendMessage = async (messageText) => {
         const socket = socketService.getSocket();
@@ -258,8 +205,8 @@ const ChatDetail = () => {
 
                 dispatch(setMessages([...updatedMessages, newMessage]));
 
-                // Emit socket event
-                socket.emit('send', {
+                // Emit socket event thông qua socketService
+                socketService.sendMessage({
                     messageId: response.data.id,
                     groupId: groupId,
                     senderId: profileId,

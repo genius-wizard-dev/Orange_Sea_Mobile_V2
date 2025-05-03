@@ -50,60 +50,39 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         setIsOpen(false);
     }, []);
 
-    const handleRecall = useCallback(async () => {
+    const handleRecallMessage = async () => {
         if (msg.id) {
             try {
                 const result = await dispatch(recallMessage(msg.id)).unwrap();
-                if (result.status === 'error') {
-                    Alert.alert(
-                        'Lỗi thu hồi',
-                        result.message || 'Không thể thu hồi tin nhắn',
-                        [{ text: 'Đã hiểu', style: 'default' }]
-                    );
-                    return;
-                }
-
-                // Emit socket event khi thu hồi thành công
-                const socket = socketService.getSocket();
-                if (socket) {
-                    console.log("đã gửi socket thu hòi")
-                    socket.emit('recall', {
-                        messageId: msg.id,
-                        groupId: msg.groupId
-                    });
+                if (result && result.id) {
+                    // Nếu API thành công, emit socket event
+                    socketService.emitRecallMessage(result.id, result.groupId);
                 }
             } catch (error) {
-                Alert.alert(
-                    'Lỗi thu hồi',
-                    error.message || 'Không thể thu hồi tin nhắn',
-                    [{ text: 'Đã hiểu', style: 'default' }]
-                );
+                console.error('Lỗi khi thu hồi tin nhắn:', error);
             }
-            handleClose();
         }
-    }, [msg.id, msg.groupId, dispatch]);
+
+    };
 
     const handleDelete = useCallback(async () => {
         if (msg.id) {
             try {
                 const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
-                if (result.status === 'success') {
-                    // Emit socket event khi xóa thành công
-                    const socket = socketService.getSocket();
-                    if (socket) {
-                        socket.emit('delete', {
+                if (result?.success) {
+                    // Đảm bảo gửi đủ thông tin
+                    socketService.emitDeleteMessage(msg.id, msg.groupId, msg.senderId);
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: {
                             messageId: msg.id,
                             groupId: msg.groupId,
                             userId: msg.senderId
-                        });
-                    }
+                        }
+                    });
                 }
             } catch (error) {
-                Alert.alert(
-                    'Lỗi xóa tin nhắn',
-                    error.message || 'Không thể xóa tin nhắn',
-                    [{ text: 'Đã hiểu', style: 'default' }]
-                );
+                Alert.alert('Lỗi xóa tin nhắn', error.message || 'Không thể xóa tin nhắn');
             }
             handleClose();
         }
@@ -113,7 +92,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         <MessageOptionsPopover
             isOpen={isOpen}
             onClose={handleClose}
-            onRecall={handleRecall}
+            onRecall={handleRecallMessage}
             onDelete={handleDelete}
             isMyMessage={isMyMessage}
             isRecalled={msg.isRecalled}
@@ -159,7 +138,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 maxWidth="96%"
                                 width="auto"
                                 elevation={1}
-                                
+
                             >
                                 {/* {!isMyMessage && msg.sender && (
                                     <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>

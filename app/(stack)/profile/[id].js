@@ -24,7 +24,7 @@ const LoadingButton = () => (
   >
     <XStack alignItems="center" space={5}>
       <Spinner size="small" color="#666" />
-      <Text color="#666">Đang tải...</Text>
+      <Text color="#666">Đang tải thông tin...</Text>
     </XStack>
   </Button>
 );
@@ -44,8 +44,8 @@ export default function Info() {
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isHandlingRequest, setIsHandlingRequest] = useState(false);
-  
-  
+
+
   // console.log(id, 'ID from params');
 
   const fetchInfo = async () => {
@@ -54,7 +54,7 @@ export default function Info() {
     try {
       const result = await apiService.get(ENDPOINTS.PROFILE.INFO(id));
 
-      console.log(result);
+      // console.log(result);
 
       if (result.status === 'success' && result.data) {
         setInfo(result.data);
@@ -75,12 +75,12 @@ export default function Info() {
         setIsDataLoaded(false);
         const profileResult = await dispatch(getProfile()).unwrap();
         await fetchInfo();
-        
+
         const isOwnProfile = profileResult?.id === id;
         if (!isOwnProfile) {
           const statusResult = await dispatch(checkFriendshipStatus(id)).unwrap();
-          console.log('Full status result:', statusResult); // Thêm log chi tiết hơn
-          
+          // console.log('Full status result:', statusResult); // Thêm log chi tiết hơn
+
           await Promise.all([
             dispatch(getSentRequests()),
             dispatch(getReceivedRequests())
@@ -96,7 +96,7 @@ export default function Info() {
   }, [id, dispatch]);
 
   useEffect(() => {
-    console.log('friendshipStatus from redux:', friendshipStatus);
+    // console.log('friendshipStatus from redux:', friendshipStatus);
   }, [friendshipStatus]);
 
   // Sync local state with redux state
@@ -113,10 +113,13 @@ export default function Info() {
     try {
       setIsSending(true);
       const result = await dispatch(sendFriendRequest(info.id)).unwrap();
-      if (result.status === 'success') {
+
+      // console.log(result, 'Send Friend Request Result'); // Debug log
+
+      if (result) {
         Alert.alert('Thông báo', 'Gửi lời mời kết bạn thành công');
-        // Nên check lại danh sách sent requests để cập nhật UI
         await dispatch(getSentRequests());
+
       } else {
         Alert.alert('Lỗi', result.message || 'Không thể gửi lời mời kết bạn');
       }
@@ -130,22 +133,22 @@ export default function Info() {
   const handleAcceptRequest = async (requestId) => {
     try {
       setIsHandlingRequest(true);
-      const result = await dispatch(handleFriendRequest({ 
-        requestId, 
-        action: 'ACCEPT' 
+      const result = await dispatch(handleFriendRequest({
+        requestId,
+        action: 'ACCEPT'
       })).unwrap();
 
       if (result.status === 'success') {
         Alert.alert('Thông báo', 'Đã chấp nhận lời mời kết bạn');
         // Cập nhật lại friendshipStatus
         setFriendshipStatus({
-            isFriend: true,
-            friendshipId: result.id
+          isFriend: true,
+          friendshipId: result.id
         });
         // Refresh lại data
         await Promise.all([
-            dispatch(checkFriendshipStatus(id)),
-            dispatch(getReceivedRequests())
+          dispatch(checkFriendshipStatus(id)),
+          dispatch(getReceivedRequests())
         ]);
       } else {
         Alert.alert('Lỗi', result.message || 'Không thể chấp nhận lời mời');
@@ -160,9 +163,9 @@ export default function Info() {
   const handleRejectRequest = async (requestId) => {
     try {
       setIsHandlingRequest(true);
-      const result = await dispatch(handleFriendRequest({ 
-        requestId, 
-        action: 'REJECT' 
+      const result = await dispatch(handleFriendRequest({
+        requestId,
+        action: 'REJECT'
       })).unwrap();
 
       if (result.status === 'success') {
@@ -243,7 +246,7 @@ export default function Info() {
       );
     }
 
-    console.log('Current friendshipStatus:', friendshipStatus); // Debug log
+    // console.log('Current friendshipStatus:', friendshipStatus); // Debug log
 
     // Use reduxFriendshipStatus instead of local state
     if (reduxFriendshipStatus?.isFriend) {
@@ -320,7 +323,12 @@ export default function Info() {
   const renderLoadingState = () => (
     <YStack flex={1} backgroundColor="white">
       <HeaderLeft goBack={goBack} title="Trang cá nhân" />
-      <View style={{ height: 150, backgroundColor: '#E94057' }} />
+
+      <View style={{ height: 200, backgroundColor: '#E94057', }} >
+
+      </View>
+
+
       <YStack paddingHorizontal={20}>
         <View style={{
           width: 100,
@@ -354,12 +362,17 @@ export default function Info() {
       {/* Cover Image */}
       <View
         style={{
-          height: 150,
-          justifyContent: 'flex-end',
-          padding: 20,
-          backgroundColor: '#E94057',
+          height: 200,
         }}
-      ></View>
+      >
+        <ImageBackground
+          source={{ uri: 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        >
+        </ImageBackground>
+
+      </View>
 
       {/* Profile Info Section */}
       <YStack marginTop={-50} paddingHorizontal={20}>
