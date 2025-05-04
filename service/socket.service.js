@@ -71,7 +71,7 @@ class SocketService {
 
         return new Promise((resolve, reject) => {
             this.socket.emit('open', { profileId, groupId }, (response) => {
-                console.log('Open chat response:', response);
+                // console.log('Open chat response:', response);
                 if (response?.status === 'success' && response?.messages) {
                     const formattedMessages = response.messages.map(msg => ({
                         id: msg.id,
@@ -246,7 +246,7 @@ class SocketService {
 
         // userStatusUpdate: { profileId: string, isOnline: boolean, isActive: boolean }
         this.socket.on('userStatusUpdate', (data) => {
-            console.log('User status update:', data);
+            // console.log('User status update:', data);
             const { profileId, isOnline, isActive, groupId } = data;
             dispatch({
                 type: 'chat/statusUpdated',

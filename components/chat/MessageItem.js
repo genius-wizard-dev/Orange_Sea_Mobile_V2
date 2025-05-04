@@ -121,7 +121,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                         <XStack alignItems="center" space>
                             {!isMyMessage && showAvatar && msg.sender && (
                                 <Image
-                                    source={{ uri: msg.sender.avatarUrl || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
+                                    source={{ uri: msg.sender.avatar || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
                                     width={30}
                                     height={30}
                                     borderRadius={15}

@@ -150,7 +150,8 @@ const chatSlice = createSlice({
             senderId: message.senderId,
             createdAt: message.createdAt,
             groupId: message.groupId,
-            sender: message.sender
+            sender: message.sender,
+            isRecalled: message.isRecalled,
           };
 
           // Tăng unread count nếu không phải current chat

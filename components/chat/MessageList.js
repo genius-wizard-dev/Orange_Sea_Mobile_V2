@@ -5,7 +5,7 @@ import MessageItem from './MessageItem';
 const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) => {
     const flatListRef = useRef(null);
     const initialScroll = useRef(true);
-    const [forceUpdate, setForceUpdate] = useState(0); // Thêm state để force update
+    const [forceUpdate, setForceUpdate] = useState(0);
 
     useImperativeHandle(ref, () => ({
         scrollToEnd: () => {
@@ -46,7 +46,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
             setForceUpdate(prev => prev + 1);
         }
     }, [messages, messages?.some(m => m.isRecalled)]);
-
+    
     const formatMessageTime = (timestamp) => {
         const date = new Date(timestamp);
         const today = new Date();
@@ -134,7 +134,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     };
 
     if (isLoading) {
-        return <View style={styles.center}><Text>Đang tải các đoạn tin nhắn...</Text></View>;
+        return <View style={styles.center}><ActivityIndicator size="large" color="#FF7A1E" /></View>;
     }
 
     return (
@@ -155,7 +155,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10
             }}
-            extraData={[forceUpdate, profileId, messages.length]} // Thêm messages.length
+            extraData={[forceUpdate, profileId, messages.length]}
         />
     );
 });

@@ -1,9 +1,12 @@
-import { Text, YStack, XStack, Input, Tabs, ScrollView } from "tamagui";
+import { Text, YStack, XStack, Input, Tabs, ScrollView, Spinner } from "tamagui";
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigation, useRouter } from "expo-router";
+import { useDispatch, useSelector } from 'react-redux';
+import { getFriendList } from '../../redux/thunks/friend';
+import { Image } from 'react-native';
 
-const ContactItem = ({ name, isSystem, onPress }) => (
+const ContactItem = ({ name, isSystem, onPress, avatar }) => (
     <XStack padding={16} alignItems="center" space={12}
         onPress={onPress}>
         {isSystem ? (
@@ -22,7 +25,17 @@ const ContactItem = ({ name, isSystem, onPress }) => (
                 width={48}
                 height={48}
                 backgroundColor="$gray5"
-                borderRadius={25} />
+                borderRadius={25}
+                overflow="hidden"
+            >
+                {avatar && (
+                    <Image 
+                        source={{ uri: avatar }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                    />
+                )}
+            </YStack>
         )}
         <YStack flex={1}>
             <Text fontSize={16} color="#1A1A1A">{name}</Text>
@@ -30,19 +43,21 @@ const ContactItem = ({ name, isSystem, onPress }) => (
                 <Text fontSize={14} color="$gray10">Các liên hệ có dùng Zalo</Text>
             )}
         </YStack>
-        {/* {!isSystem && (
-            <XStack space={12}>
-                <Ionicons name="call-outline" size={24} color="#666" />
-                <Ionicons name="videocam-outline" size={24} color="#666" />
-            </XStack>
-        )} */}
     </XStack>
 );
 
 export default function Contact() {
     const [activeTab, setActiveTab] = useState("friends");
-    const navigation = useNavigation(); // Assuming you are using React Navigation
+    const navigation = useNavigation();
     const router = useRouter();
+    const dispatch = useDispatch();
+    const { friends, loading } = useSelector((state) => state.friend);
+    const { profile } = useSelector((state) => state.profile);
+
+    useEffect(() => {
+        dispatch(getFriendList());
+    }, [dispatch]);
+
     const handleOpenPageReq = () => {
         router.push({
             pathname: '/contact/listRequestFriend',
@@ -50,21 +65,19 @@ export default function Contact() {
         });
     }
 
+    const handleOpenChat = (friendProfile) => {
+        // router.push({
+        //     pathname: '/chat/chatDetail',
+        //     params: {
+        //         groupId: friendProfile.id,
+        //         profileId: profile?.id,
+        //         goBack: '/contact'
+        //     }
+        // });
+    };
+
     return (
         <YStack flex={1} backgroundColor="white">
-            {/* <YStack paddingTop={50} paddingHorizontal={16}>
-                <XStack alignItems="center" space={12}>
-                    <Input
-                        flex={1}
-                        placeholder="Tìm kiếm"
-                        paddingLeft={40}
-                        backgroundColor="$gray3"
-                        borderWidth={0}
-                    />
-                    <Ionicons name="person-add-outline" size={24} color="#0068FF" />
-                </XStack>
-            </YStack> */}
-
             <Tabs
                 value={activeTab}
                 onValueChange={setActiveTab}
@@ -117,23 +130,35 @@ export default function Contact() {
                     <ScrollView>
                         <XStack padding={12} space={5}>
                             <Text fontSize={14} color="$gray11">Tất cả</Text>
-                            <Text fontSize={14} color="$gray11" >3</Text>
+                            <Text fontSize={14} color="$gray11" >{friends?.length || 0}</Text>
                         </XStack>
 
                         <ContactItem
                             name="Lời mời kết bạn"
                             isSystem="invite"
-                            onPress={()=>handleOpenPageReq()}
+                            onPress={handleOpenPageReq}
                         />
-                        {/* <ContactItem name="Danh bạ máy" isSystem="phonebook" />
-                        <ContactItem name="Sinh nhật" isSystem="birthday" /> */}
 
                         <Text padding={16} fontSize={16} color="$gray11">Danh sách bạn bè</Text>
-                        <ContactItem name="Nguyen V Phong" />
-                        <ContactItem name="Yume - Nhi Nhi" />
-                        <ContactItem name="Zalo" />
-                        <ContactItem name="Zalo" />
-                        <ContactItem name="Zalo" />
+                        
+                        {loading ? (
+                            <YStack height={200} justifyContent="center" alignItems="center">
+                                <Spinner size="large" color="$orange10" />
+                            </YStack>
+                        ) : friends?.length > 0 ? (
+                            friends.map((friend) => (
+                                <ContactItem 
+                                    key={friend.id}
+                                    name={friend.name}
+                                    avatar={friend.avatar}
+                                    onPress={() => handleOpenChat(friend)}
+                                />
+                            ))
+                        ) : (
+                            <YStack height={200} justifyContent="center" alignItems="center">
+                                <Text color="$gray11">Chưa có bạn bè</Text>
+                            </YStack>
+                        )}
                     </ScrollView>
                 </Tabs.Content>
 

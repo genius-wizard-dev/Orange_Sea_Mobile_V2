@@ -40,7 +40,7 @@ const Chat = () => {
             // console.log("otherParticipant ",otherParticipant)
 
             // Nếu có người tham gia khác, emit trạng thái người dùng của họ
-            if (otherParticipant) { 
+            if (otherParticipant) {
               const userStatus = userStatuses[otherParticipant.userId];
 
               console.log("userStatus ", userStatus)
@@ -113,7 +113,29 @@ const Chat = () => {
   }
 
   const renderGroup = (group) => {
+    if (!group) return null; // Thêm check này
+
     const groupDetail = groupDetails[group.id];
+
+    // Lấy lastMessage từ nhiều nguồn và ưu tiên theo thứ tự
+    const lastMessage = lastMessages[group.id] ||
+      group.messages?.[0] ||
+      groupDetail?.messages?.[0];
+
+    // console.log('Last message sources:', {
+    //   fromLastMessages: lastMessages[group.id],
+    //   fromGroup: group.messages?.[0],
+    //   fromGroupDetail: groupDetail?.messages?.[0],
+    //   finalLastMessage: lastMessage
+    // });
+
+    // Kiểm tra isRecalled từ messages trong groupDetail nếu có
+    const messageInDetail = groupDetail?.messages?.find(m => m.id === lastMessage?.id);
+    const isRecalled = messageInDetail?.isRecalled || lastMessage?.isRecalled || false;
+
+    const lastMessageContent = isRecalled
+      ? "Tin nhắn đã thu hồi"
+      : lastMessage?.content || "Không có tin nhắn";
 
     const otherParticipant = !group.isGroup && groupDetail?.participants?.find(
       p => p?.userId !== profile?.id
@@ -139,16 +161,14 @@ const Chat = () => {
     //   allStatuses: userStatuses
     // });
 
-    const displayName = group.isGroup ?
-      group.name :
-      otherParticipant?.user?.name || 'Loading...';
+    const displayName = group.isGroup
+      ? (group.name || 'Nhóm chat')  // Thêm fallback name
+      : (otherParticipant?.user?.name || 'Loading...');
 
     const avatar = group.isGroup ?
-      'https://i.pravatar.cc/150?img=1' :
-      otherParticipant?.user?.avatar || 'https://i.pravatar.cc/150?img=1';
+      'https://i.ibb.co/jvVzkvBm/bgr-default.png' :
+      otherParticipant?.user?.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png';
 
-    const lastMessage = lastMessages[group.id] || group.messages?.[0];
-    const lastMessageContent = lastMessage?.content || "Không có tin nhắn";
     const sender = lastMessage?.sender?.name || '';
     const prefix = lastMessage?.senderId === profile?.id ? "Bạn: " : sender ? `` : "";
     const unreadCount = unreadCounts[group.id] || 0;  // Đã định nghĩa ở đây

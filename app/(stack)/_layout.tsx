@@ -17,6 +17,7 @@ export default function StackLayout() {
           <HeaderLeft
             goBack="/me"
             title=""
+            onGoBack=""
           />
         ),
         headerTitleStyle: {
@@ -120,6 +121,21 @@ export default function StackLayout() {
         name="group/createGroup"
         options={{
           title: 'Tạo nhóm',
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="group/groupDetail"
+        options={{
+          title: 'Chi tiết nhóm',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="group/addParticipant"
+        options={{
+          title: 'Thêm thành viên',
           headerShown: false,
         }}
       />

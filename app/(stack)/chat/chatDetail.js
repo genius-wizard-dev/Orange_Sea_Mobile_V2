@@ -8,6 +8,7 @@ import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { sendMessage } from '../../../redux/thunks/chat'
 import { addMessage, setCurrentChat, clearMessages, setMessages, markGroupAsRead, deleteMessage, updateMessage } from '../../../redux/slices/chatSlice'
+import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
@@ -17,20 +18,27 @@ const ChatDetail = () => {
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
-    const { groups, groupDetails } = useSelector((state) => state.group);
+    const { groups, groupDetails, detailLoading } = useSelector((state) => state.group);
     const [partnerName, setPartnerName] = useState('Chat');
 
     useEffect(() => {
         if (groupDetails && groupId) {
             const groupDetail = groupDetails[groupId];
-            if (groupDetail?.participants) {
-                const otherParticipant = groupDetail.participants.find(
-                    p => p?.userId !== profileId
-                )?.user;
-                setPartnerName(otherParticipant?.name || 'Chat');
+            // console.log("groupDetail ", groupDetail)
+            if (groupDetail) {
+                if (groupDetail.isGroup) {
+                    // Nếu là nhóm thì lấy tên nhóm
+                    setPartnerName(groupDetail.name || 'Nhóm chat');
+                } else if (groupDetail.participants) {
+                    // Nếu là chat 1-1 thì lấy tên người kia
+                    const otherParticipant = groupDetail.participants.find(
+                        p => p?.userId !== profile?.id // Sửa profileId thành profile?.id
+                    )?.user;
+                    setPartnerName(otherParticipant?.name || 'Chat');
+                }
             }
         }
-    }, [groupDetails, groupId, profileId]);
+    }, [groupDetails, groupId, profile?.id]); // Thêm profile?.id vào dependencies
 
     useEffect(() => {
         dispatch(clearMessages());
@@ -41,23 +49,23 @@ const ChatDetail = () => {
             const initializeChat = async () => {
                 try {
                     console.log('Starting chat initialization...');
-                    
+
                     // Đợi kết quả register
                     const registerResult = await socketService.registerChat(profileId, groupId, dispatch);
                     // console.log('🔄 Register chat result:', registerResult);
-                    
+
                     if (registerResult?.status === 'success') {
                         // Chỉ mở chat nếu register thành công
                         const openResult = await socketService.openChat(profileId, groupId, dispatch);
                         // console.log('📖 Open chat result:', openResult);
-                        
+
                         if (openResult?.status === 'success') {
                             console.log('✅ Chat initialized successfully');
                             setIsLoading(false);
                             return;
                         }
                     }
-                    
+
                     // Nếu có lỗi
                     console.log('❌ Failed to initialize chat');
                     setIsLoading(false);
@@ -105,7 +113,7 @@ const ChatDetail = () => {
             socket.on('messageRecalled', (data) => {
                 console.log('Nhận sự kiện messageRecalled trong chatDetail:', data);
                 const { messageId, groupId: recalledGroupId } = data;
-                
+
                 // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
                 if (recalledGroupId === groupId && messageId) {
                     // Buộc cập nhật tin nhắn thu hồi
@@ -116,7 +124,7 @@ const ChatDetail = () => {
                             groupId: recalledGroupId
                         }
                     });
-                    
+
                     // Thông báo cập nhật giao diện
                     console.log('Đã cập nhật tin nhắn thu hồi:', messageId);
                 }
@@ -126,7 +134,7 @@ const ChatDetail = () => {
             socket.on('messageDeleted', (data) => {
                 console.log('Nhận sự kiện messageDeleted trong chatDetail:', data);
                 const { messageId, groupId: deletedGroupId, userId } = data;
-                
+
                 // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
                 if (deletedGroupId === groupId && messageId) {
                     // Xử lý xóa tin nhắn khỏi UI
@@ -159,6 +167,12 @@ const ChatDetail = () => {
             dispatch(setCurrentChat(null));
         };
     }, [groupId, profileId]);
+
+    useEffect(() => {
+        if (groupId && !groupDetails[groupId]) {
+            dispatch(getGroupDetail(groupId));
+        }
+    }, [groupId, dispatch]);
 
     const handleSendMessage = async (messageText) => {
         const socket = socketService.getSocket();
@@ -233,6 +247,7 @@ const ChatDetail = () => {
             enabled
         >
             <ChatHeaderComponent
+                dataDetail={groupDetails[groupId]}
                 goBack={goBack}
                 title={partnerName}
             />
