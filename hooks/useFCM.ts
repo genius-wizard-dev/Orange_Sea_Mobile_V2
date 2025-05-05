@@ -29,7 +29,7 @@ export const useFCM = () => {
       const storedToken = await getFcmTokenFromSecureStore();
       if (storedToken) {
         // console.log("fcm o duoi ");
-        console.log(fcmToken);
+        console.log("fcm token :", fcmToken);
         setFcmToken(storedToken);
         return storedToken;
       }

@@ -53,24 +53,25 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const handleRecallMessage = async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(recallMessage(msg.id)).unwrap();
-                if (result && result.id) {
-                    // Nếu API thành công, emit socket event
-                    socketService.emitRecallMessage(result.id, result.groupId);
+                const result = await dispatch(recallMessage(msg.id));
+                if (result.meta.requestStatus === 'rejected') {
+                    alert(result.payload?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
+                } else {
+                    socketService.emitRecallMessage(result.payload.id, result.payload.groupId);
                 }
             } catch (error) {
                 console.error('Lỗi khi thu hồi tin nhắn:', error);
             }
         }
-
     };
 
     const handleDelete = useCallback(async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
-                if (result?.success) {
-                    // Đảm bảo gửi đủ thông tin
+                const result = await dispatch(deleteMessageThunk(msg.id));
+                if (result.meta.requestStatus === 'rejected') {
+                    alert(result.payload?.message || 'Có lỗi xảy ra khi xoá tin nhắn');
+                } else {
                     socketService.emitDeleteMessage(msg.id, msg.groupId, msg.senderId);
                     dispatch({
                         type: 'chat/messageDeleted',
@@ -81,8 +82,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                         }
                     });
                 }
+
             } catch (error) {
-                Alert.alert('Lỗi xóa tin nhắn', error.message || 'Không thể xóa tin nhắn');
+                console.error('Lỗi khi xoá tin nhắn:', error);
             }
             handleClose();
         }
@@ -113,9 +115,6 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                         // backgroundColor={isPressed ? 'rgba(0,0,0,0.05)' : 'transparent'}
                         borderRadius={15}
                         padding={2}
-                        // shadowColor="black"
-                        // shadowOffset={{ width: 0, height: 4 }}
-                        // shadowOpacity={isPressed ? 0.3 : 0}
                         shadowRadius={6}
                     >
                         <XStack alignItems="center" space>

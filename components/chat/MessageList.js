@@ -46,7 +46,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
             setForceUpdate(prev => prev + 1);
         }
     }, [messages, messages?.some(m => m.isRecalled)]);
-    
+
     const formatMessageTime = (timestamp) => {
         const date = new Date(timestamp);
         const today = new Date();
@@ -98,11 +98,11 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     const renderMessage = ({ item, index, messages }) => {
         // console.log(`Rendering message ${index}: ID=${item.id}, isRecalled=${item.isRecalled}`);
         const isMyMessage = item.senderId === profileId;
-        
+
         // Kiểm tra tin nhắn trước đó
         const prevMessage = index < messages.length - 1 ? messages[index + 1] : null;
-        const showAvatar = !isMyMessage && (!prevMessage || 
-            prevMessage.senderId !== item.senderId || 
+        const showAvatar = !isMyMessage && (!prevMessage ||
+            prevMessage.senderId !== item.senderId ||
             (new Date(item.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 60000)
         );
 
@@ -120,7 +120,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
                         <View style={styles.dateHeaderLine} />
                     </View>
                 )}
-                <MessageItem 
+                <MessageItem
                     key={`${item.id}_${forceUpdate}`}
                     msg={{
                         ...item,
@@ -141,16 +141,16 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         <FlatList
             ref={flatListRef}
             data={messages ? [...messages].reverse() : []}
-            renderItem={({ item, index }) => renderMessage({ 
-                item, 
-                index, 
-                messages: messages ? [...messages].reverse() : [] 
+            renderItem={({ item, index }) => renderMessage({
+                item,
+                index,
+                messages: messages ? [...messages].reverse() : []
             })}
             keyExtractor={item => `${item.id || item.tempId}_${forceUpdate}`}
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
             onLayout={scrollToBottom}
-            inverted={true}
+            inverted={messages.length < 5 ? false : true}
             maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10

@@ -1,4 +1,4 @@
-import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native'
+import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground, TouchableWithoutFeedback, Keyboard } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
@@ -236,41 +236,42 @@ const ChatDetail = () => {
     };
 
     const handleInputFocus = () => {
-        messageListRef.current?.scrollToEnd();
+        messageListRef.current?.scrollToEnd({ animated: true });
     };
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.container, { marginBottom: 0 }]}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-            enabled
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.container}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 70 : 0}
         >
-            <ChatHeaderComponent
-                dataDetail={groupDetails[groupId]}
-                goBack={goBack}
-                title={partnerName}
-            />
-            <ImageBackground
-                source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
-                // Hoặc dùng màu nền solid nếu chưa có ảnh
-                // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
-                style={styles.backgroundImage}
-                resizeMode="cover"
-            >
-                <View style={styles.contentContainer}>
-                    <MessageList
-                        ref={messageListRef}
-                        messages={messages}
-                        profileId={profileId}
-                        isLoading={isLoading}
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <ImageBackground
+                    source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
+                    // Hoặc dùng màu nền solid nếu chưa có ảnh
+                    // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
+                    style={styles.backgroundImage}
+                    resizeMode="cover"
+                >
+                    <ChatHeaderComponent
+                        dataDetail={groupDetails[groupId]}
+                        goBack={goBack}
+                        title={partnerName}
                     />
-                    <MessageInput
-                        onSendMessage={handleSendMessage}
-                        onFocusInput={handleInputFocus}
-                    />
-                </View>
-            </ImageBackground>
+                    <View style={styles.contentContainer}>
+                        <MessageList
+                            ref={messageListRef}
+                            messages={messages}
+                            profileId={profileId}
+                            isLoading={isLoading}
+                        />
+                        <MessageInput
+                            onSendMessage={handleSendMessage}
+                            onFocusInput={handleInputFocus}
+                        />
+                    </View>
+                </ImageBackground>
+            </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
     );
 };
@@ -286,8 +287,7 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         flex: 1,
-        marginBottom: 0,
-        paddingBottom: 0,
+        paddingBottom: 65,
     }
 });
 

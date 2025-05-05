@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { View, Text, XStack, YStack, Image, Spinner } from 'tamagui';
 import { StyleSheet } from 'react-native'; // Thêm StyleSheet từ react-native
 import { useDispatch, useSelector } from 'react-redux';
@@ -20,6 +20,7 @@ const Chat = () => {
   const userStatuses = useSelector(state => state.chat.userStatuses);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
+  const navigation = useNavigation()
   useEffect(() => {
     const fetchData = async () => {
       const groupResult = await dispatch(getListGroup()).unwrap();
@@ -172,6 +173,8 @@ const Chat = () => {
     const sender = lastMessage?.sender?.name || '';
     const prefix = lastMessage?.senderId === profile?.id ? "Bạn: " : sender ? `` : "";
     const unreadCount = unreadCounts[group.id] || 0;  // Đã định nghĩa ở đây
+
+
 
     return (
       <XStack

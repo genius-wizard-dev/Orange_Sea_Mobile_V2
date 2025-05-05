@@ -8,11 +8,21 @@ import { RootState } from '~/redux/store';
 import { getProfile } from '~/redux/thunks/profile';
 import { removeAccessToken, removeRefreshToken } from '~/utils/token';
 import { logout } from '~/service/auth.service';
+import SheetComponent from '~/components/SheetComponent';
 
 export default function Me() {
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.profile);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const [shouldLogout, setShouldLogout] = useState(false);
+
+
+  useEffect(() => {
+    if (!logoutSheetOpen && shouldLogout) {
+      performLogout();
+      setShouldLogout(false);  // reset flag
+    }
+  }, [logoutSheetOpen, shouldLogout]);
 
   useEffect(() => {
     dispatch(getProfile() as any);
@@ -28,7 +38,7 @@ export default function Me() {
       },
     });
   };
-  
+
   const performLogout = async () => {
     try {
       // Gọi API logout
@@ -46,7 +56,7 @@ export default function Me() {
       router.replace('/');
     }
   };
-  
+
   const settingOptions = [
     {
       type: "profile",
@@ -153,81 +163,56 @@ export default function Me() {
           </Text>
         </Button>
 
-        <Sheet
-          modal
+        <SheetComponent
           open={logoutSheetOpen}
           onOpenChange={setLogoutSheetOpen}
-          snapPoints={[30]}
-          dismissOnSnapToBottom
-          forceRemoveScrollEnabled={logoutSheetOpen}
-          zIndex={100_001}
+          zIndex={100_003}
         >
-          <Sheet.Overlay
-            animation="quick"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-            backgroundColor="rgba(0,0,0,0.5)"
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: '100%',
-              height: '100%'
-            }}
-          />
-          <Sheet.Handle />
-          <Sheet.Frame
-            padding="$4"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <YStack space="$4" width="100%" alignItems="center">
-              {/* <Text 
+          <YStack space="$4" width="100%" alignItems="center">
+            {/* <Text 
                 fontSize={20} 
                 fontWeight="600" 
                 color="#E94057"
               >
                 Xác nhận đăng xuất
               </Text> */}
-              
-              <Text 
-                color="#666" 
-                textAlign="center" 
-                fontSize={16}
+
+            <Text
+              color="#666"
+              textAlign="center"
+              fontSize={16}
+            >
+              Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?
+            </Text>
+
+            <XStack width="100%" gap={12} marginTop={10}>
+              <Button
+                flex={1}
+                backgroundColor="#f2f2f2"
+                size="$5"
+                onPress={() => setLogoutSheetOpen(false)}
+                icon={<Ionicons name="close" size={20} color="#333" />}
               >
-                Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?
-              </Text>
+                <Text color="#333">Hủy</Text>
+              </Button>
 
-              <XStack width="100%" gap={12} marginTop={10}>
-                <Button
-                  flex={1}
-                  backgroundColor="#f2f2f2"
-                  size="$5"
-                  onPress={() => setLogoutSheetOpen(false)}
-                  icon={<Ionicons name="close" size={20} color="#333" />}
-                >
-                  <Text color="#333">Hủy</Text>
-                </Button>
-
-                <Button
-                  flex={1}
-                  backgroundColor="#FF7A1E"
-                  size="$5"
-                  onPress={() => {
-                    setLogoutSheetOpen(false);
-                    performLogout();
-                  }}
-                  icon={<Ionicons name="log-out-outline" size={20} color="white" />}
-                >
-                  <Text color="white">Đăng xuất</Text>
-                </Button>
-              </XStack>
-            </YStack>
-          </Sheet.Frame>
-        </Sheet>
+              <Button
+                flex={1}
+                backgroundColor="#FF7A1E"
+                size="$5"
+                onPress={() => {
+                  console.log("ấn đăng xuất");
+                  setLogoutSheetOpen(false);
+                  setShouldLogout(true);
+                }}
+                icon={<Ionicons name="log-out-outline" size={20} color="white" />}
+              >
+                <Text color="white">Đăng xuất</Text>
+              </Button>
+            </XStack>
+          </YStack>
+        </SheetComponent>
       </Stack>
-    </YStack>
+    </YStack >
   );
 }

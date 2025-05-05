@@ -55,29 +55,42 @@ export const uploadSticker = createAsyncThunk(
 
 export const recallMessage = createAsyncThunk(
   'chat/recallMessage',
-  async (messageId, { dispatch }) => {
+  async (messageId, { rejectWithValue }) => {
     try {
       console.log('Recalling message with ID:', messageId);
       const response = await apiService.put(ENDPOINTS.CHAT.RECALL(messageId));
-      // console.log('Recall API full response:', response);
-      return response.data; // Chỉ trả về data, không dispatch action
+      console.log('Recall API full response:', response);
+
+      // Nếu status không phải 200 thì reject
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
+      }
+
+      // Nếu thành công thì trả về data
+      return response.data;
     } catch (error) {
       console.error('Recall message API error details:', error);
-      throw error;
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi thu hồi tin nhắn' });
     }
   }
 );
 
 export const deleteMessageThunk = createAsyncThunk(
   'chat/deleteMessage',
-  async (messageId, { dispatch }) => {
+  async (messageId, { rejectWithValue }) => {
     try {
+      console.log('Deleting message with ID:', messageId);
       const response = await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
       console.log('Delete message API response:', response);
+      // Nếu status không phải 200 thì reject
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
+      }
+      // Nếu thành công thì trả về data
       return response.data;
     } catch (error) {
-      console.error('Delete message API error:', error);
-      throw error;
+      console.error('Delete message API error details:', error);
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi xoá tin nhắn' });
     }
   }
 );
