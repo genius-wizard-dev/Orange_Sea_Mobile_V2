@@ -98,6 +98,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
             onDelete={handleDelete}
             isMyMessage={isMyMessage}
             isRecalled={msg.isRecalled}
+            message={msg}  // Truyền msg vào MessageOptionsPopover
         >
             <XStack
                 justifyContent={isMyMessage ? 'flex-end' : 'flex-start'}
@@ -130,7 +131,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 <View style={{ width: 10 }} /> // Placeholder để giữ khoảng cách
                             )}
                             <YStack
-                                backgroundColor={isMyMessage ? '#FF7A1E' : '#e4e6eb'}
+                                backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                 padding={10}
                                 marginTop={5}
                                 borderRadius={15}
@@ -145,7 +146,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 {msg.isRecalled ? (
                                     <XStack alignItems="center">
                                         <Text
-                                            color={isMyMessage ? 'white' : '#65676b'}
+                                            color={isMyMessage ? '#cacbce' : '#949596'}
                                             fontStyle="italic"
                                         // textAlign={isMyMessage ? 'right' : 'left'}
                                         >

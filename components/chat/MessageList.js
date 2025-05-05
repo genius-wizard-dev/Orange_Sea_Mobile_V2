@@ -92,7 +92,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         });
     };
 
-    console.log('Messages in MessageList:', messages?.length);
+    // console.log('Messages in MessageList:', messages?.length);
     // console.log('Messages :', messages);
 
     const renderMessage = ({ item, index, messages }) => {
@@ -150,7 +150,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
             onLayout={scrollToBottom}
-            inverted={messages.length < 5 ? false : true}
+            inverted={messages.length < 6 ? false : true}
             maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10

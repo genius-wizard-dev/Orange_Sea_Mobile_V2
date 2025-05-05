@@ -20,6 +20,8 @@ const ChatDetail = () => {
     const messageListRef = React.useRef(null);
     const { groups, groupDetails, detailLoading } = useSelector((state) => state.group);
     const [partnerName, setPartnerName] = useState('Chat');
+    const [activeTab, setActiveTab] = useState(null);
+    const bottomSheetHeight = 300;
 
     useEffect(() => {
         if (groupDetails && groupId) {
@@ -84,7 +86,7 @@ const ChatDetail = () => {
 
             // New message handler
             socket.on('newMessage', (message) => {
-                console.log("nhan duoc tin nhan", message);
+                // console.log("nhan duoc tin nhan", message);
                 if (message.groupId === groupId) {
                     const isMyMessage = message.senderId === profileId;
                     const formattedMessage = {
@@ -239,6 +241,24 @@ const ChatDetail = () => {
         messageListRef.current?.scrollToEnd({ animated: true });
     };
 
+    const styles = StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: 'white',
+        },
+        backgroundImage: {
+            flex: 1,
+            width: '100%',
+        }
+    });
+
+    const dynamicStyles = {
+        contentContainer: {
+            flex: 1,
+            paddingBottom: activeTab ? bottomSheetHeight + 65 : 65
+        }
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -258,7 +278,7 @@ const ChatDetail = () => {
                         goBack={goBack}
                         title={partnerName}
                     />
-                    <View style={styles.contentContainer}>
+                    <View style={dynamicStyles.contentContainer}>
                         <MessageList
                             ref={messageListRef}
                             messages={messages}
@@ -268,6 +288,7 @@ const ChatDetail = () => {
                         <MessageInput
                             onSendMessage={handleSendMessage}
                             onFocusInput={handleInputFocus}
+                            onTabChange={setActiveTab}
                         />
                     </View>
                 </ImageBackground>
@@ -275,20 +296,5 @@ const ChatDetail = () => {
         </KeyboardAvoidingView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'white',
-    },
-    backgroundImage: {
-        flex: 1,
-        width: '100%',
-    },
-    contentContainer: {
-        flex: 1,
-        paddingBottom: 65,
-    }
-});
 
 export default ChatDetail;
