@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Button, Form, H1, Input, Separator, Text, XStack, YStack } from 'tamagui';
+import { Button, Form, H1, H2, Image, Input, Separator, Spinner, Text, XStack, YStack } from 'tamagui';
 import { ENDPOINTS } from '~/service/api.endpoint';
 import apiService from '~/service/api.service';
 import { setEmailInSecureStore } from '~/utils/token';
@@ -61,7 +61,7 @@ export default function Register() {
       if (error.response?.data?.message) {
         setApiError(error.response.data.message);
       } else {
-        setApiError('Registration failed. Please try again later.');
+        setApiError('Đăng ký không thành công. Vui lòng thử lại sau!');
       }
     } finally {
       setIsLoading(false);
@@ -74,10 +74,17 @@ export default function Register() {
       style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <YStack f={1} p="$4" space="$4" justifyContent="center">
-          <YStack space="$2" mb="$4">
-            <H1 ta="center">Create Account</H1>
-            <Text ta="center" theme="alt2">
-              Join our community today
+          <YStack space="$2" mb="$4"  justifyContent="center" alignItems='center'>
+            <Image
+              source={require('~/assets/logo_icon_text.png')}
+              alt="Logo"
+              width={250}
+              height={170}
+              marginBottom={40}
+            />
+            <H2 ta="center">Đăng ký</H2>
+            <Text ta="center" theme="alt2" marginBottom={30}>
+              Tham gia cộng đồng OrangeSea
             </Text>
           </YStack>
 
@@ -94,7 +101,7 @@ export default function Register() {
               <YStack>
                 <XStack alignItems="center" width="100%" position="relative">
                   <Input
-                    placeholder="Username"
+                    placeholder="Tên đăng nhập"
                     value={formData.username}
                     onChangeText={(text) => setFormData({ ...formData, username: text })}
                     size="$4"
@@ -145,7 +152,7 @@ export default function Register() {
               <YStack>
                 <XStack alignItems="center" width="100%" position="relative">
                   <Input
-                    placeholder="Password"
+                    placeholder="Mật khẩu"
                     value={formData.password}
                     onChangeText={(text) => setFormData({ ...formData, password: text })}
                     secureTextEntry={!showPassword}
@@ -180,8 +187,21 @@ export default function Register() {
                 )}
               </YStack>
 
-              <Button theme="active" size="$4" mt="$2" onPress={handleSubmit} disabled={isLoading}>
-                {isLoading ? 'Creating Account...' : 'Sign Up'}
+              <Button
+                theme="active"
+                size="$4" mt="$2"
+                onPress={handleSubmit}
+                disabled={isLoading}
+                backgroundColor="#FF7A1E"
+                pressStyle={{
+                  backgroundColor: '#FF7A1E',
+                  borderWidth: 0,
+                  scale: 0.98,
+                }}
+              >
+                <Text color="white" fontSize={16} fontWeight="600">
+                  {isLoading ? <Spinner color="white" /> : 'Đăng ký'}
+                </Text>
               </Button>
             </YStack>
           </Form>
@@ -189,9 +209,9 @@ export default function Register() {
           <YStack ai="center" mt="$4">
             <Separator />
             <XStack space="$2" mt="$4">
-              <Text>Already have an account?</Text>
+              <Text>Đã có tài khoản?</Text>
               <Text color="$blue10" fontWeight="bold" onPress={() => router.push('/login')}>
-                Sign In
+                Đăng nhập
               </Text>
             </XStack>
           </YStack>

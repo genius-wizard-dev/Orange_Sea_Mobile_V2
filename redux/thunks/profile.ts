@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ENDPOINTS } from '~/service/api.endpoint';
 import apiService from '~/service/api.service';
 import { ProfileResponse, UpdateProfileInput } from '~/types/profile';
+import { AxiosError } from 'axios'
 
 export const getProfile = createAsyncThunk('profile/me', async (_, { rejectWithValue }) => {
   try {
@@ -15,7 +16,12 @@ export const getProfile = createAsyncThunk('profile/me', async (_, { rejectWithV
     if (error instanceof z.ZodError) {
       return rejectWithValue(error.errors);
     }
-    return rejectWithValue((error as Error).message);
+    const axiosError = error as AxiosError<any>;
+    if (axiosError.response?.data) {
+      return rejectWithValue(axiosError.response.data);
+    }
+
+    return rejectWithValue({ message: (error as Error).message });
   }
 });
 
@@ -29,15 +35,18 @@ export const updateProfile = createAsyncThunk(
         data,
         'multipart/form-data'
       );
-      if (res.status === 'fail') {
-        throw new Error(`Profile update failed with error: ${res.message}`);
-      }
+
       return res;
     } catch (error) {
       if (error instanceof z.ZodError) {
         return rejectWithValue(error.errors);
       }
-      return rejectWithValue((error as Error).message);
+      const axiosError = error as AxiosError<any>;
+      if (axiosError.response?.data) {
+        return rejectWithValue(axiosError.response.data);
+      }
+
+      return rejectWithValue({ message: (error as Error).message });
     }
   }
 );
