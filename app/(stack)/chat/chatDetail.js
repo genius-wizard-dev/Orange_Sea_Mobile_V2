@@ -1,7 +1,8 @@
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground, TouchableWithoutFeedback, Keyboard } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import ChatHeaderComponent from '../../../components/header/ChatHeaderComponent'
 import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
@@ -18,29 +19,81 @@ const ChatDetail = () => {
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
-    const { groups, groupDetails, detailLoading } = useSelector((state) => state.group);
-    const [partnerName, setPartnerName] = useState('Chat');
+    const { groupDetails } = useSelector((state) => state.group);
     const [activeTab, setActiveTab] = useState(null);
     const bottomSheetHeight = 300;
+    const [refreshKey, setRefreshKey] = useState(0); // Thêm state này để force re-render
+    const navigation = useNavigation();
 
+    // Bắt sự kiện khi screen được focus
+    useFocusEffect(
+        React.useCallback(() => {
+            console.log('Screen focused - Fetching latest group details');
+            // Fetch group details mới nhất khi màn hình được focus
+            if (groupId) {
+                dispatch(getGroupDetail(groupId));
+                setRefreshKey(prev => prev + 1); // Cập nhật key để force re-render
+            }
+            
+            return () => {
+                // Cleanup khi screen unfocus
+            };
+        }, [groupId, dispatch])
+    );
+
+    // Thêm event listener cho navigation state change
     useEffect(() => {
-        if (groupDetails && groupId) {
-            const groupDetail = groupDetails[groupId];
-            // console.log("groupDetail ", groupDetail)
-            if (groupDetail) {
-                if (groupDetail.isGroup) {
-                    // Nếu là nhóm thì lấy tên nhóm
-                    setPartnerName(groupDetail.name || 'Nhóm chat');
-                } else if (groupDetail.participants) {
-                    // Nếu là chat 1-1 thì lấy tên người kia
-                    const otherParticipant = groupDetail.participants.find(
-                        p => p?.userId !== profile?.id // Sửa profileId thành profile?.id
-                    )?.user;
-                    setPartnerName(otherParticipant?.name || 'Chat');
+        const unsubscribe = navigation.addListener('state', (e) => {
+            // Khi state navigation thay đổi và màn hình này là current screen
+            if (e.data.state.routes[e.data.state.index].name.includes('chat/chatDetail')) {
+                console.log('Navigation state changed - Refreshing group data');
+                if (groupId) {
+                    dispatch(getGroupDetail(groupId));
+                    setRefreshKey(prev => prev + 1);
                 }
             }
+        });
+
+        return unsubscribe;
+    }, [navigation, groupId]);
+
+    // Lấy chi tiết nhóm trực tiếp từ Redux store
+    const currentGroupDetail = useMemo(() => {
+        return groupDetails[groupId] || null;
+    }, [groupDetails, groupId, refreshKey]); // Thêm refreshKey vào dependencies
+
+    // Tính toán tên người nhận tin nhắn dựa trên dữ liệu hiện tại từ store
+    const partnerName = useMemo(() => {
+        if (currentGroupDetail) {
+            if (currentGroupDetail.isGroup) {
+                // Nếu là nhóm thì lấy tên nhóm
+                return currentGroupDetail.name || 'Nhóm chat';
+            } else if (currentGroupDetail.participants) {
+                // Nếu là chat 1-1 thì lấy tên người kia
+                const otherParticipant = currentGroupDetail.participants.find(
+                    p => p?.userId !== profile?.id
+                )?.user;
+                return otherParticipant?.name || 'Chat';
+            }
         }
-    }, [groupDetails, groupId, profile?.id]); // Thêm profile?.id vào dependencies
+        return 'Chat';
+    }, [currentGroupDetail, profile?.id, refreshKey]); // Thêm refreshKey vào dependencies
+
+    // Tạo thêm một effect để component luôn cập nhật khi có thay đổi trong groupDetails
+    useEffect(() => {
+        if (groupId && groupDetails[groupId]) {
+            // Cập nhật force re-render
+            // (Không cần làm gì vì useMemo sẽ tự động tính lại partnerName)
+            console.log("Group details updated:", groupDetails[groupId].name);
+        }
+    }, [groupDetails, groupId]);
+
+    // Đảm bảo luôn có thông tin mới nhất của nhóm
+    useEffect(() => {
+        if (groupId) {
+            dispatch(getGroupDetail(groupId));
+        }
+    }, [groupId, dispatch]);
 
     useEffect(() => {
         dispatch(clearMessages());
@@ -170,12 +223,6 @@ const ChatDetail = () => {
         };
     }, [groupId, profileId]);
 
-    useEffect(() => {
-        if (groupId && !groupDetails[groupId]) {
-            dispatch(getGroupDetail(groupId));
-        }
-    }, [groupId, dispatch]);
-
     const handleSendMessage = async (messageText) => {
         const socket = socketService.getSocket();
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -259,6 +306,7 @@ const ChatDetail = () => {
         }
     };
 
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -267,16 +315,16 @@ const ChatDetail = () => {
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <ImageBackground
-                    source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
-                    // Hoặc dùng màu nền solid nếu chưa có ảnh
-                    // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
+                    source={require('../../../assets/bgr_mess.jpg')}
                     style={styles.backgroundImage}
                     resizeMode="cover"
                 >
                     <ChatHeaderComponent
-                        dataDetail={groupDetails[groupId]}
+                        key={`chat-header-${refreshKey}`} // Thêm key để force re-render
+                        dataDetail={currentGroupDetail}
                         goBack={goBack}
                         title={partnerName}
+                        refreshKey={refreshKey} // Truyền refreshKey sang component con
                     />
                     <View style={dynamicStyles.contentContainer}>
                         <MessageList

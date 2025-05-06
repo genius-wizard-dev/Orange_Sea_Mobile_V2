@@ -20,7 +20,7 @@ const HeaderNavigation = ({ goBack, title }) => {
             paddingLeft: 5
         }}>
             <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
-                <Ionicons name="chevron-back" size={26} color="#fff" />
+                <Ionicons name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
             {title && <Text style={{
                 color: '#fff', fontSize: 18,

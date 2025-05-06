@@ -161,7 +161,7 @@ const AddParticipant = () => {
                     />
                     <YStack flex={1} marginLeft="$3">
                         <Text fontSize="$5" fontWeight="500">{contact.name}</Text>
-                        <Text fontSize="$3" color="gray">{contact.username}</Text>
+                        {/* <Text fontSize="$3" color="gray">{contact.username}</Text> */}
                     </YStack>
 
                     {isAlreadyInGroup ? (

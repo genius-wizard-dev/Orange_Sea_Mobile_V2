@@ -2,12 +2,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome, Feather, AntDesign } from '@expo/vector-icons';
 import { Image, TouchableOpacity, Alert } from 'react-native';
-import { View, Text, XStack, YStack, ScrollView, Separator, Switch } from 'tamagui';
+import { View, Text, XStack, YStack, ScrollView, Separator, Switch, Button, Input, Adapt, Sheet } from 'tamagui';
 import HeaderLeft from '../../../components/header/HeaderLeft';
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getGroupDetail } from '../../../redux/thunks/group';
+import { getGroupDetail, renameGroup } from '../../../redux/thunks/group';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
+import EditNamePopover from '../../../components/group/EditNamePopover';
 
 const GroupDetail = () => {
     const { goBackTo } = useLocalSearchParams();
@@ -22,6 +23,7 @@ const GroupDetail = () => {
 
     // Kết hợp dữ liệu từ route.params và Redux store
     const [currentData, setCurrentData] = useState(null);
+
 
     useEffect(() => {
         // Ưu tiên dữ liệu từ route.params (mới nhất)
@@ -42,20 +44,47 @@ const GroupDetail = () => {
 
     const [isGhimEnabled, setIsGhimEnabled] = useState(false);
     const [isAnEnabled, setIsAnEnabled] = useState(false);
+    const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+    const [newName, setNewName] = useState('');
 
-    // Kiểm tra nguồn gốc của navigation để quay lại đúng màn hình
-    // const handleGoBack = () => {
-    //     const { fromScreen, directFromChat } = route.params || {};
+    const handleOpenEditName = () => {
+        setIsEditNameOpen(true);
+        setNewName(getDisplayName());
+    };
 
-    //     if (fromScreen === 'chat/chatDetail' && directFromChat) {
-    //         // Quay về màn hình Chat
-    //         router.replace('/chat');
-    //     } else if (goBackTo) {
-    //         router.replace(goBackTo);
-    //     } else {
-    //         navigation.goBack();
-    //     }
-    // };;
+    const handleSaveName = async (name) => {
+        try {
+            // Chỉ thực hiện đổi tên nếu tên mới khác tên cũ
+            if (name !== getDisplayName() && name.trim() !== '') {
+                if (currentData.isGroup) {
+
+                    const result = await dispatch(renameGroup({
+                        groupId: currentData.id,
+                        newName: name
+                    })).unwrap();
+
+                    if (result && result.statusCode === 200) {
+                        setCurrentData({
+                            ...currentData,
+                            name: name
+                        });
+                        alert('Đổi tên nhóm thành công!');
+                        return Promise.resolve();
+                    } else {
+                        console.error('Lỗi đổi tên nhóm:', result);
+                        return Promise.reject('Có lỗi khi đổi tên nhóm');
+                    }
+                } else {
+                    alert('Đổi tên cá nhân không khả dụng');
+                }
+            } else {
+                alert('Tên không được để trống hoặc giống tên cũ');
+            }
+        } catch (error) {
+            console.error('Lỗi khi đổi tên:', error);
+            return Promise.reject(error);
+        }
+    };
 
     // Kiểm tra nếu không có data
     if (!currentData) {
@@ -72,96 +101,214 @@ const GroupDetail = () => {
         );
     }
 
-    const handleAddMember = () => {
-        navigation.navigate('group/addParticipant', {
-            dataDetail: currentData,
-            goBackTo: 'group/groupDetail'
-        });
-    };
-
     // Định nghĩa các nhóm menu
     const menuGroups = [
         {
             id: 'quickActions',
             type: 'icons',
             items: [
-                { id: 'search', icon: 'search', label: 'Tìm tin nhắn', onPress: () => console.log('Tìm tin nhắn') },
-                { id: 'addMember', icon: 'person-add', label: 'Thêm thành viên', onPress: () => handleAddMember() },
-                { id: 'changeBg', icon: 'image', label: 'Đổi hình nền', onPress: () => console.log('Đổi hình nền') },
+                {
+                    id: 'search',
+                    icon: 'search',
+                    label: 'Tìm tin nhắn',
+                    typeGroup: "ALL",
+                    onPress: () => console.log('Tìm tin nhắn')
+                },
+                {
+                    id: 'addMember',
+                    icon: 'person-add',
+                    label: 'Thêm thành viên',
+                    typeGroup: "GROUP",
+                    onPress: () => handleAddMember()
+                },
             ]
         },
         {
             id: 'features',
             type: 'menu',
             items: [
-                { id: 'media', icon: 'image', iconFamily: 'Ionicons', label: 'Ảnh, file, link', onPress: () => console.log('Ảnh, file, link') },
-                { id: 'pinned', icon: 'pin', iconFamily: 'Ionicons', label: 'Tin nhắn đã ghim', onPress: () => console.log('Tin nhắn đã ghim') },
-                // { id: 'calendar', icon: 'calendar', iconFamily: 'Ionicons', label: 'Lịch nhóm', onPress: () => console.log('Lịch nhóm') },
-                // { id: 'saved', icon: 'bookmark', iconFamily: 'Ionicons', label: 'Tin nhắn đã lưu', onPress: () => console.log('Tin nhắn đã lưu') },
-                // { id: 'poll', icon: 'poll', iconFamily: 'MaterialCommunityIcons', label: 'Bình chọn', onPress: () => console.log('Bình chọn') },
+                {
+                    id: 'media',
+                    icon: 'image',
+                    iconFamily: 'Ionicons',
+                    label: 'Ảnh, file, link',
+                    typeGroup: "ALL",
+                    onPress: () => console.log('Ảnh, file, link')
+                },
+                {
+                    id: 'pinned',
+                    icon: 'pricetag',
+                    iconFamily: 'Ionicons',
+                    label: 'Tin nhắn đã ghim',
+                    typeGroup: "ALL",
+                    onPress: () => console.log('Tin nhắn đã ghim')
+                },
+                {
+                    id: 'calendar',
+                    icon: 'calendar',
+                    iconFamily: 'Ionicons',
+                    label: 'Lịch nhóm',
+                    typeGroup: "GROUP",
+                    onPress: () => console.log('Lịch nhóm')
+                },
+            ]
+        },
+        {
+            id: 'member',
+            type: 'member',
+            items: [
+                {
+                    id: 'settingGroup',
+                    icon: 'cog',
+                    iconFamily: 'Ionicons',
+                    label: "Cài đặt nhóm",
+                    typeGroup: "GROUP",
+                    onPress: () => console.log('chuyen uyen truong nhom')
+                },
+                {
+                    id: 'media',
+                    icon: 'people-circle',
+                    iconFamily: 'Ionicons',
+                    label: "Xem thành viên (" + currentData?.participants?.length + ")",
+                    typeGroup: "GROUP",
+                    onPress: () => console.log('XEM THÀNH VIÊN')
+                },
             ]
         },
         {
             id: 'settings',
             type: 'switch',
             items: [
-                { id: 'pin', icon: 'pushpin', iconFamily: 'AntDesign', label: 'Ghim trò chuyện', value: isGhimEnabled, onChange: setIsGhimEnabled },
-                { id: 'hide', icon: 'eye-off', iconFamily: 'Feather', label: 'Ẩn trò chuyện', value: isAnEnabled, onChange: setIsAnEnabled },
+                {
+                    id: 'pin',
+                    icon: 'pushpin',
+                    iconFamily: 'AntDesign',
+                    label: 'Ghim trò chuyện',
+                    typeGroup: "ALL",
+                    value: isGhimEnabled,
+                    onChange: setIsGhimEnabled
+                },
+                {
+                    id: 'hide',
+                    icon: 'eye-off',
+                    iconFamily: 'Feather',
+                    label: 'Ẩn trò chuyện',
+                    typeGroup: "ALL",
+                    value: isAnEnabled,
+                    onChange: setIsAnEnabled
+                },
             ]
         },
         {
             id: 'actions',
             type: 'menu',
             items: [
-                { id: 'report', icon: 'warning', iconFamily: 'AntDesign', label: 'Báo xấu', onPress: () => console.log('Báo xấu'), textColor: 'black' },
-                // { id: 'storage', icon: 'harddisk', iconFamily: 'MaterialCommunityIcons', label: 'Dung lượng trò chuyện', onPress: () => console.log('Dung lượng'), textColor: 'black' },
-                // { id: 'clearHistory', icon: 'delete-sweep', iconFamily: 'MaterialIcons', label: 'Xóa lịch sử trò chuyện', onPress: () => console.log('Xóa lịch sử'), textColor: 'black' },
-                { id: 'leaveGroup', icon: 'logout', iconFamily: 'MaterialIcons', label: 'Rời nhóm', onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn rời nhóm?'), textColor: '#FF3B30' },
+                {
+                    id: 'report',
+                    icon: 'warning',
+                    iconFamily: 'AntDesign',
+                    label: 'Báo xấu',
+                    typeGroup: "ALL",
+                    onPress: () => console.log('Báo xấu'),
+                    textColor: 'black'
+                },
+                {
+                    id: 'leaveGroup',
+                    icon: 'logout',
+                    iconFamily: 'MaterialIcons',
+                    label: 'Rời nhóm',
+                    typeGroup: "GROUP",
+                    onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn rời nhóm?'),
+                    textColor: '#FF3B30'
+                },
+                {
+                    id: 'deleteGroup',
+                    icon: 'delete',
+                    iconFamily: 'MaterialIcons',
+                    label: 'Xoá cuộc trò chuyện',
+                    typeGroup: "ALL",
+                    onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn xoá cuộc trò chuyện?'),
+                    textColor: '#FF3B30'
+                },
             ]
-        },
-        // {
-        //     id: 'sharedMedia',
-        //     type: 'gallery',
-        //     title: 'Ảnh, file, link',
-        //     mediaItems: [
-        //         'https://via.placeholder.com/150',
-        //         'https://via.placeholder.com/150',
-        //         'https://via.placeholder.com/150',
-        //         'https://via.placeholder.com/150',
-        //         'https://via.placeholder.com/150',
-        //     ]
-        // }
+        }
     ];
+
+    const getAvatar = () => {
+        if (currentData.isGroup) {
+            return currentData.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+        } else {
+            const otherUser = currentData.participants.find(p => p.role === "MEMBER");
+            return otherUser?.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+        }
+    };
+
+    const getDisplayName = () => {
+        if (currentData.isGroup) {
+            return currentData.name || "Nhóm chat";
+        } else {
+            // Lấy participant khác mình
+            const otherUser = currentData.participants.find(p => p.role === "MEMBER");
+            return otherUser?.user?.name || "Cá nhân";
+        }
+    };
 
     // Render group avatar and title
     const renderHeader = () => (
         <YStack alignItems="center" padding="$4" space="$2">
             <Image
-                source={{ uri: currentData?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
+                source={{ uri: getAvatar() }}
                 style={{
-                    width: 120,
-                    height: 120,
+                    width: 90,
+                    height: 90,
                     borderRadius: 60,
                     backgroundColor: '#f0f0f0'
                 }}
             />
             <TouchableOpacity>
-                <Feather name="camera" size={20} color="black" style={{
+                <Feather name="camera" size={18} color="black" style={{
                     position: 'absolute',
                     right: -50,
-                    bottom: 0,
+                    bottom: 5,
                     backgroundColor: '#e0e0e0',
                     borderRadius: 12,
                     padding: 5
                 }} />
             </TouchableOpacity>
 
-            <Text color="black" fontSize="$6" fontWeight="bold" textAlign="center" marginTop="$4">
-                {currentData?.name || "Nhóm chat"}
-            </Text>
-            {/* <Text color="gray" fontSize="$3" textAlign="center">
-                {currentData?.participants?.length || 0} thành viên
-            </Text> */}
+            <View flexDirection='row' alignItems='center' flex={1}>
+                <Text color="black" fontSize="$7" fontWeight="bold" textAlign="center" marginTop="$4" marginRight={20}>
+                    {getDisplayName()}
+                </Text>
+                {
+                    currentData.isGroup && (
+
+                        <EditNamePopover
+                            isOpen={isEditNameOpen}
+                            onClose={() => setIsEditNameOpen(false)}
+                            onSave={handleSaveName}
+                            initialName={getDisplayName()}
+                            placeholderText={currentData?.isGroup ? "Nhập tên nhóm" : "Nhập biệt danh"}
+                        >
+                            <XStack
+                                backgroundColor="#f0f0f0"
+                                width={35}
+                                height={35}
+                                borderRadius={25}
+                                alignItems="center"
+                                justifyContent="center"
+                                marginBottom="$1"
+                                marginTop={10}
+                                onPress={handleOpenEditName}
+                            >
+                                <Ionicons name="eyedrop-outline" size={20} color="#FF7A1E" />
+                            </XStack>
+                        </EditNamePopover>)
+                }
+
+            </View>
+
+            {/* ...existing code... */}
         </YStack>
     );
 
@@ -172,142 +319,172 @@ const GroupDetail = () => {
                 return (
                     <YStack key={group.id} marginVertical="$2">
                         <XStack justifyContent="space-around" padding="$2">
-                            {group.items.map(item => (
-                                <YStack key={item.id} alignItems="center">
-                                    <TouchableOpacity onPress={item.onPress}>
-                                        <XStack
-                                            backgroundColor="#f0f0f0"
-                                            width={40}
-                                            height={40}
-                                            borderRadius={25}
-                                            alignItems="center"
-                                            justifyContent="center"
-                                            marginBottom="$1"
-                                        >
-                                            <Ionicons name={item.icon} size={20} color="#FF7A1E" />
-                                        </XStack>
-                                    </TouchableOpacity>
-                                    <Text color="black" fontSize="$2" marginTop={10}>{item.label}</Text>
-                                </YStack>
-                            ))}
+                            {group.items
+                                .filter(item => {
+                                    if (item.typeGroup === "ALL") return true;
+                                    if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
+                                    if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                    return false;
+                                })
+                                .map(item => (
+                                    <YStack key={item.id} alignItems="center">
+                                        <TouchableOpacity onPress={item.onPress}>
+                                            <XStack
+                                                backgroundColor="#f0f0f0"
+                                                width={40}
+                                                height={40}
+                                                borderRadius={25}
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                marginBottom="$1"
+                                            >
+                                                <Ionicons name={item.icon} size={20} color="#FF7A1E" />
+                                            </XStack>
+                                        </TouchableOpacity>
+                                        <Text color="black" fontSize="$2" marginTop={10}>{item.label}</Text>
+                                    </YStack>
+                                ))
+                            }
                         </XStack>
                     </YStack>
                 );
-
             case 'menu':
                 return (
                     <YStack key={group.id}>
-                        {group.items.map(item => {
-                            // Chọn Icon Component dựa vào iconFamily
-                            const IconComponent = {
-                                Ionicons: Ionicons,
-                                MaterialIcons: MaterialIcons,
-                                MaterialCommunityIcons: MaterialCommunityIcons,
-                                FontAwesome: FontAwesome,
-                                Feather: Feather,
-                                AntDesign: AntDesign
-                            }[item.iconFamily || 'Ionicons'];
-
-                            return (
-                                <TouchableOpacity key={item.id} onPress={item.onPress}>
+                        {group.items
+                            .filter(item => {
+                                if (item.typeGroup === "ALL") return true;
+                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                return false;
+                            })
+                            .map(item => {
+                                // Chọn Icon Component dựa vào iconFamily
+                                const IconComponent = {
+                                    Ionicons: Ionicons,
+                                    MaterialIcons: MaterialIcons,
+                                    MaterialCommunityIcons: MaterialCommunityIcons,
+                                    FontAwesome: FontAwesome,
+                                    Feather: Feather,
+                                    AntDesign: AntDesign
+                                }[item.iconFamily || 'Ionicons'];
+                                return (
+                                    <TouchableOpacity key={item.id} onPress={item.onPress}>
+                                        <XStack
+                                            alignItems="center"
+                                            paddingVertical="$4"
+                                            paddingHorizontal="$4"
+                                        >
+                                            <XStack
+                                                backgroundColor="#fcd6bd"
+                                                width={35}
+                                                height={35}
+                                                borderRadius={20}
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                marginRight="$3"
+                                            >
+                                                <IconComponent name={item.icon} size={20} color="#FF7A1E" />
+                                            </XStack>
+                                            <Text color={item.textColor || "black"} fontSize="$4">{item.label}</Text>
+                                        </XStack>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                    </YStack>
+                );
+            case 'member':
+                return (
+                    <YStack key={group.id}>
+                        {group.items
+                            .filter(item => {
+                                if (item.typeGroup === "ALL") return true;
+                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                return false;
+                            })
+                            .map(item => {
+                                // Chọn Icon Component dựa vào iconFamily
+                                const IconComponent = {
+                                    Ionicons: Ionicons,
+                                    MaterialIcons: MaterialIcons,
+                                    MaterialCommunityIcons: MaterialCommunityIcons,
+                                    FontAwesome: FontAwesome,
+                                    Feather: Feather,
+                                    AntDesign: AntDesign
+                                }[item.iconFamily || 'Ionicons'];
+                                return (
+                                    <TouchableOpacity key={item.id} onPress={item.onPress}>
+                                        <XStack
+                                            alignItems="center"
+                                            paddingVertical="$4"
+                                            paddingHorizontal="$4"
+                                        >
+                                            <XStack
+                                                backgroundColor="#fcd6bd"
+                                                width={35}
+                                                height={35}
+                                                borderRadius={20}
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                marginRight="$3"
+                                            >
+                                                <IconComponent name={item.icon} size={20} color="#FF7A1E" />
+                                            </XStack>
+                                            <Text color={item.textColor || "black"} fontSize="$4">{item.label}</Text>
+                                        </XStack>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                    </YStack>
+                );
+            case 'switch':
+                return (
+                    <YStack key={group.id}>
+                        {group.items
+                            .filter(item => {
+                                if (item.typeGroup === "ALL") return true;
+                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                return false;
+                            })
+                            .map(item => {
+                                const IconComponent = {
+                                    Ionicons: Ionicons,
+                                    MaterialIcons: MaterialIcons,
+                                    MaterialCommunityIcons: MaterialCommunityIcons,
+                                    FontAwesome: FontAwesome,
+                                    Feather: Feather,
+                                    AntDesign: AntDesign
+                                }[item.iconFamily || 'Ionicons'];
+                                return (
                                     <XStack
+                                        key={item.id}
+                                        justifyContent="space-between"
                                         alignItems="center"
                                         paddingVertical="$4"
                                         paddingHorizontal="$4"
                                     >
-                                        <XStack
-                                            backgroundColor="#fcd6bd"
-                                            width={35}
-                                            height={35}
-                                            borderRadius={20}
-                                            alignItems="center"
-                                            justifyContent="center"
-                                            marginRight="$3"
-                                        >
-                                            <IconComponent name={item.icon} size={20} color="#FF7A1E" />
+                                        <XStack alignItems="center">
+                                            <XStack
+                                                backgroundColor="#fcd6bd"
+                                                width={35}
+                                                height={35}
+                                                borderRadius={20}
+                                                alignItems="center"
+                                                justifyContent="center"
+                                                marginRight="$3"
+                                            >
+                                                <IconComponent name={item.icon} size={20} color="#FF7A1E" />
+                                            </XStack>
+                                            <Text color="black" fontSize="$4">{item.label}</Text>
                                         </XStack>
-                                        <Text color={item.textColor || "black"} fontSize="$4">{item.label}</Text>
+                                        <Switch checked={item.value} onCheckedChange={item.onChange} />
                                     </XStack>
-                                </TouchableOpacity>
-                            );
-                        })}
+                                );
+                            })}
                     </YStack>
                 );
-
-            case 'switch':
-                return (
-                    <YStack key={group.id}>
-                        {group.items.map(item => {
-                            const IconComponent = {
-                                Ionicons: Ionicons,
-                                MaterialIcons: MaterialIcons,
-                                MaterialCommunityIcons: MaterialCommunityIcons,
-                                FontAwesome: FontAwesome,
-                                Feather: Feather,
-                                AntDesign: AntDesign
-                            }[item.iconFamily || 'Ionicons'];
-
-                            return (
-                                <XStack
-                                    key={item.id}
-                                    justifyContent="space-between"
-                                    alignItems="center"
-                                    paddingVertical="$4"
-                                    paddingHorizontal="$4"
-                                >
-                                    <XStack alignItems="center">
-                                        <XStack
-                                            backgroundColor="#fcd6bd"
-                                            width={35}
-                                            height={35}
-                                            borderRadius={20}
-                                            alignItems="center"
-                                            justifyContent="center"
-                                            marginRight="$3"
-                                        >
-                                            <IconComponent name={item.icon} size={20} color="#FF7A1E" />
-                                        </XStack>
-                                        <Text color="black" fontSize="$4">{item.label}</Text>
-                                    </XStack>
-                                    <Switch checked={item.value} onCheckedChange={item.onChange} />
-                                </XStack>
-                            );
-                        })}
-                    </YStack>
-                );
-
-            // case 'gallery':
-            //     return (
-            //         <YStack key={group.id} padding="$4">
-            //             <Text color="black" fontSize="$5" marginBottom="$3">{group.title}</Text>
-            //             <XStack flexWrap="wrap" justifyContent="space-between">
-            //                 {group.mediaItems.map((uri, i) => (
-            //                     <Image 
-            //                         key={i}
-            //                         source={{ uri }}
-            //                         style={{ 
-            //                             width: '30%', 
-            //                             height: 90,
-            //                             marginBottom: 10,
-            //                             borderRadius: 8,
-            //                             backgroundColor: '#f0f0f0'
-            //                         }} 
-            //                     />
-            //                 ))}
-            //                 <TouchableOpacity style={{
-            //                     width: '30%',
-            //                     height: 90,
-            //                     justifyContent: 'center',
-            //                     alignItems: 'center',
-            //                     backgroundColor: '#f0f0f0',
-            //                     borderRadius: 8
-            //                 }}>
-            //                     <Ionicons name="arrow-forward" size={24} color="black" />
-            //                 </TouchableOpacity>
-            //             </XStack>
-            //         </YStack>
-            //     );
-
             default:
                 return null;
         }
@@ -315,10 +492,6 @@ const GroupDetail = () => {
 
     return (
         <YStack flex={1} backgroundColor="#ffffff">
-            {/* <HeaderLeft
-                title="Tùy chọn"
-                onGoBack={handleGoBack}
-            /> */}
             <HeaderNavigation
                 title="Tùy chọn"
             // onGoBack={handleGoBack} 
