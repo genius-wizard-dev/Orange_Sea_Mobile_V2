@@ -9,6 +9,8 @@ import { ENDPOINTS } from '../../service/api.endpoint';
 import socketService from '../../service/socket.service';
 import { setUnreadCounts, updateUnreadCounts, updateLastMessage, updateChatNotification, updateGroup, statusUpdated } from '../../redux/slices/chatSlice';
 import { updateGroupMessages } from '../../redux/slices/groupSlice';
+import { formatTime, displayTime } from '../../utils/time';
+import GroupAvatar from '../../components/group/GroupAvatar';
 
 const Chat = () => {
   const router = useRouter();
@@ -156,12 +158,6 @@ const Chat = () => {
     };
 
 
-    // console.log('User status:', {
-    //   userId: otherUserId,
-    //   status: userStatus,
-    //   allStatuses: userStatuses
-    // });
-
     const displayName = group.isGroup
       ? (group.name || 'Nhóm chat')  // Thêm fallback name
       : (otherParticipant?.user?.name || 'Loading...');
@@ -172,7 +168,7 @@ const Chat = () => {
 
     const sender = lastMessage?.sender?.name || '';
     const prefix = lastMessage?.senderId === profile?.id ? "Bạn: " : sender ? `` : "";
-    const unreadCount = unreadCounts[group.id] || 0;  // Đã định nghĩa ở đây
+    const unreadCount = unreadCounts[group.id] || 0;
 
 
 
@@ -180,7 +176,8 @@ const Chat = () => {
       <XStack
         key={group.id}
         space="$3"
-        paddingVertical={10}
+        marginBottom={10}
+        paddingBottom={10}
         borderBottomWidth={1}
         borderColor="$gray5"
         alignItems="center"
@@ -197,18 +194,14 @@ const Chat = () => {
         }}
       >
         <View style={styles.avatarContainer}>
-          <Image
-            source={{ uri: avatar }}
-            width={50}
-            height={50}
-            borderRadius={25}
-          />
-          <View
+          <GroupAvatar group={group} size={50} />
+          {group.isGroup ? "" : <View
             style={[
               styles.statusDot,
               { backgroundColor: getStatusColor(userStatus) }
             ]}
           />
+          }
         </View>
         <YStack flex={1}>
           <Text fontSize={16} fontWeight="700">
@@ -219,11 +212,7 @@ const Chat = () => {
           </Text>
         </YStack>
         <Text fontSize={12} color="$gray9">
-          {lastMessage?.createdAt ? new Date(lastMessage.createdAt).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          }) : ''}
+          {lastMessage?.createdAt ? displayTime(lastMessage.createdAt) : ''}
         </Text>
         {unreadCount > 0 && (
           <View style={styles.unreadBadge}>
@@ -236,7 +225,7 @@ const Chat = () => {
     );
   };
 
-  console.log(JSON.stringify(groups, null, 2));
+  // console.log(JSON.stringify(groups, null, 2));
 
   return (
     <YStack
@@ -244,11 +233,22 @@ const Chat = () => {
       bg="white"
       width="100%"
       paddingHorizontal={20}
-      paddingBottom={85}
+      paddingBottom={55}
+      paddingTop={20}
       space="$3"
     >
       {Array.isArray(groups) && groups.length > 0 ? (
-        groups.map((group) => renderGroup(group))
+        [...groups]
+          .sort((a, b) => {
+            const lastMessageA = lastMessages[a.id] || a.messages?.[0] || groupDetails[a.id]?.messages?.[0];
+            const lastMessageB = lastMessages[b.id] || b.messages?.[0] || groupDetails[b.id]?.messages?.[0];
+
+            const timeA = lastMessageA?.createdAt ? new Date(lastMessageA.createdAt).getTime() : 0;
+            const timeB = lastMessageB?.createdAt ? new Date(lastMessageB.createdAt).getTime() : 0;
+
+            return timeB - timeA; // Sắp xếp giảm dần (mới nhất lên đầu)
+          })
+          .map((group) => renderGroup(group))
       ) : (
         <Text>Không có cuộc trò chuyện nào</Text>
       )}
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
   },
   unreadCount: {
     color: 'white',

@@ -150,7 +150,7 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
             onLayout={scrollToBottom}
-            inverted={messages.length < 6 ? false : true}
+            inverted={messages.length < 1 ? false : true}
             maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10
