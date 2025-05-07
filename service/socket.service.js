@@ -2,12 +2,16 @@ import io from 'socket.io-client';
 import Constants from 'expo-constants';
 import { markGroupAsRead, setMessages } from '../redux/slices/chatSlice';
 
+
 class SocketService {
     socket = null;
     isRegistered = false;
 
     connect() {
-        this.socket = io(`ws://${Constants.expoConfig?.extra?.API_BASE_URL.substr(7)}/chat`, {
+
+        // console.log("link socket ",`wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`); 
+
+        this.socket = io(`wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
         });
@@ -86,7 +90,7 @@ class SocketService {
                         isMyMessage: msg.senderId === profileId,
                         isPending: false
                     }));
-                    
+
                     dispatch(setMessages(formattedMessages));
                     resolve({ status: 'success', messages: formattedMessages });
                 } else {
@@ -114,7 +118,7 @@ class SocketService {
     // send: { messageId: string, groupId: string, senderId: string, content: string }
     sendMessage(messageData) {
         if (!this.socket?.connected) return;
-        
+
         console.log('Sending message:', messageData);
         this.socket.emit('send', messageData);
     }
@@ -125,13 +129,13 @@ class SocketService {
             console.log('Socket không kết nối, không thể thu hồi tin nhắn');
             return;
         }
-        
+
         console.log('Gửi sự kiện thu hồi tin nhắn:', { messageId, groupId });
-        
+
         // Gửi yêu cầu thu hồi tin nhắn đến server
         this.socket.emit('recall', { messageId, groupId }, (response) => {
             console.log('Phản hồi thu hồi từ server:', response);
-            
+
             // Nếu server xác nhận thành công, phát sóng sự kiện đến tất cả client
             if (response?.status === 'success') {
                 console.log('Thu hồi thành công, thông báo cho tất cả client');
@@ -142,7 +146,7 @@ class SocketService {
     // delete: { messageId: string, groupId: string, userId: string }
     deleteMessage(messageId, groupId, userId) {
         if (!this.socket?.connected) return;
-        
+
         console.log('Deleting message:', { messageId, groupId, userId });
         this.socket.emit('delete', { messageId, groupId, userId });
     }
@@ -150,7 +154,7 @@ class SocketService {
     // leave: { profileId: string, groupId: string }
     leaveChat(profileId, groupId) {
         if (!this.socket?.connected) return;
-        
+
         console.log('Leaving chat:', { profileId, groupId });
         this.socket.emit('leave', { profileId, groupId });
     }
@@ -206,16 +210,16 @@ class SocketService {
         // unreadCountUpdated: [{ groupId: string, unreadCount: number }]
         this.socket.on('unreadCountUpdated', (updates) => {
             console.log('Unread count updated:', updates);
-            dispatch({ 
-                type: 'chat/unreadCountsUpdated', 
-                payload: updates 
+            dispatch({
+                type: 'chat/unreadCountsUpdated',
+                payload: updates
             });
         });
 
         // messageRecalled: { messageId: string, groupId: string }
         this.socket.on('messageRecalled', (data) => {
             console.log('🔄 Nhận sự kiện messageRecalled:', data);
-            
+
             // Cập nhật store khi nhận được event từ socket
             if (data?.messageId && data?.groupId) {
                 dispatch({
@@ -280,7 +284,7 @@ class SocketService {
             console.log('Socket không kết nối');
             return;
         }
-        
+
         this.socket.emit('recall', { messageId, groupId });
     }
 

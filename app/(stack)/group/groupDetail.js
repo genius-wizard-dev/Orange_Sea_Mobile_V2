@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome, Feather, AntDesign } from '@expo/vector-icons';
-import { Image, TouchableOpacity, Alert } from 'react-native';
+import { Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { View, Text, XStack, YStack, ScrollView, Separator, Switch, Button, Input, Adapt, Sheet } from 'tamagui';
 import HeaderLeft from '../../../components/header/HeaderLeft';
 import React, { useState, useEffect } from 'react';
@@ -26,6 +26,9 @@ const GroupDetail = () => {
 
 
     useEffect(() => {
+        // Lấy groupId từ route.params nếu không có dataDetail
+        const groupIdFromParams = route.params?.groupId;
+        
         // Ưu tiên dữ liệu từ route.params (mới nhất)
         if (routeDataDetail) {
             setCurrentData(routeDataDetail);
@@ -36,11 +39,21 @@ const GroupDetail = () => {
                 dispatch(getGroupDetail(routeDataDetail.id));
             }
         }
-        // Nếu không có dữ liệu từ route.params, kiểm tra từ Redux store
-        else if (route.params?.groupId && groupDetails[route.params.groupId]) {
-            setCurrentData(groupDetails[route.params.groupId]);
+        // Nếu không có dữ liệu từ route.params, kiểm tra từ Redux store bằng groupId
+        else if (groupIdFromParams && groupDetails[groupIdFromParams]) {
+            setCurrentData(groupDetails[groupIdFromParams]);
         }
-    }, [route.params, groupDetails]);
+        // Nếu không có dữ liệu từ cả hai nguồn, nhưng có groupId, gọi API để lấy
+        else if (groupIdFromParams) {
+            dispatch(getGroupDetail(groupIdFromParams))
+                .then((action) => {
+                    if (action.payload && !action.error) {
+                        const data = action.payload.data || action.payload;
+                        setCurrentData(data);
+                    }
+                });
+        }
+    }, [route.params, groupDetails, dispatch]);
 
     const [isGhimEnabled, setIsGhimEnabled] = useState(false);
     const [isAnEnabled, setIsAnEnabled] = useState(false);
@@ -86,20 +99,38 @@ const GroupDetail = () => {
         }
     };
 
-    // Kiểm tra nếu không có data
+    // Kiểm tra nếu không có data và đang đợi data từ API
     if (!currentData) {
         return (
             <YStack flex={1} backgroundColor="#ffffff">
-                <HeaderNavigation
-                    title="Tùy chọn"
-                // onGoBack={handleGoBack} 
-                />
+                <HeaderNavigation title="Tùy chọn" />
                 <YStack flex={1} justifyContent="center" alignItems="center">
-                    <Text color="#000">Không tìm thấy thông tin nhóm</Text>
+                    <ActivityIndicator size="large" color="#FF7A1E" />
+                    <Text color="#888" marginTop={10}>Đang tải thông tin nhóm...</Text>
                 </YStack>
             </YStack>
         );
     }
+
+    // console.log(currentData)
+
+    const handleAddMember = () => {
+        if (currentData.isGroup) {
+            const uniqueKey = `addParticipant-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+            
+            // Chỉ truyền ID, không truyền đối tượng phức tạp
+            navigation.navigate("group/addParticipant", {
+                groupId: currentData.id,
+                groupName: currentData.name,
+                fromScreen: 'group/groupDetail',
+                goBackTo: goBackTo || 'group/groupDetail',
+                uniqueKey: uniqueKey
+            });
+        } else {
+            alert('Thêm thành viên không khả dụng cho tài khoản cá nhân');
+        }
+    }
+
 
     // Định nghĩa các nhóm menu
     const menuGroups = [
@@ -235,20 +266,28 @@ const GroupDetail = () => {
     ];
 
     const getAvatar = () => {
-        if (currentData.isGroup) {
+        if (currentData?.isGroup) {
             return currentData.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
         } else {
-            const otherUser = currentData.participants.find(p => p.role === "MEMBER");
+            // Kiểm tra xem participants có tồn tại không trước khi dùng find
+            if (!currentData?.participants || !Array.isArray(currentData?.participants)) {
+                return "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+            }
+            const otherUser = currentData?.participants?.find(p => p?.role === "MEMBER");
             return otherUser?.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
         }
     };
 
     const getDisplayName = () => {
-        if (currentData.isGroup) {
+        if (currentData?.isGroup) {
             return currentData.name || "Nhóm chat";
         } else {
+            // Kiểm tra xem participants có tồn tại không trước khi dùng find
+            if (!currentData?.participants || !Array.isArray(currentData?.participants)) {
+                return "Cá nhân";
+            }
             // Lấy participant khác mình
-            const otherUser = currentData.participants.find(p => p.role === "MEMBER");
+            const otherUser = currentData?.participants?.find(p => p?.role === "MEMBER");
             return otherUser?.user?.name || "Cá nhân";
         }
     };
@@ -322,8 +361,8 @@ const GroupDetail = () => {
                             {group.items
                                 .filter(item => {
                                     if (item.typeGroup === "ALL") return true;
-                                    if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
-                                    if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                    if (currentData?.isGroup && item.typeGroup === "GROUP") return true;
+                                    if (!currentData?.isGroup && item.typeGroup === "ACCOUNT") return true;
                                     return false;
                                 })
                                 .map(item => (
@@ -354,8 +393,8 @@ const GroupDetail = () => {
                         {group.items
                             .filter(item => {
                                 if (item.typeGroup === "ALL") return true;
-                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
-                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                if (currentData?.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!currentData?.isGroup && item.typeGroup === "ACCOUNT") return true;
                                 return false;
                             })
                             .map(item => {
@@ -399,8 +438,8 @@ const GroupDetail = () => {
                         {group.items
                             .filter(item => {
                                 if (item.typeGroup === "ALL") return true;
-                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
-                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                if (currentData?.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!currentData?.isGroup && item.typeGroup === "ACCOUNT") return true;
                                 return false;
                             })
                             .map(item => {
@@ -444,8 +483,8 @@ const GroupDetail = () => {
                         {group.items
                             .filter(item => {
                                 if (item.typeGroup === "ALL") return true;
-                                if (routeDataDetail.isGroup && item.typeGroup === "GROUP") return true;
-                                if (!routeDataDetail.isGroup && item.typeGroup === "ACCOUNT") return true;
+                                if (currentData?.isGroup && item.typeGroup === "GROUP") return true;
+                                if (!currentData?.isGroup && item.typeGroup === "ACCOUNT") return true;
                                 return false;
                             })
                             .map(item => {

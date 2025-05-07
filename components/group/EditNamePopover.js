@@ -112,9 +112,9 @@ const EditNamePopover = ({
                     <Animated.View
                         style={{
                             position: 'absolute',
-                            top: height / 2 - 120,
-                            left: width / 2 - 130,
-                            width: 260,
+                            top: height / 2 - 200,
+                            left: width / 2 - 160,
+                            width: 320,
                             padding: 12,
                             backgroundColor: 'white',
                             borderRadius: 12,

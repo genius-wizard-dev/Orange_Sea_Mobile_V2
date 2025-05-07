@@ -1,7 +1,7 @@
-import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity } from 'react-native'
+import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
 import React, { useState, useEffect, useMemo } from 'react'
 import HeaderLeft from '../../../components/header/HeaderLeft'
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View, XStack, YStack, Separator } from 'tamagui';
@@ -12,15 +12,33 @@ import { getFriendList } from '../../../redux/thunks/friend';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
 
 const AddParticipant = () => {
+    const router = useRouter();
+    const params = useLocalSearchParams();
     const route = useRoute();
     const navigation = useNavigation();
     const dispatch = useDispatch();
 
-    // Lấy thông tin từ route.params
-    const { dataDetail, fromScreen, directFromChat } = route.params || {};
-    const groupId = dataDetail?.id;
+    // Lấy thông tin từ params
+    const groupId = params.groupId || route.params?.groupId;
+    const fromScreen = params.fromScreen || route.params?.fromScreen;
+    const goBackTo = params.goBackTo || route.params?.goBackTo;
+    const uniqueKey = route.params?.uniqueKey || params?.uniqueKey;
+
+    // Lấy thông tin nhóm từ Redux store dựa vào groupId
+    const groupDetail = useSelector(state => state.group.groupDetails[groupId]);
+
+    // Không còn cần parse JSON
+    useEffect(() => {
+        // Nếu có groupId nhưng chưa có dữ liệu trong store, gọi API để lấy
+        if (groupId && !groupDetail) {
+            dispatch(getGroupDetail(groupId));
+        }
+    }, [groupId, groupDetail, dispatch]);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedContacts, setSelectedContacts] = useState([]);
+    const [isLoadingContacts, setIsLoadingContacts] = useState(true); // Thêm state kiểm tra đang load danh sách liên hệ
+    const [isSubmitting, setIsSubmitting] = useState(false); // Thêm state kiểm tra đang thêm thành viên
     const { profile } = useSelector(state => state.profile);
 
     // Lấy danh sách bạn bè từ Redux
@@ -36,9 +54,22 @@ const AddParticipant = () => {
 
     // Fetch danh sách bạn bè nếu chưa có
     useEffect(() => {
-        if (friends.length === 0) {
-            dispatch(getFriendList());
-        }
+        setIsLoadingContacts(true); // Bắt đầu loading
+        
+        const fetchFriends = async () => {
+            try {
+                if (friends.length === 0) {
+                    await dispatch(getFriendList()).unwrap();
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải danh sách bạn bè:', error);
+            } finally {
+                // Dù thành công hay thất bại vẫn tắt loading
+                setIsLoadingContacts(false);
+            }
+        };
+        
+        fetchFriends();
     }, [dispatch, friends.length]);
 
     // Tạo danh sách người liên hệ từ bạn bè
@@ -103,35 +134,106 @@ const AddParticipant = () => {
         }
     };
 
-    // Handle navigation back with data
-    const handleGoBack = () => {
-        navigation.navigate('group/groupDetail', {
-            dataDetail: groupDetails[groupId] || dataDetail,
-            fromScreen, // Giữ thông tin màn hình gốc
-            directFromChat // Giữ thông tin đến trực tiếp từ chat nếu có
-        });
-    };
-
     const handleAddParticipants = async () => {
+        if (selectedContacts.length === 0) return;
+        
+        setIsSubmitting(true); // Bắt đầu hiển thị loading trên nút
+        
         try {
-            for (const contact of selectedContacts) {
-                await dispatch(addParticipant({
-                    groupId,
-                    participantId: contact.id
-                })).unwrap();
+            // Chuẩn bị dữ liệu theo định dạng API yêu cầu
+            const participantIds = selectedContacts.map(contact => contact.id);
+            
+            console.log("Chuẩn bị gửi API thêm thành viên:", participantIds);
+            
+            // Gọi API để thêm thành viên với định dạng đúng
+            const result = await dispatch(addParticipant({
+                groupId,
+                participantIds: participantIds
+            })).unwrap();
+            
+            // console.log("Kết quả API thêm thành viên:", result);
+            
+            // Kiểm tra kết quả từ API - API trả về thông tin nhóm đầy đủ nếu thành công
+            if (result && result.id) {
+                // Xóa danh sách người đã chọn sau khi thêm thành công
+                setSelectedContacts([]);
+                
+                // Cập nhật lại danh sách thành viên hiện tại từ API
+                if (groupId) {
+                    await dispatch(getGroupDetail(groupId));
+                }
+                
+                // Hiển thị thông báo thành công (không điều hướng)
+                Alert.alert(
+                    'Thành công',
+                    `Đã thêm ${participantIds.length} thành viên vào nhóm.`,
+                    [{ text: 'OK' }] // Loại bỏ hành động điều hướng khi nhấn OK
+                );
+            } else {
+                // Xử lý trường hợp API trả về lỗi
+                Alert.alert(
+                    'Lỗi',
+                    result?.message || 'Không thể thêm thành viên vào nhóm.',
+                    [{ text: 'OK' }]
+                );
             }
-            // Cập nhật lại thông tin nhóm
-            const action = await dispatch(getGroupDetail(groupId));
-            const updatedGroupDetails = action.payload.data || action.payload;
-
-            // Chuyển về màn hình trước với dữ liệu cập nhật
-            navigation.navigate('group/groupDetail', {
-                dataDetail: updatedGroupDetails
-            });
         } catch (error) {
-            console.error('Failed to add participants:', error);
+            console.error('Lỗi khi thêm thành viên:', error);
+            Alert.alert(
+                'Lỗi',
+                'Có lỗi xảy ra khi thêm thành viên. Vui lòng thử lại sau.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsSubmitting(false); // Dù thành công hay thất bại đều tắt loading
         }
     };
+
+    // Thêm useEffect để quan sát sự thay đổi của groupDetails và cập nhật existingParticipantIds
+    useEffect(() => {
+        if (groupId && groupDetails[groupId]) {
+            // Khi dữ liệu nhóm được cập nhật, cũng cần kiểm tra lại selectedContacts
+            // để loại bỏ những người đã được thêm vào nhóm
+            if (selectedContacts.length > 0) {
+                const updatedParticipantIds = groupDetails[groupId].participants.map(p => p.userId);
+                // Lọc ra các liên hệ chưa được thêm vào nhóm
+                const filteredContacts = selectedContacts.filter(
+                    contact => !updatedParticipantIds.includes(contact.id)
+                );
+                
+                // Nếu có sự thay đổi trong danh sách, cập nhật lại state
+                if (filteredContacts.length !== selectedContacts.length) {
+                    setSelectedContacts(filteredContacts);
+                }
+            }
+        }
+    }, [groupDetails, groupId]);
+
+    // Thêm effect để đảm bảo component luôn được khởi tạo lại mỗi khi được mount
+    useEffect(() => {
+        console.log('AddParticipant mounted with uniqueKey:', uniqueKey);
+        
+        // Reset các state quan trọng mỗi khi component mount với key mới
+        setSearchTerm('');
+        setSelectedContacts([]);
+        setIsLoadingContacts(true);
+        
+        // Fetch danh sách bạn bè mỗi khi component được mount
+        const fetchInitialData = async () => {
+            try {
+                if (groupId) {
+                    await dispatch(getGroupDetail(groupId));
+                }
+                await dispatch(getFriendList());
+            } catch (error) {
+                console.error('Lỗi khi khởi tạo dữ liệu:', error);
+            } finally {
+                setIsLoadingContacts(false);
+            }
+        };
+        
+        fetchInitialData();
+    }, [uniqueKey, dispatch, groupId]); // Phụ thuộc vào uniqueKey sẽ làm effect này chạy mỗi khi component được mount với key khác
 
     // Render từng nhóm chữ cái
     const renderAlphabetGroup = ([letter, contactsInGroup]) => (
@@ -188,10 +290,34 @@ const AddParticipant = () => {
         );
     };
 
+    // Cập nhật HeaderNavigation để trở về đúng màn hình trước đó
     return (
         <YStack flex={1} backgroundColor="white">
             <HeaderNavigation
                 title="Thêm thành viên"
+                onGoBack={() => {
+                    // Kiểm tra nếu có màn hình cần quay lại
+                    if (fromScreen) {
+                        // Lấy thông tin nhóm hiện tại từ Redux store
+                        const currentGroupDetail = groupDetails[groupId];
+                        if (currentGroupDetail) {
+                            // Truyền dữ liệu nhóm hiện tại từ Redux store khi quay lại
+                            navigation.navigate(fromScreen, {
+                                dataDetail: currentGroupDetail, // Truyền trực tiếp đối tượng từ Redux store
+                                groupId: groupId,
+                                refreshTimestamp: Date.now() // Thêm timestamp để kích hoạt refresh ở màn hình trước
+                            });
+                        } else {
+                            // Nếu không có dữ liệu nhóm trong store, chỉ truyền groupId
+                            navigation.navigate(fromScreen, {
+                                groupId: groupId,
+                                refreshTimestamp: Date.now()
+                            });
+                        }
+                    } else {
+                        navigation.goBack(); // Mặc định quay lại màn hình trước đó
+                    }
+                }}
             />
             <Text fontSize="$4" color="gray" paddingHorizontal="$4" paddingTop="$2">
                 Đã chọn: {selectedContacts.length}
@@ -237,9 +363,18 @@ const AddParticipant = () => {
                     keyExtractor={item => item.id}
                     renderItem={({ item }) => renderContactItem(item)}
                     ListEmptyComponent={
-                        <Text textAlign="center" margin="$4" color="gray">
-                            Không tìm thấy kết quả
-                        </Text>
+                        isLoadingContacts ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#FF7A1E" />
+                                <Text style={{ marginTop: 10, color: 'gray' }}>
+                                    Đang tải danh sách liên hệ...
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text textAlign="center" margin="$4" color="gray">
+                                Không tìm thấy kết quả
+                            </Text>
+                        )
                     }
                 />
             ) : (
@@ -249,7 +384,14 @@ const AddParticipant = () => {
                     keyExtractor={([letter]) => letter}
                     renderItem={({ item }) => renderAlphabetGroup(item)}
                     ListEmptyComponent={
-                        friends.length === 0 && (
+                        isLoadingContacts ? (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator size="large" color="#FF7A1E" />
+                                <Text style={{ marginTop: 10, color: 'gray' }}>
+                                    Đang tải danh sách liên hệ...
+                                </Text>
+                            </View>
+                        ) : (
                             <Text textAlign="center" margin="$4" color="gray">
                                 Bạn chưa có bạn bè nào
                             </Text>
@@ -262,10 +404,15 @@ const AddParticipant = () => {
                 <TouchableOpacity
                     style={styles.addButton}
                     onPress={handleAddParticipants}
+                    disabled={isSubmitting}
                 >
-                    <Text color="white" fontSize="$5" fontWeight="bold">
-                        Thêm ({selectedContacts.length})
-                    </Text>
+                    {isSubmitting ? (
+                        <ActivityIndicator size="small" color="white" />
+                    ) : (
+                        <Text color="white" fontSize="$5" fontWeight="bold">
+                            Thêm ({selectedContacts.length})
+                        </Text>
+                    )}
                 </TouchableOpacity>
             )}
         </YStack>
@@ -297,6 +444,13 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 3,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        minHeight: 200
     }
 });
 

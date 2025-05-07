@@ -71,10 +71,14 @@ const MessageOptionsPopover = ({
 
     const handleCopy = async () => {
         try {
-            await Clipboard.setString(message?.message || '');
+            const messageText = message?.message || '';
+            if (messageText) {
+                await Clipboard.setString(messageText);
+            }
             onClose();
         } catch (error) {
             console.error('Error copying message:', error);
+            onClose(); // Đảm bảo đóng popover ngay cả khi có lỗi
         }
     };
 

@@ -236,6 +236,8 @@ const Chat = () => {
     );
   };
 
+  console.log(JSON.stringify(groups, null, 2));
+
   return (
     <YStack
       flex={1}

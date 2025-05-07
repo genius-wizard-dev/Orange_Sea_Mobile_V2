@@ -22,54 +22,41 @@ const ChatDetail = () => {
     const { groupDetails } = useSelector((state) => state.group);
     const [activeTab, setActiveTab] = useState(null);
     const bottomSheetHeight = 300;
-    const [refreshKey, setRefreshKey] = useState(0); // Thêm state này để force re-render
+    const [refreshKey, setRefreshKey] = useState(0); 
     const navigation = useNavigation();
+    const hasInitializedRef = useRef(false);
+    const hasLoadedGroupDetailRef = useRef(false);
+    const lastFetchTimeRef = useRef(0);
+    const isFetchingRef = useRef(false);
 
-    // Bắt sự kiện khi screen được focus
-    useFocusEffect(
-        React.useCallback(() => {
-            console.log('Screen focused - Fetching latest group details');
-            // Fetch group details mới nhất khi màn hình được focus
-            if (groupId) {
-                dispatch(getGroupDetail(groupId));
-                setRefreshKey(prev => prev + 1); // Cập nhật key để force re-render
-            }
-            
-            return () => {
-                // Cleanup khi screen unfocus
-            };
-        }, [groupId, dispatch])
-    );
-
-    // Thêm event listener cho navigation state change
     useEffect(() => {
-        const unsubscribe = navigation.addListener('state', (e) => {
-            // Khi state navigation thay đổi và màn hình này là current screen
-            if (e.data.state.routes[e.data.state.index].name.includes('chat/chatDetail')) {
-                console.log('Navigation state changed - Refreshing group data');
-                if (groupId) {
-                    dispatch(getGroupDetail(groupId));
-                    setRefreshKey(prev => prev + 1);
-                }
-            }
-        });
+        if (groupId && !hasLoadedGroupDetailRef.current && !isFetchingRef.current) {
+            console.log('Initial group detail fetch');
+            isFetchingRef.current = true;
+            lastFetchTimeRef.current = Date.now();
+            
+            dispatch(getGroupDetail(groupId))
+                .then(() => {
+                    hasLoadedGroupDetailRef.current = true;
+                    isFetchingRef.current = false; 
+                })
+                .catch(() => {
+                    isFetchingRef.current = false;
+                });
+        }
+    }, [groupId, dispatch]);
 
-        return unsubscribe;
-    }, [navigation, groupId]);
-
-    // Lấy chi tiết nhóm trực tiếp từ Redux store
+    // Lấy chi tiết nhóm trực tiếp từ Redux store - Chỉ chạy một lần khi groupDetails thay đổi
     const currentGroupDetail = useMemo(() => {
         return groupDetails[groupId] || null;
-    }, [groupDetails, groupId, refreshKey]); // Thêm refreshKey vào dependencies
+    }, [groupDetails, groupId]); // Loại bỏ refreshKey để tránh re-render không cần thiết
 
     // Tính toán tên người nhận tin nhắn dựa trên dữ liệu hiện tại từ store
     const partnerName = useMemo(() => {
         if (currentGroupDetail) {
             if (currentGroupDetail.isGroup) {
-                // Nếu là nhóm thì lấy tên nhóm
                 return currentGroupDetail.name || 'Nhóm chat';
             } else if (currentGroupDetail.participants) {
-                // Nếu là chat 1-1 thì lấy tên người kia
                 const otherParticipant = currentGroupDetail.participants.find(
                     p => p?.userId !== profile?.id
                 )?.user;
@@ -77,25 +64,21 @@ const ChatDetail = () => {
             }
         }
         return 'Chat';
-    }, [currentGroupDetail, profile?.id, refreshKey]); // Thêm refreshKey vào dependencies
+    }, [currentGroupDetail, profile?.id]); // Loại bỏ refreshKey để tránh re-render không cần thiết
 
-    // Tạo thêm một effect để component luôn cập nhật khi có thay đổi trong groupDetails
+    // Đảm bảo luôn có thông tin mới nhất của nhóm - Chỉ gọi một lần khi component mount
     useEffect(() => {
-        if (groupId && groupDetails[groupId]) {
-            // Cập nhật force re-render
-            // (Không cần làm gì vì useMemo sẽ tự động tính lại partnerName)
-            console.log("Group details updated:", groupDetails[groupId].name);
-        }
-    }, [groupDetails, groupId]);
-
-    // Đảm bảo luôn có thông tin mới nhất của nhóm
-    useEffect(() => {
-        if (groupId) {
+        if (groupId && !hasLoadedGroupDetailRef.current) {
+            console.log('Initial group detail fetch');
             dispatch(getGroupDetail(groupId));
+            hasLoadedGroupDetailRef.current = true;
         }
     }, [groupId, dispatch]);
 
+    // Khởi tạo chat - Chỉ chạy một lần khi component mount
     useEffect(() => {
+        if (hasInitializedRef.current) return;
+        
         dispatch(clearMessages());
         const socket = socketService.getSocket();
         setIsLoading(true);
@@ -107,16 +90,15 @@ const ChatDetail = () => {
 
                     // Đợi kết quả register
                     const registerResult = await socketService.registerChat(profileId, groupId, dispatch);
-                    // console.log('🔄 Register chat result:', registerResult);
 
                     if (registerResult?.status === 'success') {
                         // Chỉ mở chat nếu register thành công
                         const openResult = await socketService.openChat(profileId, groupId, dispatch);
-                        // console.log('📖 Open chat result:', openResult);
 
                         if (openResult?.status === 'success') {
                             console.log('✅ Chat initialized successfully');
                             setIsLoading(false);
+                            hasInitializedRef.current = true;
                             return;
                         }
                     }
@@ -132,7 +114,7 @@ const ChatDetail = () => {
 
             initializeChat();
 
-            // Basic socket handlers
+            // Socket event handlers
             socket.on('connect', () => console.log('Socket connected successfully'));
             socket.on('disconnect', () => console.log('Socket disconnected'));
             socket.on('error', (error) => console.log('Socket error:', error));
@@ -211,17 +193,18 @@ const ChatDetail = () => {
                 socket.off('error');
                 socket.off('newMessage');
                 socket.off('messageRecalled');
-                socket.off('messageDeleted'); // Thêm dòng này
+                socket.off('messageDeleted');
             };
         }
     }, [socket, groupId, profileId, dispatch]);
 
+    // Set current chat
     useEffect(() => {
         dispatch(setCurrentChat({ groupId, profileId }));
         return () => {
             dispatch(setCurrentChat(null));
         };
-    }, [groupId, profileId]);
+    }, [groupId, profileId, dispatch]);
 
     const handleSendMessage = async (messageText) => {
         const socket = socketService.getSocket();
@@ -320,11 +303,10 @@ const ChatDetail = () => {
                     resizeMode="cover"
                 >
                     <ChatHeaderComponent
-                        key={`chat-header-${refreshKey}`} // Thêm key để force re-render
                         dataDetail={currentGroupDetail}
                         goBack={goBack}
                         title={partnerName}
-                        refreshKey={refreshKey} // Truyền refreshKey sang component con
+                        refreshKey={refreshKey} 
                     />
                     <View style={dynamicStyles.contentContainer}>
                         <MessageList
