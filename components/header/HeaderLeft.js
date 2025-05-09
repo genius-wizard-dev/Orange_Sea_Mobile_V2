@@ -9,21 +9,21 @@ const HeaderLeft = ({ goBack, title, onGoBack }) => {
     const navigation = useNavigation();
 
     const handleBackPress = () => {
-        // if (onGoBack) {
-        //     // Sử dụng hàm callback tùy chỉnh nếu được cung cấp
-        //     onGoBack();
-        // } else if (goBack) {
-        //     // Nếu có goBack là đường dẫn cụ thể
-        //     if (typeof goBack === 'string') {
-        //         router.replace(goBack);
-        //     } else {
-        //         // Nếu goBack là object với pathname và params
-        //         router.push(goBack);
-        //     }
-        // } else {
-        //     // Sử dụng goBack của navigation để quay lại màn hình trước đó theo stack
-        //     navigation.goBack();
-        // }
+        if (onGoBack) {
+            // Sử dụng hàm callback tùy chỉnh nếu được cung cấp
+            onGoBack();
+        } else if (goBack) {
+            // Nếu có goBack là đường dẫn cụ thể
+            if (typeof goBack === 'string') {
+                router.replace(goBack);
+            } else {
+                // Nếu goBack là object với pathname và params
+                router.push(goBack);
+            }
+        } else {
+            // Sử dụng goBack của navigation để quay lại màn hình trước đó theo stack
+            navigation.goBack();
+        }
         router.push(goBack);
     };
 

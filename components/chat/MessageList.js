@@ -4,6 +4,7 @@ import MessageItem from './MessageItem';
 import { useDispatch } from 'react-redux';
 import { setMessages } from '../../redux/slices/chatSlice';
 import { fetchPaginatedMessages } from '../../redux/thunks/chat';
+import MessageListSkeleton from '../loading/messages/MessageListSkeleton';
 
 const MessageList = React.forwardRef(({
     messages,
@@ -146,7 +147,7 @@ const MessageList = React.forwardRef(({
                     isPending: false
                 }));
 
-                console.log('Formatted messages:', formattedMessages);
+                // console.log('Formatted messages:', fUpdated Redux messagesormattedMessages);
 
                 // Lọc tin nhắn trùng lặp dựa trên ID
                 const existingIds = new Set(messages.map(msg => msg.id));
@@ -192,7 +193,7 @@ const MessageList = React.forwardRef(({
     };
 
     if (isLoading) {
-        return <View style={styles.center}><ActivityIndicator size="large" color="#FF7A1E" /></View>;
+        return <MessageListSkeleton />;
     }
 
     return (

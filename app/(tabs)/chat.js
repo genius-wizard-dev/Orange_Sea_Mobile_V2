@@ -12,6 +12,7 @@ import { updateGroupMessages } from '../../redux/slices/groupSlice';
 import { formatTime, displayTime } from '../../utils/time';
 import GroupAvatar from '../../components/group/GroupAvatar';
 import { useRoute } from '@react-navigation/native';
+import ChatItemSkeleton from '../../components/loading/ChatItemSkeleton';
 
 const Chat = () => {
   const router = useRouter();
@@ -24,7 +25,8 @@ const Chat = () => {
   const userStatuses = useSelector(state => state.chat.userStatuses);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
-  const navigation = useNavigation()
+  const navigation = useNavigation();
+  const [isLoading, setIsLoading] = useState(true);
 
 
   useEffect(() => {
@@ -38,6 +40,7 @@ const Chat = () => {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
       const groupResult = await dispatch(getListGroup()).unwrap();
 
       if (Array.isArray(groupResult)) {
@@ -84,37 +87,20 @@ const Chat = () => {
           }
         });
 
-        for (const group of nonGroupChats) {
-          if (!group || !group.id) continue;
-
+        const loadDetailsPromises = nonGroupChats.map(async (group) => {
+          if (!group || !group.id) return;
           try {
-            const abc = await dispatch(getGroupDetail(group.id));
-
+            await dispatch(getGroupDetail(group.id));
           } catch (error) {
             console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
-            // Bỏ qua lỗi và tiếp tục với nhóm khác
           }
-        }
+        });
 
+        await Promise.all(loadDetailsPromises);
+        setIsLoading(false);
 
-
-        // await Promise.all(
-        //   nonGroupChats.map(async (group) => {
-        //     if (!group || !group.id) return;
-        //     try {
-        //       const groupDetailRes = await dispatch(getGroupDetail(group.id)).unwrap();
-
-        //       // console.log(groupDetailRes)
-
-
-        //     } catch (error) {
-        //       console.error('Error fetching group detail:', error);
-        //     }
-        //   })
-        // );
-
-
-
+      } else {
+        setIsLoading(false);
       }
     };
     fetchData();
@@ -131,7 +117,7 @@ const Chat = () => {
   }, [profile?.id, dispatch]);
 
 
-  if (loading) {
+  if (loading && !isLoading) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center">
         <Spinner size="large" color="$orange10" />
@@ -157,9 +143,11 @@ const Chat = () => {
     const lastMessageContent = isRecalled
       ? "Tin nhắn đã thu hồi"
       : lastMessage?.content
-        ? (lastMessage.content.length > 16
-          ? lastMessage.content.slice(0, 16) + '...'
-          : lastMessage.content)
+        ? (
+          lastMessage.content.replace(/\n/g, ' ').length > 16
+            ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
+            : lastMessage.content.replace(/\n/g, ' ')
+        )
         : "Không có tin nhắn";
 
     const otherParticipant = !group.isGroup && groupDetail?.participants?.find(
@@ -264,7 +252,12 @@ const Chat = () => {
         paddingTop={20}
         space="$3"
       >
-        {Array.isArray(groups) && groups.length > 0 ? (
+        {isLoading ? (
+          // Hiển thị skeleton items khi đang tải
+          Array.from({ length: 7  }).map((_, index) => (
+            <ChatItemSkeleton key={`skeleton-${index}`} />
+          )) 
+        ) : Array.isArray(groups) && groups.length > 0 ? (
           [...groups]
             .sort((a, b) => {
               const lastMessageA = lastMessages[a.id] || a.messages?.[0] || groupDetails[a.id]?.messages?.[0];

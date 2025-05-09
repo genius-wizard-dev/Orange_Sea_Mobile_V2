@@ -29,7 +29,7 @@ const ContactItem = ({ name, isSystem, onPress, avatar }) => (
                 overflow="hidden"
             >
                 {avatar && (
-                    <Image 
+                    <Image
                         source={{ uri: avatar }}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
@@ -77,97 +77,104 @@ export default function Contact() {
     };
 
     return (
-        <YStack flex={1} backgroundColor="white">
-            <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                flexDirection="column"
-                flex={1}
-                paddingTop={0}
-            >
-                <XStack borderBottomWidth={1} borderColor="$gray5">
-                    <Tabs.List flex={1} borderBottomWidth={0}>
-                        <Tabs.Tab flex={1} value="friends" backgroundColor="transparent">
-                            <Text
-                                fontSize={16}
-                                fontWeight={activeTab === "friends" ? "bold" : "normal"}
-                                color={activeTab === "friends" ? "#FE781F" : "$gray11"}
-                            >
-                                Bạn bè
-                            </Text>
-                            {activeTab === "friends" && (
-                                <YStack
-                                    position="absolute"
-                                    bottom={0}
-                                    width="100%"
-                                    height={2}
-                                    backgroundColor="#FE781F"
-                                />
+            <YStack flex={1} backgroundColor="white">
+                <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    flexDirection="column"
+                    flex={1}
+                    paddingTop={0}
+                >
+                    <XStack borderBottomWidth={1} borderColor="$gray5">
+                        <Tabs.List flex={1} borderBottomWidth={0}>
+                            <Tabs.Tab flex={1} value="friends" backgroundColor="transparent">
+                                <Text
+                                    fontSize={16}
+                                    fontWeight={activeTab === "friends" ? "bold" : "normal"}
+                                    color={activeTab === "friends" ? "#FE781F" : "$gray11"}
+                                >
+                                    Bạn bè
+                                </Text>
+                                {activeTab === "friends" && (
+                                    <YStack
+                                        position="absolute"
+                                        bottom={0}
+                                        width="100%"
+                                        height={2}
+                                        backgroundColor="#FE781F"
+                                    />
+                                )}
+                            </Tabs.Tab>
+                            <Tabs.Tab flex={1} value="groups" backgroundColor="transparent">
+                                <Text
+                                    fontSize={16}
+                                    fontWeight={activeTab === "groups" ? "bold" : "normal"}
+                                    color={activeTab === "groups" ? "#FE781F" : "$gray11"}
+                                >
+                                    Nhóm
+                                </Text>
+                                {activeTab === "groups" && (
+                                    <YStack
+                                        position="absolute"
+                                        bottom={0}
+                                        width="100%"
+                                        height={2}
+                                        backgroundColor="#FE781F"
+                                    />
+                                )}
+                            </Tabs.Tab>
+                        </Tabs.List>
+                    </XStack>
+
+        <ScrollView
+            width="100%"
+            height="100%"
+            bounces={false}
+            contentContainerStyle={{ flexGrow: 1 }}
+        >
+                    <Tabs.Content value="friends" flex={1}>
+                        <ScrollView>
+                            <XStack padding={12} space={5}>
+                                <Text fontSize={14} color="$gray11">Tất cả</Text>
+                                <Text fontSize={14} color="$gray11" >{friends?.length || 0}</Text>
+                            </XStack>
+
+                            <ContactItem
+                                name="Lời mời kết bạn"
+                                isSystem="invite"
+                                onPress={handleOpenPageReq}
+                            />
+
+                            <Text padding={16} fontSize={16} color="$gray11">Danh sách bạn bè</Text>
+
+                            {loading ? (
+                                <YStack height={200} justifyContent="center" alignItems="center">
+                                    <Spinner size="large" color="$orange10" />
+                                </YStack>
+                            ) : friends?.length > 0 ? (
+                                friends.map((friend) => (
+                                    <ContactItem
+                                        key={friend.id}
+                                        name={friend.name}
+                                        avatar={friend.avatar}
+                                        onPress={() => handleOpenChat(friend)}
+                                    />
+                                ))
+                            ) : (
+                                <YStack height={200} justifyContent="center" alignItems="center">
+                                    <Text color="$gray11">Chưa có bạn bè</Text>
+                                </YStack>
                             )}
-                        </Tabs.Tab>
-                        <Tabs.Tab flex={1} value="groups" backgroundColor="transparent">
-                            <Text
-                                fontSize={16}
-                                fontWeight={activeTab === "groups" ? "bold" : "normal"}
-                                color={activeTab === "groups" ? "#FE781F" : "$gray11"}
-                            >
-                                Nhóm
-                            </Text>
-                            {activeTab === "groups" && (
-                                <YStack
-                                    position="absolute"
-                                    bottom={0}
-                                    width="100%"
-                                    height={2}
-                                    backgroundColor="#FE781F"
-                                />
-                            )}
-                        </Tabs.Tab>
-                    </Tabs.List>
-                </XStack>
+                        </ScrollView>
+                    </Tabs.Content>
 
-                <Tabs.Content value="friends" flex={1}>
-                    <ScrollView>
-                        <XStack padding={12} space={5}>
-                            <Text fontSize={14} color="$gray11">Tất cả</Text>
-                            <Text fontSize={14} color="$gray11" >{friends?.length || 0}</Text>
-                        </XStack>
-
-                        <ContactItem
-                            name="Lời mời kết bạn"
-                            isSystem="invite"
-                            onPress={handleOpenPageReq}
-                        />
-
-                        <Text padding={16} fontSize={16} color="$gray11">Danh sách bạn bè</Text>
-                        
-                        {loading ? (
-                            <YStack height={200} justifyContent="center" alignItems="center">
-                                <Spinner size="large" color="$orange10" />
-                            </YStack>
-                        ) : friends?.length > 0 ? (
-                            friends.map((friend) => (
-                                <ContactItem 
-                                    key={friend.id}
-                                    name={friend.name}
-                                    avatar={friend.avatar}
-                                    onPress={() => handleOpenChat(friend)}
-                                />
-                            ))
-                        ) : (
-                            <YStack height={200} justifyContent="center" alignItems="center">
-                                <Text color="$gray11">Chưa có bạn bè</Text>
-                            </YStack>
-                        )}
-                    </ScrollView>
-                </Tabs.Content>
-
-                <Tabs.Content value="groups" flex={1}>
-                    <YStack flex={1} justifyContent="center" alignItems="center">
-                        <Text>Không có nhóm nào</Text>
-                    </YStack>
-                </Tabs.Content>
-            </Tabs>
-        </YStack>
+                    <Tabs.Content value="groups" flex={1}>
+                        <YStack flex={1} justifyContent="center" alignItems="center">
+                            <Text>Không có nhóm nào</Text>
+                        </YStack>
+                    </Tabs.Content>
+                </ScrollView>
+                </Tabs>
+            </YStack>
     );
 }

@@ -125,7 +125,7 @@ export default function Login() {
             height={170}
             marginBottom={40}
           />
-          <H2 ta="center">Đăng nhập</H2>
+          <H2 ta="center" fontWeight="700">ĐĂNG NHẬP</H2>
           <Text ta="center" theme="alt2" marginBottom={30}>
             Tham gia cộng đồng OrangeSea
           </Text>
@@ -211,7 +211,7 @@ export default function Login() {
 
               {/* Forgot Password */}
               <XStack justifyContent="flex-end">
-                <Text color="$primary" onPress={handleForgotPassword} fontSize="$2">
+                <Text color="$blue9" onPress={handleForgotPassword} fontSize="$3">
                   Quên mật khẩu?
                 </Text>
               </XStack>

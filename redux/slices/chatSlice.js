@@ -68,7 +68,7 @@ const chatSlice = createSlice({
         state.messages = [...uniqueMessages.values()].sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
-        console.log('Updated Redux messages:', state.messages);
+        // console.log('Updated Redux messages:', state.messages);
       }
     },
     updateMessageStatus: (state, action) => {

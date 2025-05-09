@@ -9,10 +9,10 @@ class SocketService {
 
     connect() {
 
-        const link_socket = `ws://${Constants.expoConfig?.extra?.API_BASE_URL.substr(7)}/chat`;
+        const link_socket = `wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`;
         console.log("link socket ", link_socket);
 
-        this.socket = io(`ws://${Constants.expoConfig?.extra?.API_BASE_URL.substr(7)}/chat`, {
+        this.socket = io(link_socket, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
         });

@@ -2,6 +2,7 @@ import { StyleSheet, TextInput, Pressable, Platform, Animated, Keyboard, Dimensi
 import React, { useState, useRef, useEffect } from 'react';
 import { XStack, YStack } from 'tamagui';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import EmojiSelector from 'react-native-emoji-selector';
 
 const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const [message, setMessage] = useState('');
@@ -169,7 +170,12 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
             <YStack height={bottomSheetHeight} backgroundColor="#fff" padding={10}>
                 {activeTab === 'sticker' && (
                     <XStack flex={1} alignItems="center" justifyContent="center">
-                        <Ionicons name="happy-outline" size={50} color="#65676b" />
+                        {/* <Ionicons name="happy-outline" size={50} color="#65676b" /> */}
+                        <EmojiSelector
+                            onEmojiSelected={emoji => {
+                                setMessage(prevMessage => prevMessage + emoji);
+                            }}
+                        />
                     </XStack>
                 )}
                 {activeTab === 'duplicate' && (
@@ -177,11 +183,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                         <Ionicons name="duplicate-outline" size={50} color="#65676b" />
                     </XStack>
                 )}
-                {activeTab === 'mic' && (
-                    <XStack flex={1} alignItems="center" justifyContent="center">
-                        <Ionicons name="mic-outline" size={50} color="#65676b" />
-                    </XStack>
-                )}
+
                 {activeTab === 'images' && (
                     <XStack flex={1} alignItems="center" justifyContent="center">
                         <Ionicons name="images-outline" size={50} color="#65676b" />
@@ -271,14 +273,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                         color={activeTab === 'duplicate' ? '#0084ff' : '#65676b'}
                                     />
                                 </Pressable>
-                                <Pressable onPress={() => toggleTab('mic')}>
-                                    <Ionicons
-                                        name="mic-outline"
-                                        size={30}
-                                        color={activeTab === 'mic' ? '#0084ff' : '#65676b'}
-                                        style={{ marginLeft: 10 }}
-                                    />
-                                </Pressable>
+
                                 <Pressable onPress={() => toggleTab('images')}>
                                     <Ionicons
                                         name="images-outline"

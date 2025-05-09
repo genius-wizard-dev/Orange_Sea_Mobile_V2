@@ -82,7 +82,7 @@ export default function Register() {
               height={170}
               marginBottom={40}
             />
-            <H2 ta="center">Đăng ký</H2>
+            <H2 ta="center" fontWeight="700">ĐĂNG KÝ</H2>
             <Text ta="center" theme="alt2" marginBottom={30}>
               Tham gia cộng đồng OrangeSea
             </Text>
