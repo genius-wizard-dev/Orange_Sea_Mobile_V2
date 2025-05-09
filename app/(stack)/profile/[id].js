@@ -408,10 +408,10 @@ export default function Info() {
               <Text>{info.phone}</Text>
             </XStack>
           )}
-          {info?.location && (
+          {info?.gender && (
             <XStack space={10} alignItems="center">
-              <Ionicons name="location-outline" size={20} color="#666" />
-              <Text>{info.location}</Text>
+              <Ionicons name="transgender-outline" size={20} color="#666" />
+              <Text>{info.gender === "M" ? "Nam" : "Nữ"}</Text>
             </XStack>
           )}
         </YStack>
@@ -428,6 +428,7 @@ export default function Info() {
               borderRadius={15}
               padding={10}
               pressStyle={{ opacity: 0.7 }}
+              onPress={() => router.push('setting/update/updateProfile')}
             >
               <XStack alignItems="center" space={15}>
                 <Ionicons name="create-outline" size={24} color="#666" />

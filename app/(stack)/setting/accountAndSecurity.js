@@ -55,12 +55,12 @@ const AccountAndSecurity = () => {
             description: profile?.email || 'Chưa liên kết',
             action: () => router.push('/email'),
         },
-        {
-            icon: "qr-code-outline",
-            title: "Mã QR của tôi",
-            description: null,
-            action: () => router.push('/qr-code'),
-        },
+        // {
+        //     icon: "qr-code-outline",
+        //     title: "Mã QR của tôi",
+        //     description: null,
+        //     action: () => router.push('/qr-code'),
+        // },
     ]
 
     const securityGroup = [

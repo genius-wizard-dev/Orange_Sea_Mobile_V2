@@ -8,19 +8,19 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#FF7A1E',
-        tabBarInactiveTintColor: '#B5B5B5',
+        tabBarInactiveTintColor: '#a8a3a3',
         tabBarStyle: {
           height: 70,
           paddingBottom: 12,
           paddingTop: 12,
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#f9f4f4',
           borderTopWidth: 1,
           borderTopColor: '#F3F3F3',
           elevation: 0,
           shadowOpacity: 0,
           position: 'absolute',
-          borderTopLeftRadius: 25,
-          borderTopRightRadius: 25,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
         },
         tabBarShowLabel: false,
       }}>
@@ -52,7 +52,7 @@ export default function TabLayout() {
         options={{
           title: 'Kết nối',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'share-social' : 'share-social-outline'} size={30} color={color} />
+            <Ionicons name={focused ? 'planet' : 'planet-outline'} size={30} color={color} />
           ),
           headerShown: true,
           header: () => <HeaderSearchComponent />

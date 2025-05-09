@@ -8,7 +8,7 @@ import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { sendMessage } from '../../../redux/thunks/chat'
-import { addMessage, setCurrentChat, clearMessages, setMessages, markGroupAsRead, deleteMessage, updateMessage } from '../../../redux/slices/chatSlice'
+import { addMessage, setCurrentChat, clearMessages, setMessages, markGroupAsRead, deleteMessage, updateMessage, updateMessageStatus } from '../../../redux/slices/chatSlice'
 import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
@@ -131,7 +131,7 @@ const ChatDetail = () => {
 
             // New message handler
             socket.on('newMessage', (message) => {
-                // console.log("nhan duoc tin nhan", message);
+                console.log("nhan duoc tin nhan", message);
                 if (message.groupId === groupId) {
                     const isMyMessage = message.senderId === profileId;
                     const formattedMessage = {
@@ -216,37 +216,92 @@ const ChatDetail = () => {
         };
     }, [groupId, profileId, dispatch]);
 
-    const handleSendMessage = async (messageText) => {
-        const socket = socketService.getSocket();
+    const handleSendMessage = async (messageData) => {
+        // Xác định loại dữ liệu được gửi
+        const isTextOnly = typeof messageData === 'string';
+        const isObject = typeof messageData === 'object' && messageData !== null;
+
+        // Xác định loại tin nhắn và nội dung
+        let type = 'TEXT';
+        let content = null;
+
+        if (isTextOnly) {
+            type = 'TEXT';
+            content = messageData;
+        } else if (isObject) {
+            type = messageData.type || 'TEXT';
+            content = messageData.content || null;
+        }
+
+        if (!content && type === 'TEXT') {
+            console.error('Không có nội dung tin nhắn');
+            return;
+        }
+
+        // Với tin nhắn ảnh, cho phép nội dung rỗng
+        if (type === 'IMAGE' && (!content || !content.uri)) {
+            console.error('Không có dữ liệu ảnh');
+            return;
+        }
+
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        const pendingMessage = {
+        // Tạo tin nhắn tạm thời để hiển thị ngay lập tức
+        let pendingMessage = {
             tempId,
             id: tempId,
-            message: messageText,
             senderId: profileId,
             groupId: groupId,
-            type: 'TEXT',
+            type: type,
             createdAt: new Date().toISOString(),
             sender: profile,
             isMyMessage: true,
             isPending: true
         };
 
-        // Thêm tin nhắn pending vào messages array
-        dispatch(setMessages([...messages, pendingMessage]));
+        // Bổ sung thông tin theo loại tin nhắn
+        if (type === 'TEXT') {
+            pendingMessage.message = content;
+        } else if (type === 'IMAGE') {
+            pendingMessage.imageUrl = content.uri;
+        }
+
+        // Thêm tin nhắn pending vào danh sách - Sử dụng addMessage thay vì setMessages
+        dispatch(addMessage(pendingMessage));
 
         try {
+            // Đảm bảo socket đã kết nối
             await socketService.registerProfile(profileId);
-            const response = await dispatch(sendMessage({
-                message: messageText,
-                groupId: groupId,
-                senderId: profileId,
-                type: 'TEXT'
-            })).unwrap();
+            let response;
 
+            if (type === 'TEXT') {
+                // Gửi tin nhắn văn bản
+                response = await dispatch(sendMessage({
+                    message: content,
+                    groupId: groupId,
+                    senderId: profileId,
+                    type: 'TEXT'
+                })).unwrap();
+            } else if (type === 'IMAGE') {
+                // Tạo FormData để gửi ảnh
+                const formData = new FormData();
+                // Thêm file ảnh
+                formData.append('file', {
+                    uri: content.uri,
+                    type: content.type || 'image/jpeg',
+                    name: content.name || `image-${Date.now()}.jpg`
+                });
+                formData.append('groupId', groupId);
+                formData.append('senderId', profileId);
+                formData.append('type', 'IMAGE');
+                formData.append('content', ''); // Thêm content rỗng cho ảnh
+
+                // Gửi ảnh lên server
+                response = await dispatch(sendMessage(formData)).unwrap();
+            }
 
             if (response?.status === 'success' && response?.data) {
+                // Tạo tin nhắn chính thức từ phản hồi server
                 const newMessage = {
                     ...pendingMessage,
                     id: response.data.id,
@@ -255,26 +310,34 @@ const ChatDetail = () => {
                     createdAt: response.data.createdAt || new Date().toISOString(),
                 };
 
-                // Cập nhật messages array với tin nhắn mới
-                const updatedMessages = messages.map(msg =>
-                    msg.tempId === tempId ? newMessage : msg
-                );
+                // Cập nhật URL ảnh từ server nếu là tin nhắn ảnh
+                if (type === 'IMAGE' && response.data.fileUrl) {
+                    newMessage.imageUrl = response.data.fileUrl;
+                }
 
-                dispatch(setMessages([...updatedMessages, newMessage]));
+                // Cập nhật tin nhắn - Sử dụng updateMessageStatus thay vì map rồi setMessages
+                dispatch(updateMessageStatus({ tempId, newMessage }));
 
-                // Emit socket event thông qua socketService
+                // Thông báo qua socket
                 socketService.sendMessage({
                     messageId: response.data.id,
                     groupId: groupId,
                     senderId: profileId,
-                    content: messageText
+                    type: type,
+                    content: type === 'TEXT' ? content : "", // Chuỗi rỗng cho ảnh
+                    fileUrl: type === 'IMAGE' ? response.data.fileUrl : undefined
                 });
             }
         } catch (error) {
-            console.error('Error in handleSendMessage:', error);
+            console.error(`Lỗi khi gửi tin nhắn ${type}:`, error);
             // Xóa tin nhắn pending nếu gửi thất bại
-            const filteredMessages = messages.filter(msg => msg.tempId !== tempId);
-            dispatch(setMessages(filteredMessages));
+            dispatch(deleteMessage(tempId));
+
+            // Hiển thị thông báo lỗi cho người dùng
+            Alert.alert(
+                "Lỗi gửi tin nhắn",
+                `Không thể gửi ${type === 'TEXT' ? 'tin nhắn' : 'ảnh'}. Vui lòng thử lại sau.`
+            );
         }
     };
 

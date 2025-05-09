@@ -73,10 +73,22 @@ const chatSlice = createSlice({
     },
     updateMessageStatus: (state, action) => {
       const { tempId, newMessage } = action.payload;
+      // Tìm vị trí tin nhắn cần cập nhật
       const index = state.messages.findIndex(msg => msg.tempId === tempId);
       if (index !== -1) {
-        state.messages[index] = { ...newMessage, tempId: undefined };
+        // Cập nhật tin nhắn với ID mới và loại bỏ tempId
+        const updatedMessage = { ...state.messages[index], ...newMessage };
+        delete updatedMessage.tempId; // Xóa tempId
+        updatedMessage.isPending = false; // Đảm bảo trạng thái không còn pending
+
+        // Thay thế trực tiếp trong mảng messages
+        state.messages[index] = updatedMessage;
+
+        // Clone mảng để đảm bảo Redux nhận biết sự thay đổi
         state.messages = [...state.messages];
+      } else {
+        // Nếu không tìm thấy tin nhắn với tempId, thêm mới vào đầu mảng
+        state.messages = [newMessage, ...state.messages];
       }
     },
     setUnreadCounts: (state, action) => {

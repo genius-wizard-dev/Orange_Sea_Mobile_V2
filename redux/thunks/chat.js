@@ -9,12 +9,23 @@ export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async (messageData, { dispatch, rejectWithValue }) => {
     try {
-      const response = await apiService.post(ENDPOINTS.CHAT.SEND, {
-        groupId: messageData.groupId,
-        message: messageData.message,
-        type: messageData.type,
-        senderId: messageData.senderId
-      });
+      dispatch(setLoading(true));
+
+      const isFormData = messageData instanceof FormData;
+      let response;
+
+      if (isFormData) {
+        // Nếu là FormData (upload ảnh)
+        response = await apiService.post(ENDPOINTS.CHAT.SEND, messageData);
+      } else {
+        // Nếu là tin nhắn thường
+        response = await apiService.post(ENDPOINTS.CHAT.SEND, {
+          groupId: messageData.groupId,
+          message: messageData.message,
+          type: messageData.type || 'TEXT',
+          senderId: messageData.senderId
+        });
+      }
 
       // Đảm bảo response có ID thật trước khi trả về
       if (response?.status === 'success' && response?.data?.id) {
@@ -22,7 +33,7 @@ export const sendMessage = createAsyncThunk(
           ...response,
           data: {
             ...response.data,
-            id: response.data.id, // Đảm bảo có id thật
+            id: response.data.id,
             tempId: undefined // Xóa tempId nếu có
           }
         };
@@ -30,7 +41,11 @@ export const sendMessage = createAsyncThunk(
 
       return response;
     } catch (error) {
-      return rejectWithValue(error.message);
+      console.error('Lỗi khi gửi tin nhắn:', error);
+      dispatch(setError(error.message || 'Không thể gửi tin nhắn'));
+      return rejectWithValue(error.response?.data || { message: 'Không thể gửi tin nhắn' });
+    } finally {
+      dispatch(setLoading(false));
     }
   }
 );
@@ -122,7 +137,7 @@ export const fetchPaginatedMessages = createAsyncThunk(
       dispatch(setLoading(true));
       const response = await apiService.get(
         ENDPOINTS.CHAT.GET_MESSAGES(groupId),
-        { cursor } 
+        { cursor }
       );
       return response;
     } catch (error) {

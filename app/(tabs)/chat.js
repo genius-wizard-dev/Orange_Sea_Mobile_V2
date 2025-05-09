@@ -119,8 +119,19 @@ const Chat = () => {
 
   if (loading && !isLoading) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center">
-        <Spinner size="large" color="$orange10" />
+      <YStack
+        flex={1}
+        height="100%"
+        bg="white"
+        width="100%"
+        paddingHorizontal={20}
+        paddingBottom={55}
+        paddingTop={20}
+        space="$3"
+      >
+        {Array.from({ length: 7 }).map((_, index) => (
+          <ChatItemSkeleton key={`skeleton-${index}`} />
+        ))}
       </YStack>
     );
   }
@@ -142,13 +153,20 @@ const Chat = () => {
 
     const lastMessageContent = isRecalled
       ? "Tin nhắn đã thu hồi"
-      : lastMessage?.content
+      : lastMessage
         ? (
-          lastMessage.content.replace(/\n/g, ' ').length > 16
-            ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
-            : lastMessage.content.replace(/\n/g, ' ')
+          lastMessage.type === "IMAGE"
+            ? "[Hình ảnh]"
+            : lastMessage.content
+              ? (
+                lastMessage.content.replace(/\n/g, ' ').length > 16
+                  ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
+                  : lastMessage.content.replace(/\n/g, ' ')
+              )
+              : "Không có tin nhắn"
         )
         : "Không có tin nhắn";
+
 
     const otherParticipant = !group.isGroup && groupDetail?.participants?.find(
       p => p?.userId !== profile?.id
@@ -254,9 +272,9 @@ const Chat = () => {
       >
         {isLoading ? (
           // Hiển thị skeleton items khi đang tải
-          Array.from({ length: 7  }).map((_, index) => (
+          Array.from({ length: 7 }).map((_, index) => (
             <ChatItemSkeleton key={`skeleton-${index}`} />
-          )) 
+          ))
         ) : Array.isArray(groups) && groups.length > 0 ? (
           [...groups]
             .sort((a, b) => {

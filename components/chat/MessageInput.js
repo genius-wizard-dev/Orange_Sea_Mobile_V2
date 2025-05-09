@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { XStack, YStack } from 'tamagui';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import EmojiSelector from 'react-native-emoji-selector';
+import ImageGallery from './ImageGallery';
 
 const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const [message, setMessage] = useState('');
@@ -14,9 +15,10 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const bottomSheetAnim = useRef(new Animated.Value(0)).current;
     const inputPosition = useRef(new Animated.Value(0)).current;
     const bottomSheetHeight = 300;
+    const [hasSelectedImage, setHasSelectedImage] = useState(false);
 
     useEffect(() => {
-        if (message.length > 0) {
+        if (message.length > 0 && !hasSelectedImage) {
             Animated.parallel([
                 Animated.timing(fadeAnim, {
                     toValue: 0,
@@ -43,7 +45,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                 })
             ]).start();
         }
-    }, [message]);
+    }, [message, hasSelectedImage]);
 
     useEffect(() => {
         const keyboardWillShow = Keyboard.addListener(
@@ -63,7 +65,10 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
 
     const handleSend = () => {
         if (message.trim()) {
-            onSendMessage(message.trim());
+            onSendMessage({
+                type: 'TEXT',
+                content: message.trim()
+            });
             setMessage('');
         }
     };
@@ -71,6 +76,8 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const closeBottomSheet = () => {
         setActiveTab(null);
         onTabChange && onTabChange(null);
+        setHasSelectedImage(false);
+
         Animated.parallel([
             Animated.spring(inputPosition, {
                 toValue: 0,
@@ -106,6 +113,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
         if (activeTab === tabName) {
             // Đóng tab
             setActiveTab(null);
+            setHasSelectedImage(false);
             onTabChange && onTabChange(null);
             Animated.parallel([
                 Animated.spring(inputPosition, {
@@ -127,6 +135,10 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
         } else {
             // Mở tab mới
             setActiveTab(tabName);
+            // Nếu là tab image, xóa text để ẩn nút gửi tin nhắn
+            if (tabName === 'images') {
+                setMessage('');
+            }
             onTabChange && onTabChange(tabName);
             // Đặt giá trị bottomSheetAnim về 0 trước khi animation
             bottomSheetAnim.setValue(0);
@@ -164,6 +176,28 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
         }
     };
 
+    const handleSendImage = (imageData) => {
+        if (imageData) {
+            // Gọi hàm onSendMessage với đúng định dạng
+            onSendMessage({
+                type: 'IMAGE',
+                content: {
+                    ...imageData,
+                    content: ""  // Đảm bảo content là chuỗi rỗng
+                }
+            });
+
+            // Đóng bottom sheet
+            closeBottomSheet();
+
+            // Reset trạng thái đã chọn ảnh
+            setHasSelectedImage(false);
+
+            // Đảm bảo message là rỗng
+            setMessage('');
+        }
+    };
+
     const renderTabContent = () => {
         if (!activeTab) return null;
         return (
@@ -186,7 +220,17 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
 
                 {activeTab === 'images' && (
                     <XStack flex={1} alignItems="center" justifyContent="center">
-                        <Ionicons name="images-outline" size={50} color="#65676b" />
+                        <ImageGallery
+                            onImageSelect={(image) => {
+                                // Nếu image là null, tức là người dùng đã hủy chọn ảnh
+                                setHasSelectedImage(!!image);
+                                if (!image) {
+                                    // Người dùng đã hủy, cho phép nhập text trở lại
+                                    setMessage('');
+                                }
+                            }}
+                            onSendImage={handleSendImage}
+                        />
                     </XStack>
                 )}
             </YStack>
@@ -238,6 +282,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                             borderRadius={20}
                             alignItems="center"
                             padding={5}
+                            paddingLeft={15}
                         >
                             <Ionicons
                                 onPress={() => toggleTab('sticker')}
@@ -250,11 +295,17 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                 style={styles.input}
                                 placeholder="Tin nhắn"
                                 value={message}
-                                onChangeText={setMessage}
+                                onChangeText={(text) => {
+                                    // Chỉ cho phép nhập text khi không có ảnh được chọn
+                                    if (!hasSelectedImage) {
+                                        setMessage(text);
+                                    }
+                                }}
                                 multiline
                                 maxLength={1000}
                                 onFocus={handleFocus}
                                 onBlur={handleBlur}
+                                editable={!hasSelectedImage}
                             />
                             <Animated.View style={{
                                 flexDirection: 'row',
@@ -341,6 +392,7 @@ const styles = StyleSheet.create({
         borderColor: '#ddd',
     },
     input: {
+        maxWidth: 250,
         flex: 1,
         minHeight: 40,
         maxHeight: 120,

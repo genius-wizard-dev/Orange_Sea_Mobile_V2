@@ -158,8 +158,9 @@ export default function Me() {
           }}
           onPress={() => setLogoutSheetOpen(true)}
         >
-          <Text fontSize={16} fontWeight="600" color="#E94057">
-            Đăng xuất
+          <Ionicons name="log-out-outline" size={20} color="#E94057" />
+          <Text fontSize={15} fontWeight="600" color="#E94057">
+            ĐĂNG XUẤT
           </Text>
         </Button>
 
@@ -167,6 +168,7 @@ export default function Me() {
           open={logoutSheetOpen}
           onOpenChange={setLogoutSheetOpen}
           zIndex={100_003}
+          snapPoints={[25,10]}
         >
           <YStack space="$4" width="100%" alignItems="center">
             {/* <Text 
@@ -201,12 +203,11 @@ export default function Me() {
                 backgroundColor="#FF7A1E"
                 size="$5"
                 onPress={() => {
-                  console.log("ấn đăng xuất");
                   setLogoutSheetOpen(false);
                   setShouldLogout(true);
                 }}
-                icon={<Ionicons name="log-out-outline" size={20} color="white" />}
               >
+                <Ionicons name="log-out-outline" size={20} color="white" />
                 <Text color="white">Đăng xuất</Text>
               </Button>
             </XStack>

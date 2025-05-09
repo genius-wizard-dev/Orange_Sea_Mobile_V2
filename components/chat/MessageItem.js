@@ -143,9 +143,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 elevation={1}
 
                             >
-                                {/* {!isMyMessage && msg.sender && (
-                                    <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
-                                )} */}
+
                                 {msg.isRecalled ? (
                                     <XStack alignItems="center" >
                                         <Text
@@ -176,16 +174,47 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 )}
                                             </XStack>
                                         )}
-                                        {msg.imageUrl && (
-                                            <Image source={{ uri: msg.imageUrl }} width={200} height={200} resizeMode="contain" />
+                                        {msg.type === 'IMAGE' && msg.imageUrl && (
+                                            <YStack
+                                                width={200}
+                                                height={200}
+                                                borderRadius={10}
+                                                overflow="hidden"
+                                                backgroundColor="#000" // fallback nếu ảnh chưa load
+                                            >
+                                                <Image
+                                                    source={{ uri: msg.imageUrl }}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                    }}
+                                                    resizeMode="cover"
+                                                />
+                                                {msg.isPending && (
+                                                    <YStack
+                                                        position="absolute"
+                                                        top={0}
+                                                        left={0}
+                                                        right={0}
+                                                        bottom={0}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                        backgroundColor="rgba(0,0,0,0.2)"
+                                                    >
+                                                        <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                    </YStack>
+                                                )}
+                                            </YStack>
                                         )}
                                     </>
                                 )}
                                 <Text
                                     fontSize={12}
                                     color={isMyMessage ? '#e4e6eb' : '#65676b'}
-                                    textAlign="right" marginTop={4}
-                                    backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
+                                    textAlign="right"
+                                    marginTop={4}
+                                    backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
+                                    alignSelf="flex-end"
                                 >
                                     {formatTime(msg.createdAt)}
                                 </Text>
