@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigation, useRouter } from 'expo-router';
-import { View, Text, XStack, YStack, Image, Spinner } from 'tamagui';
+import { View, Text, XStack, YStack, Image, Spinner, ScrollView } from 'tamagui';
 import { StyleSheet } from 'react-native'; // Thêm StyleSheet từ react-native
 import { useDispatch, useSelector } from 'react-redux';
 import { getListGroup, getGroupDetail } from '../../redux/thunks/group';
@@ -11,9 +11,11 @@ import { setUnreadCounts, updateUnreadCounts, updateLastMessage, updateChatNotif
 import { updateGroupMessages } from '../../redux/slices/groupSlice';
 import { formatTime, displayTime } from '../../utils/time';
 import GroupAvatar from '../../components/group/GroupAvatar';
+import { useRoute } from '@react-navigation/native';
 
 const Chat = () => {
   const router = useRouter();
+  const route = useRoute();
   const dispatch = useDispatch();
   const { groups, loading, groupDetails } = useSelector((state) => state.group);
   const { profile } = useSelector((state) => state.profile);
@@ -23,6 +25,17 @@ const Chat = () => {
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   const navigation = useNavigation()
+
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // Khi màn hình được focus, fetch dữ liệu mới
+      dispatch(getListGroup());
+    });
+
+    return unsubscribe;
+  }, [navigation, dispatch]);
+
   useEffect(() => {
     const fetchData = async () => {
       const groupResult = await dispatch(getListGroup()).unwrap();
@@ -32,6 +45,8 @@ const Chat = () => {
         // console.log('Non group chats:', JSON.stringify(nonGroupChats, null, 2));
 
         nonGroupChats.forEach(group => {
+          if (!group || !group.id) return;
+
           const groupDetail = groupDetails[group.id];
 
           // Nếu là chat cá nhân, lấy thông tin trạng thái người dùng
@@ -46,7 +61,7 @@ const Chat = () => {
             if (otherParticipant) {
               const userStatus = userStatuses[otherParticipant.userId];
 
-              console.log("userStatus ", userStatus)
+              // console.log("userStatus ", userStatus)
 
               if (userStatus) {
                 // Emit trạng thái người dùng cập nhật vào server
@@ -69,25 +84,34 @@ const Chat = () => {
           }
         });
 
+        for (const group of nonGroupChats) {
+          if (!group || !group.id) continue;
+
+          try {
+            const abc = await dispatch(getGroupDetail(group.id));
+
+          } catch (error) {
+            console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
+            // Bỏ qua lỗi và tiếp tục với nhóm khác
+          }
+        }
 
 
-        await Promise.all(
-          nonGroupChats.map(async (group) => {
-            try {
-              const groupDetailRes = await dispatch(getGroupDetail(group.id)).unwrap();
-              // console.log('Group detail full:', JSON.stringify(groupDetailRes.data || groupDetailRes, null, 2));
 
-              // Log thông tin user từ participants
-              const participants = groupDetailRes.data?.participants || groupDetailRes.participants;
-              participants?.forEach(p => {
-                // console.log('Participant user:', JSON.stringify(p.user, null, 2));
-              });
+        // await Promise.all(
+        //   nonGroupChats.map(async (group) => {
+        //     if (!group || !group.id) return;
+        //     try {
+        //       const groupDetailRes = await dispatch(getGroupDetail(group.id)).unwrap();
 
-            } catch (error) {
-              console.error('Error fetching group detail:', error);
-            }
-          })
-        );
+        //       // console.log(groupDetailRes)
+
+
+        //     } catch (error) {
+        //       console.error('Error fetching group detail:', error);
+        //     }
+        //   })
+        // );
 
 
 
@@ -125,12 +149,6 @@ const Chat = () => {
       group.messages?.[0] ||
       groupDetail?.messages?.[0];
 
-    // console.log('Last message sources:', {
-    //   fromLastMessages: lastMessages[group.id],
-    //   fromGroup: group.messages?.[0],
-    //   fromGroupDetail: groupDetail?.messages?.[0],
-    //   finalLastMessage: lastMessage
-    // });
 
     // Kiểm tra isRecalled từ messages trong groupDetail nếu có
     const messageInDetail = groupDetail?.messages?.find(m => m.id === lastMessage?.id);
@@ -138,7 +156,11 @@ const Chat = () => {
 
     const lastMessageContent = isRecalled
       ? "Tin nhắn đã thu hồi"
-      : lastMessage?.content || "Không có tin nhắn";
+      : lastMessage?.content
+        ? (lastMessage.content.length > 16
+          ? lastMessage.content.slice(0, 16) + '...'
+          : lastMessage.content)
+        : "Không có tin nhắn";
 
     const otherParticipant = !group.isGroup && groupDetail?.participants?.find(
       p => p?.userId !== profile?.id
@@ -158,13 +180,16 @@ const Chat = () => {
     };
 
 
-    const displayName = group.isGroup
-      ? (group.name || 'Nhóm chat')  // Thêm fallback name
-      : (otherParticipant?.user?.name || 'Loading...');
+    const limitText = (text, maxLength) => {
+      if (!text) return '';
+      return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+    };
 
-    const avatar = group.isGroup ?
-      'https://i.ibb.co/jvVzkvBm/bgr-default.png' :
-      otherParticipant?.user?.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png';
+    const displayName = group.isGroup
+      ? limitText(group.name || 'Nhóm chat', 25)
+      : limitText(otherParticipant?.user?.name || 'Loading...', 25);
+
+
 
     const sender = lastMessage?.sender?.name || '';
     const prefix = lastMessage?.senderId === profile?.id ? "Bạn: " : sender ? `` : "";
@@ -204,7 +229,7 @@ const Chat = () => {
           }
         </View>
         <YStack flex={1}>
-          <Text fontSize={16} fontWeight="700">
+          <Text fontSize={16} fontWeight="700" marginBottom={5}>
             {displayName}
           </Text>
           <Text fontSize={14} color="$gray10">
@@ -228,31 +253,34 @@ const Chat = () => {
   // console.log(JSON.stringify(groups, null, 2));
 
   return (
-    <YStack
-      flex={1}
-      bg="white"
-      width="100%"
-      paddingHorizontal={20}
-      paddingBottom={55}
-      paddingTop={20}
-      space="$3"
-    >
-      {Array.isArray(groups) && groups.length > 0 ? (
-        [...groups]
-          .sort((a, b) => {
-            const lastMessageA = lastMessages[a.id] || a.messages?.[0] || groupDetails[a.id]?.messages?.[0];
-            const lastMessageB = lastMessages[b.id] || b.messages?.[0] || groupDetails[b.id]?.messages?.[0];
+    <ScrollView width="100%" height="100%" bounces={false} contentContainerStyle={{ flexGrow: 1 }}>
+      <YStack
+        flex={1}
+        height="100%"
+        bg="white"
+        width="100%"
+        paddingHorizontal={20}
+        paddingBottom={55}
+        paddingTop={20}
+        space="$3"
+      >
+        {Array.isArray(groups) && groups.length > 0 ? (
+          [...groups]
+            .sort((a, b) => {
+              const lastMessageA = lastMessages[a.id] || a.messages?.[0] || groupDetails[a.id]?.messages?.[0];
+              const lastMessageB = lastMessages[b.id] || b.messages?.[0] || groupDetails[b.id]?.messages?.[0];
 
-            const timeA = lastMessageA?.createdAt ? new Date(lastMessageA.createdAt).getTime() : 0;
-            const timeB = lastMessageB?.createdAt ? new Date(lastMessageB.createdAt).getTime() : 0;
+              const timeA = lastMessageA?.createdAt ? new Date(lastMessageA.createdAt).getTime() : 0;
+              const timeB = lastMessageB?.createdAt ? new Date(lastMessageB.createdAt).getTime() : 0;
 
-            return timeB - timeA; // Sắp xếp giảm dần (mới nhất lên đầu)
-          })
-          .map((group) => renderGroup(group))
-      ) : (
-        <Text>Không có cuộc trò chuyện nào</Text>
-      )}
-    </YStack>
+              return timeB - timeA; // Sắp xếp giảm dần (mới nhất lên đầu)
+            })
+            .map((group) => renderGroup(group))
+        ) : (
+          <Text>Không có cuộc trò chuyện nào</Text>
+        )}
+      </YStack>
+    </ScrollView>
   );
 };
 

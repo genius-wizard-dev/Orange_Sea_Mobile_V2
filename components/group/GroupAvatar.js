@@ -1,14 +1,16 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useSelector } from 'react-redux';
 import { Image, Text } from 'tamagui';
 
 const GroupAvatar = ({ group, size = 50 }) => {
     const participants = group.participants || [];
     const memberCount = participants.length;
+    const { profile } = useSelector(state => state.profile);
 
     if (!group.isGroup) {
         // Single user chat - show single avatar
-        const otherParticipant = participants.find(p => p?.user?.avatar);
+        const otherParticipant = participants.find(p => p?.userId !== profile?.id);
         return (
             <View style={[styles.singleContainer, { width: size, height: size }]}>
                 <Image
@@ -44,7 +46,7 @@ const GroupAvatar = ({ group, size = 50 }) => {
                     />
                     <View style={styles.memberCount}>
                         <Text color="white" fontSize={10}>
-                            {memberCount < 9 ? memberCount : '9+' }
+                            {memberCount < 9 ? memberCount : '9+'}
                         </Text>
                     </View>
                 </>
@@ -84,11 +86,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     singleContainer: {
-        borderRadius: 25,
+        borderRadius: 30,
         overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: '#eaeaea',
     },
     singleAvatar: {
-        borderRadius: 25,
+        borderRadius: 30,
     },
     doubleAvatar: {
         borderRadius: 20,

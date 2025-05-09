@@ -146,7 +146,7 @@ export default function StackLayout() {
         }}
       />
       <Stack.Screen
-        name="group/manageGroup"
+        name="group/manageMember"
         options={{
           title: 'Quản lý thành viên',
           headerShown: false,

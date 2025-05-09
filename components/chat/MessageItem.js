@@ -16,6 +16,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const pressTimeoutRef = useRef(null);
     const dispatch = useDispatch();
 
+
     useEffect(() => {
         return () => {
             if (pressTimeoutRef.current) {
@@ -58,6 +59,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                     alert(result.payload?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
                 } else {
                     socketService.emitRecallMessage(result.payload.id, result.payload.groupId);
+                    setIsOpen(false);
                 }
             } catch (error) {
                 console.error('Lỗi khi thu hồi tin nhắn:', error);
@@ -73,6 +75,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                     alert(result.payload?.message || 'Có lỗi xảy ra khi xoá tin nhắn');
                 } else {
                     socketService.emitDeleteMessage(msg.id, msg.groupId, msg.senderId);
+                    setIsOpen(false);
                     dispatch({
                         type: 'chat/messageDeleted',
                         payload: {
@@ -113,12 +116,11 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                     })}
                 >
                     <YStack
-                        // backgroundColor={isPressed ? 'rgba(0,0,0,0.05)' : 'transparent'}
                         borderRadius={15}
                         padding={2}
                         shadowRadius={6}
                     >
-                        <XStack alignItems="center" space>
+                        <XStack alignItems="center" space={isMyMessage ? 35 : 10} >
                             {!isMyMessage && showAvatar && msg.sender && (
                                 <Image
                                     source={{ uri: msg.sender.avatar || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
@@ -128,14 +130,15 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 />
                             )}
                             {!isMyMessage && !showAvatar && (
-                                <View style={{ width: 10 }} /> // Placeholder để giữ khoảng cách
+                                <View style={{ width: 20 }} />
                             )}
                             <YStack
                                 backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                 padding={10}
-                                marginTop={5}
-                                borderRadius={15}
-                                maxWidth="96%"
+                                marginTop={2}
+                                borderRadius={10}
+                                borderTopLeftRadius={!isMyMessage && !showAvatar ? 0 : 10}
+                                maxWidth="90%"
                                 width="auto"
                                 elevation={1}
 
@@ -144,11 +147,11 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                     <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
                                 )} */}
                                 {msg.isRecalled ? (
-                                    <XStack alignItems="center">
+                                    <XStack alignItems="center" >
                                         <Text
                                             color={isMyMessage ? '#cacbce' : '#949596'}
                                             fontStyle="italic"
-                                        // textAlign={isMyMessage ? 'right' : 'left'}
+                                            backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                         >
                                             Tin nhắn đã được thu hồi
                                         </Text>
@@ -158,12 +161,13 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                         {msg.type === 'TEXT' && (
                                             <XStack
                                                 alignItems="center"
-                                                space="$2"
                                                 flexWrap="wrap"
+                                                backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                             >
                                                 <Text
                                                     color={isMyMessage ? 'white' : 'black'}
                                                     flexShrink={1}
+                                                    backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                                 >
                                                     {msg.message}
                                                 </Text>
@@ -177,7 +181,12 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                         )}
                                     </>
                                 )}
-                                <Text fontSize={12} color={isMyMessage ? '#e4e6eb' : '#65676b'} textAlign="right" marginTop={4}>
+                                <Text
+                                    fontSize={12}
+                                    color={isMyMessage ? '#e4e6eb' : '#65676b'}
+                                    textAlign="right" marginTop={4}
+                                    backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
+                                >
                                     {formatTime(msg.createdAt)}
                                 </Text>
                             </YStack>

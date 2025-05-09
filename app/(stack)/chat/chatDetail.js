@@ -22,23 +22,29 @@ const ChatDetail = () => {
     const { groupDetails } = useSelector((state) => state.group);
     const [activeTab, setActiveTab] = useState(null);
     const bottomSheetHeight = 300;
-    const [refreshKey, setRefreshKey] = useState(0); 
+    const [refreshKey, setRefreshKey] = useState(0);
     const navigation = useNavigation();
     const hasInitializedRef = useRef(false);
     const hasLoadedGroupDetailRef = useRef(false);
     const lastFetchTimeRef = useRef(0);
     const isFetchingRef = useRef(false);
+    const [nextCursor, setNextCursor] = useState(null);
+
+
+    useEffect(() => {
+        // console.log('Messages in ChatDetail:', messages);
+    }, [messages]);
 
     useEffect(() => {
         if (groupId && !hasLoadedGroupDetailRef.current && !isFetchingRef.current) {
             console.log('Initial group detail fetch');
             isFetchingRef.current = true;
             lastFetchTimeRef.current = Date.now();
-            
+
             dispatch(getGroupDetail(groupId))
                 .then(() => {
                     hasLoadedGroupDetailRef.current = true;
-                    isFetchingRef.current = false; 
+                    isFetchingRef.current = false;
                 })
                 .catch(() => {
                     isFetchingRef.current = false;
@@ -46,12 +52,10 @@ const ChatDetail = () => {
         }
     }, [groupId, dispatch]);
 
-    // Lấy chi tiết nhóm trực tiếp từ Redux store - Chỉ chạy một lần khi groupDetails thay đổi
     const currentGroupDetail = useMemo(() => {
         return groupDetails[groupId] || null;
-    }, [groupDetails, groupId]); // Loại bỏ refreshKey để tránh re-render không cần thiết
+    }, [groupDetails, groupId]);
 
-    // Tính toán tên người nhận tin nhắn dựa trên dữ liệu hiện tại từ store
     const partnerName = useMemo(() => {
         if (currentGroupDetail) {
             if (currentGroupDetail.isGroup) {
@@ -64,7 +68,7 @@ const ChatDetail = () => {
             }
         }
         return 'Chat';
-    }, [currentGroupDetail, profile?.id]); // Loại bỏ refreshKey để tránh re-render không cần thiết
+    }, [currentGroupDetail, profile?.id]);
 
     // Đảm bảo luôn có thông tin mới nhất của nhóm - Chỉ gọi một lần khi component mount
     useEffect(() => {
@@ -78,7 +82,7 @@ const ChatDetail = () => {
     // Khởi tạo chat - Chỉ chạy một lần khi component mount
     useEffect(() => {
         if (hasInitializedRef.current) return;
-        
+
         dispatch(clearMessages());
         const socket = socketService.getSocket();
         setIsLoading(true);
@@ -95,12 +99,18 @@ const ChatDetail = () => {
                         // Chỉ mở chat nếu register thành công
                         const openResult = await socketService.openChat(profileId, groupId, dispatch);
 
-                        if (openResult?.status === 'success') {
-                            console.log('✅ Chat initialized successfully');
-                            setIsLoading(false);
-                            hasInitializedRef.current = true;
-                            return;
+                        // console.log("aaaa  ", openResult)
+
+                        if (openResult.messages) {
+                            const sortedMessages = [...openResult.messages].sort(
+                                (a, b) => new Date(b.createdAt) - new Date(a.createdAt) // Sắp xếp giảm dần
+                            );
+                            dispatch(setMessages(sortedMessages));
                         }
+                        setNextCursor(openResult.nextCursor);
+                        setIsLoading(false);
+                        hasInitializedRef.current = true;
+                        return;
                     }
 
                     // Nếu có lỗi
@@ -235,6 +245,7 @@ const ChatDetail = () => {
                 type: 'TEXT'
             })).unwrap();
 
+
             if (response?.status === 'success' && response?.data) {
                 const newMessage = {
                     ...pendingMessage,
@@ -267,6 +278,34 @@ const ChatDetail = () => {
         }
     };
 
+    const handleLoadMoreMessages = (data) => {
+        if (data?.messages?.length > 0) {
+            const formattedMessages = data.messages.map(msg => ({
+                id: msg.id,
+                message: msg.content,
+                senderId: msg.senderId,
+                groupId: msg.groupId,
+                createdAt: msg.createdAt,
+                type: msg.type,
+                imageUrl: msg.fileUrl,
+                isRecalled: msg.isRecalled,
+                sender: msg.sender,
+                isMyMessage: msg.senderId === profileId,
+                isPending: false
+            }));
+
+            // Lọc tin nhắn trùng lặp dựa trên ID
+            const existingIds = new Set(messages.map(msg => msg.id));
+            const newMessages = formattedMessages.filter(msg => !existingIds.has(msg.id));
+
+            if (newMessages.length > 0) {
+                // Thêm tin nhắn mới vào đầu danh sách (vì inverted)
+                const updatedMessages = [...newMessages, ...messages];
+                dispatch(setMessages(updatedMessages));
+            }
+        }
+    };
+
     const handleInputFocus = () => {
         messageListRef.current?.scrollToEnd({ animated: true });
     };
@@ -289,6 +328,8 @@ const ChatDetail = () => {
         }
     };
 
+    // console.log("messages ", messages);
+
 
     return (
         <KeyboardAvoidingView
@@ -306,7 +347,8 @@ const ChatDetail = () => {
                         dataDetail={currentGroupDetail}
                         goBack={goBack}
                         title={partnerName}
-                        refreshKey={refreshKey} 
+                        refreshKey={refreshKey}
+                        groupId={groupId}
                     />
                     <View style={dynamicStyles.contentContainer}>
                         <MessageList
@@ -314,6 +356,10 @@ const ChatDetail = () => {
                             messages={messages}
                             profileId={profileId}
                             isLoading={isLoading}
+                            groupId={groupId}
+                            nextCursor={nextCursor} // Truyền nextCursor xuống MessageList
+                            setNextCursor={setNextCursor}
+                            onLoadMoreMessages={handleLoadMoreMessages}
                         />
                         <MessageInput
                             onSendMessage={handleSendMessage}

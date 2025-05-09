@@ -6,7 +6,7 @@ import { View, Text, XStack, YStack, ScrollView, Separator, Switch, Button, Inpu
 import HeaderLeft from '../../../components/header/HeaderLeft';
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getGroupDetail, renameGroup } from '../../../redux/thunks/group';
+import { deleteGroup, getGroupDetail, renameGroup } from '../../../redux/thunks/group';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
 import EditNamePopover from '../../../components/group/EditNamePopover';
 
@@ -18,42 +18,59 @@ const GroupDetail = () => {
     const dispatch = useDispatch();
 
     // Lấy dataDetail từ params hoặc từ Redux store
-    const { dataDetail: routeDataDetail } = route.params || {};
+
+    const groupId = route.params?.groupId;
+    // const { dataDetail: routeDataDetail } = route.params || {};
     const { groupDetails } = useSelector((state) => state.group);
+    const { profile } = useSelector((state) => state.profile);
+
+    // console.log("groupId ", groupId)
+    // console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
+    // console.log("profile ", profile)
+
 
     // Kết hợp dữ liệu từ route.params và Redux store
     const [currentData, setCurrentData] = useState(null);
+    const [isOwner, setIsOwner] = useState(false);
 
 
     useEffect(() => {
-        // Lấy groupId từ route.params nếu không có dataDetail
-        const groupIdFromParams = route.params?.groupId;
-        
         // Ưu tiên dữ liệu từ route.params (mới nhất)
-        if (routeDataDetail) {
-            setCurrentData(routeDataDetail);
+        if (groupId && groupDetails[groupId]) {
+            const groupDetail = groupDetails[groupId];
+            setCurrentData(groupDetail);
 
-            // Cập nhật lại Redux store nếu cần
-            if (routeDataDetail.id && (!groupDetails[routeDataDetail.id] ||
-                (groupDetails[routeDataDetail.id]?.updatedAt !== routeDataDetail.updatedAt))) {
-                dispatch(getGroupDetail(routeDataDetail.id));
+            // Kiểm tra vai trò của người dùng hiện tại
+            if (groupDetail.participants) {
+                const currentUserParticipant = groupDetail.participants.find(
+                    p => p.user?.id === profile?.id
+                );
+                setIsOwner(currentUserParticipant?.role === "OWNER");
             }
+            // if ((!groupDetails[groupId] ||
+            //     (groupDetails[groupId]?.updatedAt !== groupDetails.updatedAt))) {
+            //     dispatch(getGroupDetail(groupDetails.id));
+            // }
         }
-        // Nếu không có dữ liệu từ route.params, kiểm tra từ Redux store bằng groupId
-        else if (groupIdFromParams && groupDetails[groupIdFromParams]) {
-            setCurrentData(groupDetails[groupIdFromParams]);
-        }
-        // Nếu không có dữ liệu từ cả hai nguồn, nhưng có groupId, gọi API để lấy
-        else if (groupIdFromParams) {
-            dispatch(getGroupDetail(groupIdFromParams))
+
+        else if (groupId) {
+            dispatch(getGroupDetail(groupId))
                 .then((action) => {
                     if (action.payload && !action.error) {
                         const data = action.payload.data || action.payload;
                         setCurrentData(data);
+
+                        // Kiểm tra vai trò của người dùng hiện tại
+                        if (data.participants) {
+                            const currentUserParticipant = data.participants.find(
+                                p => p.user?.id === profile?.id
+                            );
+                            setIsOwner(currentUserParticipant?.role === "OWNER");
+                        }
                     }
                 });
         }
-    }, [route.params, groupDetails, dispatch]);
+    }, [groupId, groupDetails, profile, dispatch]);
 
     const [isGhimEnabled, setIsGhimEnabled] = useState(false);
     const [isAnEnabled, setIsAnEnabled] = useState(false);
@@ -117,7 +134,7 @@ const GroupDetail = () => {
     const handleAddMember = () => {
         if (currentData.isGroup) {
             const uniqueKey = `addParticipant-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-            
+
             // Chỉ truyền ID, không truyền đối tượng phức tạp
             navigation.navigate("group/addParticipant", {
                 groupId: currentData.id,
@@ -130,6 +147,67 @@ const GroupDetail = () => {
             alert('Thêm thành viên không khả dụng cho tài khoản cá nhân');
         }
     }
+
+
+    // Handle group deletion
+    const handleDeleteGroup = () => {
+        if (!isOwner || !currentData?.isGroup) return;
+
+        Alert.alert(
+            'Xác nhận giải tán nhóm',
+            'Tất cả mọi người sẽ rời nhóm và xoá tin nhắn, nhóm giải tán sẽ không được khôi phục',
+            [
+                {
+                    text: 'Huỷ',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Giải tán',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+
+                            if (!currentData || !currentData.id) {
+                                console.error('Không tìm thấy ID nhóm');
+                                Alert.alert('Lỗi', 'Không thể giải tán nhóm. Vui lòng thử lại sau.');
+                                return;
+                            }
+
+                            console.log("ID nhóm cần xóa:", currentData.id);
+
+                            const result = await dispatch(deleteGroup(currentData.id)).unwrap();
+                            console.log('Kết quả xóa nhóm:', result);
+
+                            // Đợi 500ms để đảm bảo redux store đã được cập nhật
+                            setTimeout(() => {
+                                // Thông báo thành công
+                                Alert.alert('Thành công', 'Nhóm đã được giải tán', [
+                                    {
+                                        text: 'OK',
+                                        onPress: () => {
+                                            navigation.reset({
+                                                index: 0,
+                                                routes: [{
+                                                    name: '(tabs)',
+                                                    params: { screen: 'chat' }
+                                                }],
+                                            });
+                                        }
+                                    }
+                                ]);
+                            }, 500);
+
+                        } catch (error) {
+                            console.error('Lỗi khi giải tán nhóm:', error);
+                            Alert.alert('Lỗi', 'Không thể giải tán nhóm. Vui lòng thử lại sau.');
+
+                        }
+                    }
+                }
+            ],
+            { cancelable: true }
+        );
+    };
 
 
     // Định nghĩa các nhóm menu
@@ -202,7 +280,13 @@ const GroupDetail = () => {
                     iconFamily: 'Ionicons',
                     label: "Xem thành viên (" + currentData?.participants?.length + ")",
                     typeGroup: "GROUP",
-                    onPress: () => console.log('XEM THÀNH VIÊN')
+                    onPress: () =>
+                        navigation.navigate("group/manageMember", {
+                            groupId: currentData.id,
+                            groupName: currentData.name,
+                            fromScreen: 'group/groupDetail',
+                            goBackTo: goBackTo || 'group/groupDetail'
+                        })
                 },
             ]
         },
@@ -234,15 +318,15 @@ const GroupDetail = () => {
             id: 'actions',
             type: 'menu',
             items: [
-                {
-                    id: 'report',
-                    icon: 'warning',
-                    iconFamily: 'AntDesign',
-                    label: 'Báo xấu',
-                    typeGroup: "ALL",
-                    onPress: () => console.log('Báo xấu'),
-                    textColor: 'black'
-                },
+                // {
+                //     id: 'report',
+                //     icon: 'warning',
+                //     iconFamily: 'AntDesign',
+                //     label: 'Báo xấu',
+                //     typeGroup: "ALL",
+                //     onPress: () => console.log('Báo xấu'),
+                //     textColor: 'black'
+                // },
                 {
                     id: 'leaveGroup',
                     icon: 'logout',
@@ -252,15 +336,15 @@ const GroupDetail = () => {
                     onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn rời nhóm?'),
                     textColor: '#FF3B30'
                 },
-                {
+                ...(isOwner ? [{
                     id: 'deleteGroup',
                     icon: 'delete',
                     iconFamily: 'MaterialIcons',
-                    label: 'Xoá cuộc trò chuyện',
-                    typeGroup: "ALL",
-                    onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn xoá cuộc trò chuyện?'),
+                    label: 'Giải tán nhóm',
+                    typeGroup: "GROUP",
+                    onPress: handleDeleteGroup,
                     textColor: '#FF3B30'
-                },
+                }] : [])
             ]
         }
     ];

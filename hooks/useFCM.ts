@@ -61,7 +61,7 @@ export const useFCM = () => {
   useEffect(() => {
     const initializeFCM = async () => {
       const existingToken = await getFcmTokenFromSecureStore();
-      // console.log('existingToken:', existingToken);
+      console.log('existingToken:', existingToken);
 
       const hasPermission = await requestUserPermission();
       console.log('hasPermission noti :', hasPermission);

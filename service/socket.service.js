@@ -9,9 +9,10 @@ class SocketService {
 
     connect() {
 
-        // console.log("link socket ",`wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`); 
+        const link_socket = `ws://${Constants.expoConfig?.extra?.API_BASE_URL.substr(7)}/chat`;
+        console.log("link socket ", link_socket);
 
-        this.socket = io(`wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`, {
+        this.socket = io(`ws://${Constants.expoConfig?.extra?.API_BASE_URL.substr(7)}/chat`, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
         });
@@ -88,11 +89,20 @@ class SocketService {
                         isRecalled: msg.isRecalled,
                         sender: msg.sender,
                         isMyMessage: msg.senderId === profileId,
-                        isPending: false
+                        isPending: false,
                     }));
 
+                    // // Lưu nextCursor từ response
+                    // this.currentCursor = response.nextCursor;
+                    // console.log('Saved nextCursor:', this.currentCursor);
+
                     dispatch(setMessages(formattedMessages));
-                    resolve({ status: 'success', messages: formattedMessages });
+                    resolve({
+                        status: 'success',
+                        nextCursor: response.nextCursor,
+                        messages: formattedMessages,
+                        hasMore: response.hasMore
+                    });
                 } else {
                     reject(new Error('Failed to open chat'));
                 }
@@ -296,6 +306,40 @@ class SocketService {
         console.log('Emitting delete event:', { messageId, groupId, userId });
         this.socket.emit('delete', { messageId, groupId, userId });
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 export default new SocketService();

@@ -1,11 +1,27 @@
 import React, { useEffect, useImperativeHandle, useRef, useLayoutEffect, useState } from 'react';
 import { View, FlatList, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import MessageItem from './MessageItem';
+import { useDispatch } from 'react-redux';
+import { setMessages } from '../../redux/slices/chatSlice';
+import { fetchPaginatedMessages } from '../../redux/thunks/chat';
 
-const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) => {
+const MessageList = React.forwardRef(({
+    messages,
+    profileId,
+    groupId,
+    isLoading,
+    nextCursor,
+    setNextCursor,
+    onLoadMoreMessages
+}, ref) => {
+    const dispatch = useDispatch();
     const flatListRef = useRef(null);
     const initialScroll = useRef(true);
+    const cursor = useRef(null);
     const [forceUpdate, setForceUpdate] = useState(0);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [isFirstLoad, setIsFirstLoad] = useState(true);
 
     useImperativeHandle(ref, () => ({
         scrollToEnd: () => {
@@ -29,51 +45,19 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]);
+    }, [messages.length]);
 
-    // Thêm effect để force update khi có tin nhắn mới
     useEffect(() => {
-        if (messages?.length > 0) {
+        if (messages?.length > 0 && !isFirstLoad) {
             setForceUpdate(prev => prev + 1);
         }
-    }, [messages]);
+    }, [messages.length, isFirstLoad]);
 
-    // Force update khi có thay đổi trong messages, đặc biệt là isRecalled
     useEffect(() => {
-        if (messages?.length > 0) {
-            let hasRecalledMessages = messages.some(m => m.isRecalled);
-            console.log('Has recalled messages:', hasRecalledMessages);
-            setForceUpdate(prev => prev + 1);
+        if (isFirstLoad && messages?.length > 0) {
+            setIsFirstLoad(false);
         }
-    }, [messages, messages?.some(m => m.isRecalled)]);
-
-    const formatMessageTime = (timestamp) => {
-        const date = new Date(timestamp);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        // Format giờ:phút
-        const time = date.toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-
-        // Nếu là today hoặc yesterday thì hiển thị tương ứng
-        if (date.toDateString() === today.toDateString()) {
-            return `Hôm nay, ${time}`;
-        } else if (date.toDateString() === yesterday.toDateString()) {
-            return `Hôm qua, ${time}`;
-        }
-
-        // Ngày khác thì hiển thị đầy đủ
-        const fullDate = date.toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-        return `${fullDate}, ${time}`;
-    };
+    }, [messages.length]);
 
     const isSameDay = (date1, date2) => {
         if (!date1 || !date2) return false;
@@ -92,21 +76,14 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
         });
     };
 
-    // console.log('Messages in MessageList:', messages?.length);
-    // console.log('Messages :', messages);
-
-    const renderMessage = ({ item, index, messages }) => {
-        // console.log(`Rendering message ${index}: ID=${item.id}, isRecalled=${item.isRecalled}`);
+    const renderMessage = ({ item, index }) => {
+        // console.log(`Rendering message ${index}: ID=${item.id}, Content=${item.message}, CreatedAt=${item.createdAt}, isRecalled=${item.isRecalled}`);
         const isMyMessage = item.senderId === profileId;
-
-        // Kiểm tra tin nhắn trước đó
         const prevMessage = index < messages.length - 1 ? messages[index + 1] : null;
         const showAvatar = !isMyMessage && (!prevMessage ||
             prevMessage.senderId !== item.senderId ||
             (new Date(item.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 60000)
         );
-
-        // Kiểm tra ngày
         const showDateHeader = !prevMessage || !isSameDay(item.createdAt, prevMessage.createdAt);
 
         return (
@@ -121,16 +98,97 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
                     </View>
                 )}
                 <MessageItem
-                    key={`${item.id}_${forceUpdate}`}
-                    msg={{
-                        ...item,
-                        isMyMessage
-                    }}
+                    key={`${item.id || item.tempId}_${forceUpdate}`}
+                    msg={{ ...item, isMyMessage }}
                     isMyMessage={isMyMessage}
                     showAvatar={showAvatar}
                 />
             </View>
         );
+    };
+
+    const loadMore = async () => {
+        if (!hasMore || isLoadingMore || !nextCursor) {
+            console.log('Không tải thêm vì:', { hasMore, isLoadingMore, nextCursor });
+            return;
+        }
+
+        if (nextCursor === cursor.current) {
+            console.log('Bỏ qua vì nextCursor đã được xử lý:', nextCursor);
+            setHasMore(false);
+            return;
+        }
+
+        setIsLoadingMore(true);
+        cursor.current = nextCursor;
+
+        try {
+            const result = await dispatch(fetchPaginatedMessages({
+                groupId,
+                cursor: nextCursor
+            })).unwrap();
+
+            console.log("result fetchPaginatedMessages", result);
+            onLoadMoreMessages(result.data);
+
+            if (result?.status === 'success' && result.data?.messages?.length > 0) {
+                const formattedMessages = result.data.messages.map(msg => ({
+                    id: msg.id,
+                    message: msg.content,
+                    senderId: msg.senderId,
+                    groupId: msg.groupId,
+                    createdAt: msg.createdAt,
+                    type: msg.type,
+                    imageUrl: msg.fileUrl,
+                    isRecalled: msg.isRecalled,
+                    sender: msg.sender,
+                    isMyMessage: msg.senderId === profileId,
+                    isPending: false
+                }));
+
+                console.log('Formatted messages:', formattedMessages);
+
+                // Lọc tin nhắn trùng lặp dựa trên ID
+                const existingIds = new Set(messages.map(msg => msg.id));
+                const newMessages = formattedMessages.filter(msg => !existingIds.has(msg.id));
+
+                if (newMessages.length === 0) {
+                    console.log('Không có tin nhắn mới để thêm');
+                    setHasMore(false);
+                    setNextCursor(null);
+                    return;
+                }
+
+                // Thêm tin nhắn mới vào đầu danh sách (vì inverted)
+                const updatedMessages = [...newMessages, ...messages];
+
+                dispatch(setMessages(updatedMessages));
+                setNextCursor(result.data.nextCursor);
+                setHasMore(result.data.hasMore);
+                setForceUpdate(prev => prev + 1);
+
+                // Scroll đến vị trí mới
+                setTimeout(() => {
+                    if (flatListRef.current) {
+                        flatListRef.current.scrollToIndex({
+                            index: newMessages.length - 1,
+                            animated: false,
+                            viewPosition: 0
+                        });
+                    }
+                }, 100);
+            } else {
+                console.log('Không còn tin nhắn để tải hoặc API trả về lỗi:', result);
+                setHasMore(false);
+                setNextCursor(null);
+            }
+        } catch (error) {
+            console.error('Lỗi khi tải tin nhắn:', error);
+            setHasMore(false);
+            setNextCursor(null);
+        } finally {
+            setIsLoadingMore(false);
+        }
     };
 
     if (isLoading) {
@@ -140,22 +198,42 @@ const MessageList = React.forwardRef(({ messages, profileId, isLoading }, ref) =
     return (
         <FlatList
             ref={flatListRef}
-            data={messages ? [...messages].reverse() : []}
-            renderItem={({ item, index }) => renderMessage({
-                item,
-                index,
-                messages: messages ? [...messages].reverse() : []
-            })}
+            data={messages}
+            renderItem={({ item, index }) => renderMessage({ item, index })}
             keyExtractor={item => `${item.id || item.tempId}_${forceUpdate}`}
             style={styles.container}
             contentContainerStyle={styles.contentContainer}
-            onLayout={scrollToBottom}
-            inverted={messages.length < 1 ? false : true}
+            inverted={true}
             maintainVisibleContentPosition={{
                 minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10
             }}
-            extraData={[forceUpdate, profileId, messages.length]}
+            onEndReached={() => {
+                if (!isLoadingMore && hasMore) {
+                    console.log('onEndReached triggered');
+                    loadMore();
+                }
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={isLoadingMore && (
+                <View style={styles.loadingMore}>
+                    <ActivityIndicator size="small" color="#FF7A1E" />
+                    <Text style={styles.loadingText}>Đang tải tin nhắn cũ...</Text>
+                </View>
+            )}
+            extraData={forceUpdate}
+            onScrollToIndexFailed={(info) => {
+                console.error('Scroll to index failed:', info);
+                setTimeout(() => {
+                    flatListRef.current?.scrollToIndex({
+                        index: Math.max(0, info.highestMeasuredFrameIndex),
+                        animated: false
+                    });
+                }, 100);
+            }}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={5}
         />
     );
 });
@@ -190,6 +268,10 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginHorizontal: 10,
         fontWeight: '500'
+    },
+    loadingMore: {
+        padding: 10,
+        alignItems: 'center'
     }
 });
 

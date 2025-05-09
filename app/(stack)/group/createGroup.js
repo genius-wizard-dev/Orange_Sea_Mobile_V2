@@ -8,6 +8,7 @@ import InputField from '../../../components/InputField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getFriendList } from '../../../redux/thunks/friend'
 import { createGroup as createGroupAction } from '../../../redux/thunks/group'
+import { ActivityIndicator } from 'react-native';
 
 const DEFAULT_AVATAR = "https://res.cloudinary.com/dubwmognz/image/upload/v1744715587/profile-avatars/profile_67fe2aaf936aacebb59fb978.png";
 const DEFAULT_GROUP_IMAGE = "https://i.ibb.co/jvVzkvBm/bgr-default.png";
@@ -79,6 +80,7 @@ const createGroup = () => {
     const [groupName, setGroupName] = useState('');
     const [error, setError] = useState('');
     const { goBackTo } = useLocalSearchParams();
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         dispatch(getFriendList());
@@ -108,30 +110,34 @@ const createGroup = () => {
                 return;
             }
 
-            // Format the data to match API expectations
+            setIsLoading(true);
+            setError('');
+
             const groupData = {
                 name: groupName.trim(),
-                participantIds: selectedUsers.map(user => user.profileId || user.id).filter(Boolean), // ensure we get valid IDs
+                participantIds: selectedUsers.map(user => user.profileId || user.id).filter(Boolean),
                 isGroup: true,
             };
 
-            console.log('Sending group data:', JSON.stringify(groupData)); // Better logging
+            // console.log('Sending group data:', JSON.stringify(groupData));
 
             const result = await dispatch(createGroupAction(groupData)).unwrap();
-            
-            if (result?.data?.id) {  // Sửa result?.id thành result?.data?.id
-                router.push({
+
+            if (result?.id) {
+                router.replace({
                     pathname: '/chat/chatDetail',
                     params: {
-                        groupId: result.data.id,
-                        profileId: profile?.id, // Thêm profileId của người dùng hiện tại
+                        groupId: result.id,
+                        profileId: profile?.id,
                         goBack: '/chat'
                     }
                 });
             }
         } catch (err) {
-            console.error('Create group error:', err); // Add error logging
+            console.error('Create group error:', err);
             setError(err.message || 'Có lỗi xảy ra khi tạo nhóm');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -253,8 +259,13 @@ const createGroup = () => {
                             borderRadius={25}
                             alignItems="center"
                             onPress={handleCreateGroup}
+                            disabled={isLoading}
                         >
-                            <Ionicons name="arrow-forward" size={21} color="#fff" marginLeft={-5} />
+                            {isLoading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Ionicons name="arrow-forward" size={21} color="#fff" marginLeft={-5} />
+                            )}
                         </Button>
                     )}
                 </XStack>

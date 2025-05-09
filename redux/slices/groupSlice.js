@@ -78,8 +78,14 @@ const groupSlice = createSlice({
                 state.searchResults = action.payload.data;
             })
             .addCase(groupThunks.deleteGroup.fulfilled, (state, action) => {
-                state.groups = state.groups.filter(group => group.id !== action.payload.groupId);
-                delete state.groupDetails[action.payload.groupId];
+
+                const groupIdToDelete = action.payload.groupId || action.payload.id;
+
+                // Nếu có groupId hoặc id, xóa khỏi danh sách và chi tiết
+                if (groupIdToDelete) {
+                    state.groups = state.groups.filter(group => group.id !== groupIdToDelete);
+                    delete state.groupDetails[groupIdToDelete];
+                }
             })
             .addCase(groupThunks.leaveGroup.fulfilled, (state, action) => {
                 state.groups = state.groups.filter(group => group.id !== action.payload.groupId);
@@ -97,33 +103,33 @@ const groupSlice = createSlice({
             })
             .addCase(groupThunks.addParticipant.fulfilled, (state, action) => {
                 console.log("Xử lý thành công thêm thành viên:", action.payload);
-                
+
                 // Kiểm tra xem action.payload có hợp lệ không
                 if (!action.payload || !action.payload.id) {
                     console.error("Payload không hợp lệ hoặc không có id");
                     return;
                 }
-                
+
                 const groupId = action.payload.id || action.payload.groupId;
-                
+
                 if (!groupId) {
                     console.error("Không tìm thấy group ID trong payload");
                     return;
                 }
-                
+
                 // Cập nhật thông tin nhóm trong state với dữ liệu mới nhất từ API
                 state.groupDetails[groupId] = {
                     ...action.payload,
                     needsRefresh: false, // Không cần refresh nữa vì đã có dữ liệu mới nhất
                     lastUpdated: Date.now()
                 };
-                
+
                 console.log("Đã cập nhật thông tin nhóm với thành viên mới:", groupId);
             })
             .addCase(groupThunks.removeParticipant.fulfilled, (state, action) => {
                 const { groupId, participantId } = action.payload.data;
                 if (state.groupDetails[groupId]) {
-                    state.groupDetails[groupId].participants = 
+                    state.groupDetails[groupId].participants =
                         state.groupDetails[groupId].participants.filter(p => p.id !== participantId);
                 }
             })

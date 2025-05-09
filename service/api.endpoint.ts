@@ -49,12 +49,7 @@ export const ENDPOINTS = {
     RECALL: (messageId: string) => `${BASE_ENDPOINT}/chat/recall/${messageId}`,
     DELETE: (messageId: string) => `${BASE_ENDPOINT}/chat/delete/${messageId}`,
     FORWARD: `${BASE_ENDPOINT}/chat/forward`,
-    GET_MESSAGES: (groupId: string, limit: number = 10) => 
-      `${BASE_ENDPOINT}/chat/${groupId}/messages?limit=${limit}`,
-    UPLOAD_FILE: `${BASE_ENDPOINT}/chat/file`,
-    UPLOAD_IMAGE: `${BASE_ENDPOINT}/chat/image`,
-    MARK_AS_READ: (groupId: string) => `${BASE_ENDPOINT}/chat/${groupId}/read`,
-    GET_UNREAD_COUNT: `${BASE_ENDPOINT}/chat/unread-count`,
-    GET_MESSAGE: (messageId: string) => `${BASE_ENDPOINT}/chat/message/${messageId}`,
+    GET_MESSAGES: (groupId: String) =>`${BASE_ENDPOINT}/chat/messages/${groupId}`,
+    EDIT_MESSAGE: (messageId: String) => `${BASE_ENDPOINT}/chat/edit/${messageId}`,
   }
 };

@@ -114,6 +114,57 @@ export const forwardMessage = createAsyncThunk(
   }
 );
 
+
+export const fetchPaginatedMessages = createAsyncThunk(
+  'chat/fetchPaginatedMessages',
+  async ({ groupId, cursor }, { dispatch }) => {
+    try {
+      dispatch(setLoading(true));
+      const response = await apiService.get(
+        ENDPOINTS.CHAT.GET_MESSAGES(groupId),
+        { cursor } 
+      );
+      return response;
+    } catch (error) {
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+export const editMessage = createAsyncThunk(
+  'chat/editMessage',
+  async ({ messageId, newContent }, { dispatch, rejectWithValue }) => {
+    try {
+      dispatch(setLoading(true));
+      const response = await apiService.put(ENDPOINTS.CHAT.EDIT(messageId), {
+        messageId, // Thêm messageId vào body request
+        message: newContent
+      });
+
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
+      }
+
+      dispatch(updateMessage({
+        id: messageId,
+        changes: { message: newContent, edited: true }
+      }));
+
+      return response.data;
+    } catch (error) {
+      dispatch(setError(error.message));
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi chỉnh sửa tin nhắn' });
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+
+
 export const fetchMessages = createAsyncThunk(
   'chat/fetchMessages',
   async ({ groupId }, { dispatch }) => {

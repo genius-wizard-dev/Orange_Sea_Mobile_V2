@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CommonActions } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 
-const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey }) => {
+const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey, groupId }) => {
     const router = useRouter();
     const navigation = useNavigation();
     const { groupDetails } = useSelector((state) => state.group); // Lấy trực tiếp từ Redux
@@ -25,9 +25,11 @@ const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey }) => 
         const latestGroupDetail = groupId ? groupDetails[groupId] : dataDetail;
 
         navigation.navigate('group/groupDetail', {
+
             dataDetail: latestGroupDetail || dataDetail, // Sử dụng dữ liệu mới nhất hoặc fallback về dataDetail
             fromScreen: 'chat/chatDetail',
             directFromChat: true,
+            groupId: groupId,
             timestamp: Date.now() // Thêm timestamp để đảm bảo params là duy nhất
         });
     };
@@ -41,7 +43,7 @@ const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey }) => 
     const displayTitle = useMemo(() => {
         // Nếu có title được truyền vào thì sử dụng
         if (title) return title;
-        
+
         // Không thì lấy từ dataDetail
         if (dataDetail) {
             if (dataDetail.isGroup) {
@@ -77,8 +79,8 @@ const styles = StyleSheet.create({
         height: 50,
         backgroundColor: '#FF7A1E',
         padding: 10,
-        paddingBottom:4,
-        paddingTop:4,
+        paddingBottom: 4,
+        paddingTop: 4,
         justifyContent: 'space-between',
         alignItems: 'center',
         flexDirection: 'row',
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         fontWeight: '500'
     },
-    totalMember:{
+    totalMember: {
         color: '#ededed',
         fontSize: 11,
         marginLeft: 8,

@@ -45,12 +45,12 @@ export const searchGroups = createAsyncThunk('group/search', async (keyword, { r
 export const addParticipant = createAsyncThunk('group/addParticipant', async ({ groupId, participantIds }, { rejectWithValue }) => {
     console.log("Thêm thành viên vào nhóm, groupId:", groupId);
     console.log("Danh sách ID thành viên:", participantIds);
-    
+
     try {
         // Gọi API với đúng định dạng body
         const res = await apiService.put(ENDPOINTS.GROUP.ADD_PARTICIPANT(groupId), { participantIds });
         // console.log("Kết quả API thêm thành viên:", res);
-        
+
         // API trả về toàn bộ thông tin nhóm, nên chúng ta có thể trả về nó trực tiếp
         // và đảm bảo nó bao gồm groupId để sử dụng trong reducer
         if (res && res.id) {
@@ -84,8 +84,8 @@ export const removeParticipant = createAsyncThunk('group/removeParticipant', asy
 export const deleteGroup = createAsyncThunk('group/delete', async (groupId, { rejectWithValue }) => {
     try {
         const res = await apiService.delete(ENDPOINTS.GROUP.DELETE(groupId));
-
-        return { groupId, ...res };
+        // console.log("thunk ", res)
+        return res;
     } catch (error) {
         return rejectWithValue(error.message);
     }
