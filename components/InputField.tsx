@@ -9,8 +9,12 @@ interface InputFieldProps {
   label: string;
   value: string | null;
   type?: 'text' | 'image' | 'date';
+  width?: any;
+  height?: any;
   onChange: (value: any) => void;
   placeholder?: string;
+  isNodeTapped?: boolean;
+  style?: any;
 }
 export default function InputField({
   id,
@@ -19,6 +23,10 @@ export default function InputField({
   type = 'text',
   onChange,
   placeholder,
+  width = 120,
+  height = 120,
+  isNodeTapped = false,
+  style
 }: InputFieldProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,9 +71,9 @@ export default function InputField({
       <YStack alignItems="center">
         <Pressable onPress={handleImagePick} disabled={isLoading}>
           <View
-            style={{
-              width: 120,
-              height: 120,
+            style={[{
+              width: width || 120,
+              height: height || 120,
               borderRadius: 60,
               backgroundColor: '#F3F3F3',
               justifyContent: 'center',
@@ -73,7 +81,8 @@ export default function InputField({
               overflow: 'hidden',
               borderWidth: 1,
               borderColor: '#EEEEEE',
-            }}>
+            },
+            style,] }>
             {isLoading ? (
               <ActivityIndicator size="large" color="#E94057" />
             ) : value ? (
@@ -100,9 +109,9 @@ export default function InputField({
             ) : (
               <View style={{ alignItems: 'center' }}>
                 <FontAwesome name="user-circle" size={50} color="#CCCCCC" />
-                <Text color="#999999" marginTop="$1" fontSize={12}>
+                {isNodeTapped ? <Text color="#999999" marginTop="$1" fontSize={12}>
                   Tap to add
-                </Text>
+                </Text> : ""}
               </View>
             )}
           </View>

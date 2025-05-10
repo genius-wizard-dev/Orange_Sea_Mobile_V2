@@ -1,15 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Button, Image, Stack, Text, XStack, YStack } from 'tamagui';
+import { Sheet } from '@tamagui/sheet';
 import { RootState } from '~/redux/store';
 import { getProfile } from '~/redux/thunks/profile';
 import { removeAccessToken, removeRefreshToken } from '~/utils/token';
+import { logout } from '~/service/auth.service';
+import SheetComponent from '~/components/SheetComponent';
 
 export default function Me() {
   const dispatch = useDispatch();
   const { profile } = useSelector((state: RootState) => state.profile);
+  const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const [shouldLogout, setShouldLogout] = useState(false);
+
+
+  useEffect(() => {
+    if (!logoutSheetOpen && shouldLogout) {
+      performLogout();
+      setShouldLogout(false);  // reset flag
+    }
+  }, [logoutSheetOpen, shouldLogout]);
 
   useEffect(() => {
     dispatch(getProfile() as any);
@@ -25,11 +38,25 @@ export default function Me() {
       },
     });
   };
-  const handleLogout = async () => {
-    await removeAccessToken();
-    await removeRefreshToken();
-    router.replace('/');
+
+  const performLogout = async () => {
+    try {
+      // Gọi API logout
+      await logout();
+      // Xóa token sau khi logout thành công
+      await removeAccessToken();
+      await removeRefreshToken();
+      // Chuyển hướng về trang chủ
+      router.replace('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Vẫn xóa token và chuyển hướng ngay cả khi API fail
+      await removeAccessToken();
+      await removeRefreshToken();
+      router.replace('/');
+    }
   };
+
   const settingOptions = [
     {
       type: "profile",
@@ -55,7 +82,6 @@ export default function Me() {
 
   return (
     <YStack width="100%" flex={1} backgroundColor="white" paddingBottom={10}>
-
       <Stack flex={1} marginTop={20} paddingHorizontal={10}>
         <Stack gap={10}>
           {settingOptions.map((option, index) => (
@@ -99,7 +125,6 @@ export default function Me() {
                   )
                 }
 
-                {/* <Ionicons name={option.icon as any} size={24} color="#E94057" /> */}
               </Stack>
 
               <Stack flex={1}>
@@ -131,12 +156,64 @@ export default function Me() {
             borderWidth: 0,
             scale: 0.98,
           }}
-          onPress={handleLogout}>
-          <Text fontSize={16} fontWeight="600" color="#E94057">
-            Đăng xuất
+          onPress={() => setLogoutSheetOpen(true)}
+        >
+          <Ionicons name="log-out-outline" size={20} color="#E94057" />
+          <Text fontSize={15} fontWeight="600" color="#E94057">
+            ĐĂNG XUẤT
           </Text>
         </Button>
+
+        <SheetComponent
+          open={logoutSheetOpen}
+          onOpenChange={setLogoutSheetOpen}
+          zIndex={100_003}
+          snapPoints={[25,10]}
+        >
+          <YStack space="$4" width="100%" alignItems="center">
+            {/* <Text 
+                fontSize={20} 
+                fontWeight="600" 
+                color="#E94057"
+              >
+                Xác nhận đăng xuất
+              </Text> */}
+
+            <Text
+              color="#666"
+              textAlign="center"
+              fontSize={16}
+            >
+              Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?
+            </Text>
+
+            <XStack width="100%" gap={12} marginTop={10}>
+              <Button
+                flex={1}
+                backgroundColor="#f2f2f2"
+                size="$5"
+                onPress={() => setLogoutSheetOpen(false)}
+                icon={<Ionicons name="close" size={20} color="#333" />}
+              >
+                <Text color="#333">Hủy</Text>
+              </Button>
+
+              <Button
+                flex={1}
+                backgroundColor="#FF7A1E"
+                size="$5"
+                onPress={() => {
+                  setLogoutSheetOpen(false);
+                  setShouldLogout(true);
+                }}
+              >
+                <Ionicons name="log-out-outline" size={20} color="white" />
+                <Text color="white">Đăng xuất</Text>
+              </Button>
+            </XStack>
+          </YStack>
+        </SheetComponent>
       </Stack>
-    </YStack>
+    </YStack >
   );
 }

@@ -66,10 +66,10 @@ export default function Setup() {
                 ...formData,
                 [field]: value,
             });
-            
+
         }
     };
-    
+
     // console.log(formData)
 
     const validateForm = () => {
@@ -134,13 +134,25 @@ export default function Setup() {
 
             const result = await dispatch(updateProfile(formDataToSend)).unwrap();
 
+            console.log('Kết quả cập nhật:', result);
+
+            if (result?.data?.message) {
+                alert(`❌ ${result.data.message}`);
+                return;
+            }
+
             if (result?.status === 'success') {
                 alert('Cập nhật thông tin thành công!');
                 router.replace('/chat');
+            } else {
+                const errorMessage = result?.data?.message;
+                alert(errorMessage);
+                // console.error('Lỗi từ API:', result);
             }
+
         } catch (error) {
-            console.error('Lỗi cập nhật:', error);
-            alert('Có lỗi xảy ra khi cập nhật thông tin');
+            alert(error.response?.data?.message || error.message || 'Có lỗi xảy ra khi cập nhật thông tin');
+            // console.error('Lỗi cập nhật:', error);
         } finally {
             setIsSubmitting(false);
         }
@@ -150,7 +162,7 @@ export default function Setup() {
         <ScrollView backgroundColor="$background" padding="$4" flex={1}>
             <YStack space="$4" paddingTop="$6" paddingBottom="$8">
                 <YStack alignItems="center" space="$2">
-                    <H3 fontWeight="bold" color="#E94057">
+                    <H3 fontWeight="bold" color="#FF7A1E">
                         Hoàn thành thông tin cá nhân
                     </H3>
                     <Paragraph color="$gray10" textAlign="center">
@@ -175,7 +187,7 @@ export default function Setup() {
                         label="Tên người dùng *"
                         value={formData?.name || ''}
                         onChange={(value) => handleChange('name', value)}
-                        placeholder="Nhập tên của bạn"
+                        placeholder="VD: Nguyen Van A"
                         error={errors.name}
                     />
 
@@ -206,24 +218,28 @@ export default function Setup() {
                     />
 
                     <YStack space="$2">
-                        <Text color="$gray11">Giới tính *</Text>
+                        <Text color="$gray15">Giới tính *</Text>
                         <YStack flexDirection="row" space="$2">
                             <Button
                                 flex={1}
-                                backgroundColor={formData?.gender === 'M' ? '#E94057' : '$gray5'}
+                                backgroundColor={formData?.gender === 'M' ? '#FF7A1E' : '$gray5'}
                                 onPress={() => handleGenderSelect('M')}
                                 height={45}
                                 borderRadius={10}
                             >
-                                <Text color={formData?.gender === 'M' ? 'white' : '$gray11'}>Nam</Text>
+                                <Ionicons name="male-outline" size={19} color="#fff" />
+                                <Text color={formData?.gender === 'M' ? 'white' : '$gray11'}>
+                                    Nam
+                                </Text>
                             </Button>
                             <Button
                                 flex={1}
-                                backgroundColor={formData?.gender === 'F' ? '#E94057' : '$gray5'}
+                                backgroundColor={formData?.gender === 'F' ? '#FF7A1E' : '$gray5'}
                                 onPress={() => handleGenderSelect('F')}
                                 height={45}
                                 borderRadius={10}
                             >
+                                <Ionicons name="female-outline" size={19} color="#fff" />
                                 <Text color={formData?.gender === 'F' ? 'white' : '$gray11'}>Nữ</Text>
                             </Button>
                         </YStack>
@@ -231,7 +247,7 @@ export default function Setup() {
 
                     <Button
                         size="$4"
-                        backgroundColor="#E94057"
+                        backgroundColor="#FF7A1E"
                         color="white"
                         marginTop="$6"
                         fontWeight="bold"
@@ -240,13 +256,18 @@ export default function Setup() {
                         alignSelf="stretch"
                         height={60}
                         borderRadius={15}
-                        pressStyle={{ opacity: 0.9 }}
+                        pressStyle={{
+                            backgroundColor: '#FF7A1E',
+                            borderWidth: 0,
+                            scale: 0.98,
+                        }}
                     >
                         {isSubmitting ? (
                             <ActivityIndicator size="small" color="white" />
                         ) : (
                             <>
-                                <Text color="white" fontSize={16}>Hoàn thành</Text>
+                                <Ionicons name="checkmark-outline" size={19} color="#fff" />
+                                <Text color="white" fontSize={16} marginLeft={10}>Hoàn thành</Text>
                             </>
                         )}
                     </Button>

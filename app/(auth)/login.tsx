@@ -14,9 +14,11 @@ import {
   Button,
   Form,
   H1,
+  H2,
   Image,
   Input,
   Separator,
+  Spinner,
   Text,
   XStack,
   YStack,
@@ -41,12 +43,12 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const dispatch = useDispatch();
 
-  
+
   const validateForm = () => {
     const errors: { username?: string; password?: string } = {};
 
-    if (!username.trim()) errors.username = 'Username is required';
-    if (!password.trim()) errors.password = 'Password is required';
+    if (!username.trim()) errors.username = 'Tên đăng nhập là bắt buộc';
+    if (!password.trim()) errors.password = 'Mật khẩu là bắt buộc';
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -83,7 +85,7 @@ export default function Login() {
       } else {
         console.log(response)
 
-        setError(response.message || 'Login failed');
+        setError(response.message || 'Đăng nhập thất bại');
       }
 
 
@@ -123,6 +125,10 @@ export default function Login() {
             height={170}
             marginBottom={40}
           />
+          <H2 ta="center" fontWeight="700">ĐĂNG NHẬP</H2>
+          <Text ta="center" theme="alt2" marginBottom={30}>
+            Tham gia cộng đồng OrangeSea
+          </Text>
 
           <Form width="100%" onSubmit={handleLogin} paddingHorizontal="$2">
             {error && (
@@ -143,7 +149,7 @@ export default function Login() {
                   <Ionicons name="person-outline" size={20} color="#888" />
                   <Input
                     flex={1}
-                    placeholder="Username"
+                    placeholder="Tên đăng nhập"
                     value={username}
                     onChangeText={(text) => {
                       setUsername(text);
@@ -175,7 +181,7 @@ export default function Login() {
                   <Ionicons name="lock-closed-outline" size={20} color="#888" />
                   <Input
                     flex={1}
-                    placeholder="Password"
+                    placeholder="Mật khẩu"
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
@@ -205,8 +211,8 @@ export default function Login() {
 
               {/* Forgot Password */}
               <XStack justifyContent="flex-end">
-                <Text color="$primary" onPress={handleForgotPassword} fontSize="$2">
-                  Forgot Password?
+                <Text color="$blue9" onPress={handleForgotPassword} fontSize="$3">
+                  Quên mật khẩu?
                 </Text>
               </XStack>
 
@@ -224,7 +230,7 @@ export default function Login() {
                 onPress={handleLogin}
                 disabled={loading}>
                 <Text color="white" fontSize={16} fontWeight="600">
-                  {loading ? 'Logging in...' : 'Login'}
+                  {loading ? <Spinner color="white" /> : 'Đăng nhập'}
                 </Text>
               </Button>
 
@@ -232,9 +238,9 @@ export default function Login() {
               <YStack alignItems="center" marginTop="$4" space="$2">
                 <Separator />
                 <XStack space="$2" marginTop="$2">
-                  <Text>Don't have an account?</Text>
-                  <Text color="$primary" fontWeight="bold" onPress={handleRegister}>
-                    Register
+                  <Text>Chưa có tài khoản?</Text>
+                  <Text color="$blue10"  fontWeight="bold" onPress={handleRegister}>
+                    Đăng ký
                   </Text>
                 </XStack>
               </YStack>

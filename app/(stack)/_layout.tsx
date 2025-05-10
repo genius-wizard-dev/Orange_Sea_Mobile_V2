@@ -3,6 +3,7 @@ import { TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import HeaderLeft from "../../components/header/HeaderLeft";
+// import { TransitionPresets } from '@react-navigation/stack';
 
 export default function StackLayout() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function StackLayout() {
           <HeaderLeft
             goBack="/me"
             title=""
+            onGoBack=""
           />
         ),
         headerTitleStyle: {
@@ -27,6 +29,7 @@ export default function StackLayout() {
         headerStyle: {
           backgroundColor: '#FF7A1E',
         },
+
       }}
     >
       {/* chat */}
@@ -35,6 +38,7 @@ export default function StackLayout() {
         options={{
           title: 'Chi tiết tin nhắn',
           headerShown: false,
+          presentation: 'modal',
         }}
       />
       {/* <Stack.Screen
@@ -113,6 +117,43 @@ export default function StackLayout() {
           headerShown: false,
         }}
       />
+
+      {/* group */}
+
+      <Stack.Screen
+        name="group/createGroup"
+        options={{
+          title: 'Tạo nhóm',
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="group/groupDetail"
+
+        options={{
+          title: 'Chi tiết nhóm',
+          headerShown: false,
+          presentation: 'modal',
+
+        }}
+      />
+      <Stack.Screen
+        name="group/addParticipant"
+        options={{
+          title: 'Thêm thành viên',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="group/manageMember"
+        options={{
+          title: 'Quản lý thành viên',
+          headerShown: false,
+        }}
+      />
+
+
 
 
     </Stack>

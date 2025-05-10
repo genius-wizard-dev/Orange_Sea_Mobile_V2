@@ -1,17 +1,30 @@
 import React from 'react';
 import { TouchableOpacity, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router'; // Sử dụng useRouter thay vì useRoute
+import { useRouter, useNavigation } from 'expo-router'; 
+import { CommonActions } from '@react-navigation/native';
 
-const HeaderLeft = ({ goBack, title }) => {
+const HeaderLeft = ({ goBack, title, onGoBack }) => {
     const router = useRouter();
+    const navigation = useNavigation();
 
     const handleBackPress = () => {
-        if (goBack) {
-            router.push(goBack);
+        if (onGoBack) {
+            // Sử dụng hàm callback tùy chỉnh nếu được cung cấp
+            onGoBack();
+        } else if (goBack) {
+            // Nếu có goBack là đường dẫn cụ thể
+            if (typeof goBack === 'string') {
+                router.replace(goBack);
+            } else {
+                // Nếu goBack là object với pathname và params
+                router.push(goBack);
+            }
         } else {
-            router.back()
+            // Sử dụng goBack của navigation để quay lại màn hình trước đó theo stack
+            navigation.goBack();
         }
+        router.push(goBack);
     };
 
     return (
@@ -23,7 +36,7 @@ const HeaderLeft = ({ goBack, title }) => {
             paddingLeft: 5
         }}>
             <TouchableOpacity onPress={handleBackPress} style={{ marginRight: 10 }}>
-                <Ionicons name="chevron-back" size={26} color="#fff" />
+                <Ionicons name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
             {title && <Text style={{
                 color: '#fff', fontSize: 18,

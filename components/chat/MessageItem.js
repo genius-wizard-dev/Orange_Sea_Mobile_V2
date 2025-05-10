@@ -16,6 +16,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const pressTimeoutRef = useRef(null);
     const dispatch = useDispatch();
 
+
     useEffect(() => {
         return () => {
             if (pressTimeoutRef.current) {
@@ -50,60 +51,43 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         setIsOpen(false);
     }, []);
 
-    const handleRecall = useCallback(async () => {
+    const handleRecallMessage = async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(recallMessage(msg.id)).unwrap();
-                if (result.status === 'error') {
-                    Alert.alert(
-                        'Lỗi thu hồi',
-                        result.message || 'Không thể thu hồi tin nhắn',
-                        [{ text: 'Đã hiểu', style: 'default' }]
-                    );
-                    return;
-                }
-
-                // Emit socket event khi thu hồi thành công
-                const socket = socketService.getSocket();
-                if (socket) {
-                    console.log("đã gửi socket thu hòi")
-                    socket.emit('recall', {
-                        messageId: msg.id,
-                        groupId: msg.groupId
-                    });
+                const result = await dispatch(recallMessage(msg.id));
+                if (result.meta.requestStatus === 'rejected') {
+                    alert(result.payload?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
+                } else {
+                    socketService.emitRecallMessage(result.payload.id, result.payload.groupId);
+                    setIsOpen(false);
                 }
             } catch (error) {
-                Alert.alert(
-                    'Lỗi thu hồi',
-                    error.message || 'Không thể thu hồi tin nhắn',
-                    [{ text: 'Đã hiểu', style: 'default' }]
-                );
+                console.error('Lỗi khi thu hồi tin nhắn:', error);
             }
-            handleClose();
         }
-    }, [msg.id, msg.groupId, dispatch]);
+    };
 
     const handleDelete = useCallback(async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
-                if (result.status === 'success') {
-                    // Emit socket event khi xóa thành công
-                    const socket = socketService.getSocket();
-                    if (socket) {
-                        socket.emit('delete', {
+                const result = await dispatch(deleteMessageThunk(msg.id));
+                if (result.meta.requestStatus === 'rejected') {
+                    alert(result.payload?.message || 'Có lỗi xảy ra khi xoá tin nhắn');
+                } else {
+                    socketService.emitDeleteMessage(msg.id, msg.groupId, msg.senderId);
+                    setIsOpen(false);
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: {
                             messageId: msg.id,
                             groupId: msg.groupId,
                             userId: msg.senderId
-                        });
-                    }
+                        }
+                    });
                 }
+
             } catch (error) {
-                Alert.alert(
-                    'Lỗi xóa tin nhắn',
-                    error.message || 'Không thể xóa tin nhắn',
-                    [{ text: 'Đã hiểu', style: 'default' }]
-                );
+                console.error('Lỗi khi xoá tin nhắn:', error);
             }
             handleClose();
         }
@@ -113,10 +97,11 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         <MessageOptionsPopover
             isOpen={isOpen}
             onClose={handleClose}
-            onRecall={handleRecall}
+            onRecall={handleRecallMessage}
             onDelete={handleDelete}
             isMyMessage={isMyMessage}
             isRecalled={msg.isRecalled}
+            message={msg}  // Truyền msg vào MessageOptionsPopover
         >
             <XStack
                 justifyContent={isMyMessage ? 'flex-end' : 'flex-start'}
@@ -131,45 +116,40 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                     })}
                 >
                     <YStack
-                        // backgroundColor={isPressed ? 'rgba(0,0,0,0.05)' : 'transparent'}
                         borderRadius={15}
                         padding={2}
-                        // shadowColor="black"
-                        // shadowOffset={{ width: 0, height: 4 }}
-                        // shadowOpacity={isPressed ? 0.3 : 0}
                         shadowRadius={6}
                     >
-                        <XStack alignItems="center" space>
+                        <XStack alignItems="center" space={isMyMessage ? 35 : 10} >
                             {!isMyMessage && showAvatar && msg.sender && (
                                 <Image
-                                    source={{ uri: msg.sender.avatarUrl || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
+                                    source={{ uri: msg.sender.avatar || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
                                     width={30}
                                     height={30}
                                     borderRadius={15}
                                 />
                             )}
                             {!isMyMessage && !showAvatar && (
-                                <View style={{ width: 10 }} /> // Placeholder để giữ khoảng cách
+                                <View style={{ width: 20 }} />
                             )}
                             <YStack
-                                backgroundColor={isMyMessage ? '#FF7A1E' : '#e4e6eb'}
+                                backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                 padding={10}
-                                marginTop={5}
-                                borderRadius={15}
-                                maxWidth="96%"
+                                marginTop={2}
+                                borderRadius={10}
+                                borderTopLeftRadius={!isMyMessage && !showAvatar ? 0 : 10}
+                                maxWidth="90%"
                                 width="auto"
                                 elevation={1}
-                                
+
                             >
-                                {/* {!isMyMessage && msg.sender && (
-                                    <Text color="#65676b" fontSize={12} marginBottom={4}>{msg.sender.name}</Text>
-                                )} */}
+
                                 {msg.isRecalled ? (
-                                    <XStack alignItems="center">
+                                    <XStack alignItems="center" >
                                         <Text
-                                            color={isMyMessage ? 'white' : '#65676b'}
+                                            color={isMyMessage ? '#cacbce' : '#949596'}
                                             fontStyle="italic"
-                                        // textAlign={isMyMessage ? 'right' : 'left'}
+                                            backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                         >
                                             Tin nhắn đã được thu hồi
                                         </Text>
@@ -179,12 +159,13 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                         {msg.type === 'TEXT' && (
                                             <XStack
                                                 alignItems="center"
-                                                space="$2"
                                                 flexWrap="wrap"
+                                                backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                             >
                                                 <Text
                                                     color={isMyMessage ? 'white' : 'black'}
                                                     flexShrink={1}
+                                                    backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                                 >
                                                     {msg.message}
                                                 </Text>
@@ -193,12 +174,48 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 )}
                                             </XStack>
                                         )}
-                                        {msg.imageUrl && (
-                                            <Image source={{ uri: msg.imageUrl }} width={200} height={200} resizeMode="contain" />
+                                        {msg.type === 'IMAGE' && msg.imageUrl && (
+                                            <YStack
+                                                width={200}
+                                                height={200}
+                                                borderRadius={10}
+                                                overflow="hidden"
+                                                backgroundColor="#000" // fallback nếu ảnh chưa load
+                                            >
+                                                <Image
+                                                    source={{ uri: msg.imageUrl }}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                    }}
+                                                    resizeMode="cover"
+                                                />
+                                                {msg.isPending && (
+                                                    <YStack
+                                                        position="absolute"
+                                                        top={0}
+                                                        left={0}
+                                                        right={0}
+                                                        bottom={0}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                        backgroundColor="rgba(0,0,0,0.2)"
+                                                    >
+                                                        <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                    </YStack>
+                                                )}
+                                            </YStack>
                                         )}
                                     </>
                                 )}
-                                <Text fontSize={12} color={isMyMessage ? '#e4e6eb' : '#65676b'} textAlign="right" marginTop={4}>
+                                <Text
+                                    fontSize={12}
+                                    color={isMyMessage ? '#e4e6eb' : '#65676b'}
+                                    textAlign="right"
+                                    marginTop={4}
+                                    backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
+                                    alignSelf="flex-end"
+                                >
                                     {formatTime(msg.createdAt)}
                                 </Text>
                             </YStack>
