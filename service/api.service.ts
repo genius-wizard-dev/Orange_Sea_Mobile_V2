@@ -63,8 +63,8 @@ class ApiServiceImpl implements ApiService {
     return this.request<T>('PUT', uri, data, contentType);
   }
 
-  async delete<T>(uri: string, contentType?: string): Promise<T> {
-    return this.request<T>('DELETE', uri, undefined, contentType);
+  async delete<T>(uri: string, data?: any ,contentType?: string): Promise<T> {
+    return this.request<T>('DELETE', uri, data, contentType);
   }
 }
 

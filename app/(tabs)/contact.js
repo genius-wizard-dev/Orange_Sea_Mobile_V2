@@ -65,73 +65,75 @@ export default function Contact() {
         });
     }
 
-    const handleOpenChat = (friendProfile) => {
-        // router.push({
-        //     pathname: '/chat/chatDetail',
-        //     params: {
-        //         groupId: friendProfile.id,
-        //         profileId: profile?.id,
-        //         goBack: '/contact'
-        //     }
-        // });
+    const handleOpenProfile = (friendProfile) => {
+        // console.log(friendProfile)
+        router.push({
+            pathname: '/profile/[id]',
+            params: {
+                id: friendProfile.profileId,
+                goBackTo: '/contact',
+            },
+        });
     };
 
-    return (
-            <YStack flex={1} backgroundColor="white">
-                <Tabs
-                    value={activeTab}
-                    onValueChange={setActiveTab}
-                    flexDirection="column"
-                    flex={1}
-                    paddingTop={0}
-                >
-                    <XStack borderBottomWidth={1} borderColor="$gray5">
-                        <Tabs.List flex={1} borderBottomWidth={0}>
-                            <Tabs.Tab flex={1} value="friends" backgroundColor="transparent">
-                                <Text
-                                    fontSize={16}
-                                    fontWeight={activeTab === "friends" ? "bold" : "normal"}
-                                    color={activeTab === "friends" ? "#FE781F" : "$gray11"}
-                                >
-                                    Bạn bè
-                                </Text>
-                                {activeTab === "friends" && (
-                                    <YStack
-                                        position="absolute"
-                                        bottom={0}
-                                        width="100%"
-                                        height={2}
-                                        backgroundColor="#FE781F"
-                                    />
-                                )}
-                            </Tabs.Tab>
-                            <Tabs.Tab flex={1} value="groups" backgroundColor="transparent">
-                                <Text
-                                    fontSize={16}
-                                    fontWeight={activeTab === "groups" ? "bold" : "normal"}
-                                    color={activeTab === "groups" ? "#FE781F" : "$gray11"}
-                                >
-                                    Nhóm
-                                </Text>
-                                {activeTab === "groups" && (
-                                    <YStack
-                                        position="absolute"
-                                        bottom={0}
-                                        width="100%"
-                                        height={2}
-                                        backgroundColor="#FE781F"
-                                    />
-                                )}
-                            </Tabs.Tab>
-                        </Tabs.List>
-                    </XStack>
 
-        <ScrollView
-            width="100%"
-            height="100%"
-            bounces={false}
-            contentContainerStyle={{ flexGrow: 1 }}
-        >
+
+    return (
+        <YStack flex={1} backgroundColor="white">
+            <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                flexDirection="column"
+                flex={1}
+                paddingTop={0}
+            >
+                <XStack borderBottomWidth={1} borderColor="$gray5">
+                    <Tabs.List flex={1} borderBottomWidth={0}>
+                        <Tabs.Tab flex={1} value="friends" backgroundColor="transparent">
+                            <Text
+                                fontSize={16}
+                                fontWeight={activeTab === "friends" ? "bold" : "normal"}
+                                color={activeTab === "friends" ? "#FE781F" : "$gray11"}
+                            >
+                                Bạn bè
+                            </Text>
+                            {activeTab === "friends" && (
+                                <YStack
+                                    position="absolute"
+                                    bottom={0}
+                                    width="100%"
+                                    height={2}
+                                    backgroundColor="#FE781F"
+                                />
+                            )}
+                        </Tabs.Tab>
+                        <Tabs.Tab flex={1} value="groups" backgroundColor="transparent">
+                            <Text
+                                fontSize={16}
+                                fontWeight={activeTab === "groups" ? "bold" : "normal"}
+                                color={activeTab === "groups" ? "#FE781F" : "$gray11"}
+                            >
+                                Nhóm
+                            </Text>
+                            {activeTab === "groups" && (
+                                <YStack
+                                    position="absolute"
+                                    bottom={0}
+                                    width="100%"
+                                    height={2}
+                                    backgroundColor="#FE781F"
+                                />
+                            )}
+                        </Tabs.Tab>
+                    </Tabs.List>
+                </XStack>
+
+                <ScrollView
+                    width="100%"
+                    height="100%"
+                    bounces={false}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                >
                     <Tabs.Content value="friends" flex={1}>
                         <ScrollView>
                             <XStack padding={12} space={5}>
@@ -157,7 +159,9 @@ export default function Contact() {
                                         key={friend.id}
                                         name={friend.name}
                                         avatar={friend.avatar}
-                                        onPress={() => handleOpenChat(friend)}
+                                        onPress={() => handleOpenProfile(friend)
+
+                                        }
                                     />
                                 ))
                             ) : (
@@ -174,7 +178,7 @@ export default function Contact() {
                         </YStack>
                     </Tabs.Content>
                 </ScrollView>
-                </Tabs>
-            </YStack>
+            </Tabs>
+        </YStack>
     );
 }

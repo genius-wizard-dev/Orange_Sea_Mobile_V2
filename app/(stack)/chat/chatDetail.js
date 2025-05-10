@@ -131,7 +131,7 @@ const ChatDetail = () => {
 
             // New message handler
             socket.on('newMessage', (message) => {
-                console.log("nhan duoc tin nhan", message);
+                // console.log("nhan duoc tin nhan", message);
                 if (message.groupId === groupId) {
                     const isMyMessage = message.senderId === profileId;
                     const formattedMessage = {

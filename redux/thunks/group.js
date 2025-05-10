@@ -70,16 +70,31 @@ export const addParticipant = createAsyncThunk('group/addParticipant', async ({ 
     }
 });
 
-export const removeParticipant = createAsyncThunk('group/removeParticipant', async ({ groupId, participantId }, { rejectWithValue }) => {
+export const removeParticipant = createAsyncThunk(
+    'group/removeParticipant',
+    async ({ groupId, participantIds }, { rejectWithValue }) => {
+        try {
 
-    try {
-        const res = await apiService.delete(ENDPOINTS.GROUP.REMOVE_PARTICIPANT(groupId), { data: { participantId } });
+            console.log("groupId", groupId);
+            console.log("participantIds", participantIds);
 
-        return res;
-    } catch (error) {
-        return rejectWithValue(error.message);
+            // Gửi mảng participantIds thay vì participantId đơn lẻ
+            const res = await apiService.delete(
+                ENDPOINTS.GROUP.REMOVE_PARTICIPANT(groupId), {  participantIds  } );
+
+            console.log("thunk remove participant", res);
+
+            // Trả về kết quả để xử lý trong reducer
+            return {
+                ...res,
+                groupId,
+                participantIds
+            };
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
     }
-});
+);
 
 export const deleteGroup = createAsyncThunk('group/delete', async (groupId, { rejectWithValue }) => {
     try {

@@ -127,10 +127,29 @@ const groupSlice = createSlice({
                 console.log("Đã cập nhật thông tin nhóm với thành viên mới:", groupId);
             })
             .addCase(groupThunks.removeParticipant.fulfilled, (state, action) => {
-                const { groupId, participantId } = action.payload.data;
-                if (state.groupDetails[groupId]) {
-                    state.groupDetails[groupId].participants =
-                        state.groupDetails[groupId].participants.filter(p => p.id !== participantId);
+                console.log("Reducer removeParticipant.fulfilled với payload:", action.payload);
+
+                // Trích xuất thông tin từ payload
+                const groupId = action.payload.groupId;
+                const participantIds = action.payload.participantIds || [];
+
+                // Kiểm tra xem có thông tin nhóm trong state không
+                if (groupId && state.groupDetails[groupId]) {
+                    console.log("Đang cập nhật danh sách thành viên cho nhóm:", groupId);
+                    console.log("Danh sách thành viên sẽ bị xóa:", participantIds);
+
+                    // Lấy ra danh sách participants hiện tại
+                    const currentParticipants = state.groupDetails[groupId].participants || [];
+
+                    // Lọc bỏ các thành viên có user.id nằm trong participantIds
+                    state.groupDetails[groupId].participants = currentParticipants.filter(
+                        participant => !participantIds.includes(participant.user?.id)
+                    );
+
+                    console.log("Đã cập nhật xong state, số thành viên còn lại:",
+                        state.groupDetails[groupId].participants.length);
+                } else {
+                    console.log("Không tìm thấy thông tin nhóm với ID:", groupId);
                 }
             })
             .addCase(groupThunks.transferOwnership.fulfilled, (state, action) => {

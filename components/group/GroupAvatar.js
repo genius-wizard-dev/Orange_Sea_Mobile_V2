@@ -42,7 +42,7 @@ const GroupAvatar = ({ group, size = 50 }) => {
                     />
                     <Image
                         source={{ uri: participants[1]?.user?.avatar }}
-                        style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize }]}
+                        style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize, marginLeft:-20 }]}
                     />
                     <View style={styles.memberCount}>
                         <Text color="white" fontSize={10}>

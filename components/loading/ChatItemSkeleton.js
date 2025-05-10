@@ -21,10 +21,10 @@ const ChatItemSkeleton = () => {
             {/* Skeleton cho nội dung bên phải */}
             <YStack flex={1} space="$2">
                 {/* Skeleton cho tên */}
-                <SkeletonLoading width={120} height={18} borderRadius={4} />
+                <SkeletonLoading width={180} height={18} borderRadius={4} />
 
                 {/* Skeleton cho tin nhắn */}
-                <SkeletonLoading width={180} height={16} borderRadius={4} />
+                <SkeletonLoading width={120} height={16} borderRadius={4} />
             </YStack>
 
             {/* Skeleton cho thời gian */}

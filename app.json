@@ -48,7 +48,8 @@
       "package": "com.orangesea.app"
     },
     "extra": {
-      "API_BASE_URL": "https://api-orange-sea.nonegroup.io.vn",
+      "API_BASE_URL": "http://api-orange-sea.nonegroup.io.vn",
+      "API_BASE_URL_SOCKET": "wss://api-orange-sea.nonegroup.io.vn/chat",
       "router": {
         "origin": false
       },

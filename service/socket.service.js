@@ -9,7 +9,7 @@ class SocketService {
 
     connect() {
 
-        const link_socket = `wss://${Constants.expoConfig?.extra?.API_BASE_URL.substr(8)}/chat`;
+        const link_socket = `${Constants.expoConfig?.extra?.API_BASE_URL_SOCKET}`;
         console.log("link socket ", link_socket);
 
         this.socket = io(link_socket, {

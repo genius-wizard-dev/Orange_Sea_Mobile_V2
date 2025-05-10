@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
+import { StyleSheet, TouchableOpacity, FlatList, Image, Alert, Modal } from 'react-native';
 import { View, Text, XStack, YStack, Separator, Tabs, Button, Sheet } from 'tamagui';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import { getGroupDetail } from '../../../redux/thunks/group';
+import { getGroupDetail, removeParticipant } from '../../../redux/thunks/group';
 import { Ionicons } from '@expo/vector-icons';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
 
@@ -18,6 +18,7 @@ const ManageMember = () => {
     const [currentData, setCurrentData] = useState(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState(null);
+    const { profile } = useSelector((state) => state.profile);
 
     // Lấy thông tin nhóm từ store
     useEffect(() => {
@@ -58,6 +59,11 @@ const ManageMember = () => {
         }
     };
 
+    const isCurrentUserAdmin = () => {
+        // Lấy thông tin người dùng hiện tại từ store (bạn cần thêm useSelector nếu chưa có)
+        return profile?.id === currentData?.ownerId;
+    };
+
     // Kiểm tra xem người dùng có phải là chủ nhóm không
     const isUserAdmin = (userId) => {
         return userId === currentData?.ownerId;
@@ -76,40 +82,98 @@ const ManageMember = () => {
         });
     };
 
+
+    const handleRemoveMember = (member) => {
+
+        console.log("member", member);
+
+        Alert.alert(
+            "Xác nhận",
+            `Bạn có chắc muốn xóa ${member.user?.name || "thành viên này"} ra khỏi nhóm không?`,
+            [
+                {
+                    text: "Hủy",
+                    style: "cancel"
+                },
+                {
+                    text: "Xóa",
+                    style: "destructive",
+                    onPress: () => {
+                        // Log ra để kiểm tra
+                        console.log("ID nhóm:", groupId);
+                        console.log("ID thành viên:", member?.user?.id);
+
+                        // Gọi thunk để xóa thành viên
+                        const payload = {
+                            groupId,
+                            participantIds: [member?.user?.id]
+                        };
+
+                        console.log("payload trước khi gửi:", payload);
+
+                        dispatch(removeParticipant(payload))
+                            .unwrap()
+                            .then((response) => {
+                                console.log("Kết quả xóa thành viên:", response);
+
+                                // Đóng modal
+                                setSheetOpen(false);
+
+                                // Thông báo thành công
+                                Alert.alert(
+                                    "Thành công",
+                                    "Đã xóa thành viên khỏi nhóm"
+                                );
+                            })
+                            .catch((error) => {
+                                console.error("Lỗi chi tiết:", error);
+
+                                // Xử lý lỗi
+                                Alert.alert(
+                                    "Lỗi",
+                                    error?.message || "Không thể xóa thành viên khỏi nhóm"
+                                );
+                            });
+                    }
+                }
+            ]
+        );
+    };
+
+
     // Danh sách chức năng cho mỗi thành viên
-    const memberActions = [
-        {
-            id: 'viewProfile',
-            title: 'Xem trang cá nhân',
-            icon: 'person-circle-outline',
-            action: () => {
-                // Chức năng xem trang cá nhân
-                setSheetOpen(false);
-                // Navigation logic để xem trang cá nhân
+    const getMemberActions = () => {
+        const baseActions = [
+            {
+                id: 'viewProfile',
+                title: 'Xem trang cá nhân',
+                icon: 'person-circle-outline',
+                action: () => {
+                    // Chức năng xem trang cá nhân
+                    setSheetOpen(false);
+                    // Navigation logic để xem trang cá nhân
+                }
             }
-        },
-        // {
-        //     id: 'blockMember',
-        //     title: 'Chặn thành viên',
-        //     icon: 'ban-outline',
-        //     action: () => {
-        //         // Chức năng chặn thành viên
-        //         setModalVisible(false);
-        //         // Logic để chặn thành viên
-        //     }
-        // },
-        {
-            id: 'removeMember',
-            title: 'Xóa khỏi nhóm',
-            icon: 'trash-outline',
-            color: '#FF3B30',
-            action: () => {
-                // Chức năng xóa khỏi nhóm
-                setSheetOpen(false);
-                // Logic để xóa thành viên khỏi nhóm
-            }
+        ];
+
+        // Chỉ thêm nút "Xóa khỏi nhóm" nếu người dùng hiện tại là admin
+        // và thành viên được chọn không phải là admin
+        if (isCurrentUserAdmin() && selectedMember && !isUserAdmin(selectedMember.userId)) {
+            baseActions.push({
+                id: 'removeMember',
+                title: 'Xóa khỏi nhóm',
+                icon: 'trash-outline',
+                color: '#FF3B30',
+                action: () => {
+                    // Logic để xóa thành viên khỏi nhóm
+                    handleRemoveMember(selectedMember);
+                    
+                }
+            });
         }
-    ];
+
+        return baseActions;
+    };
 
     // Xử lý khi ấn vào một thành viên
     const handleMemberPress = (member) => {
@@ -117,12 +181,14 @@ const ManageMember = () => {
         setSheetOpen(true);
     };
 
+    console.log("selectedMember ", selectedMember?.user?.id);
+
     const renderMemberItem = ({ item }) => {
         const isAdmin = isUserAdmin(item.userId);
         const isFriend = isAddedByMe(item);
 
         return (
-            <TouchableOpacity 
+            <TouchableOpacity
                 onPress={() => handleMemberPress(item)}
                 disabled={isAdmin} // Vô hiệu hóa cho trưởng nhóm
             >
@@ -159,7 +225,7 @@ const ManageMember = () => {
                                 </Text>
                             </YStack>
                         </XStack>
-                        
+
                         {!isAdmin && (
                             <Ionicons name="ellipsis-vertical" size={20} color="#888" />
                         )}
@@ -171,68 +237,68 @@ const ManageMember = () => {
     };
 
     // Sheet hiển thị thông tin thành viên
-    const renderMemberSheet = () => {
+    const renderMemberModal = () => {
         if (!selectedMember) return null;
-        
+
+        const actions = getMemberActions();
+
         return (
-            <Sheet
-                open={sheetOpen}
-                onOpenChange={setSheetOpen}
-                snapPoints={[50]}
-                snapPointsMode="percent"
-                dismissOnSnapToBottom
-                position={0}
-                zIndex={100_003}
+            <Modal
+                visible={sheetOpen}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setSheetOpen(false)}
             >
-                <Sheet.Overlay />
-                <Sheet.Frame backgroundColor="white" padding="$4">
-                    <XStack justifyContent="space-between" alignItems="center" paddingBottom="$4">
-                        <Text fontSize={18} fontWeight="600">Thông tin thành viên</Text>
-                        <TouchableOpacity onPress={() => setSheetOpen(false)}>
-                            <Ionicons name="close" size={24} color="#888" />
-                        </TouchableOpacity>
-                    </XStack>
-                    
-                    {/* Thông tin thành viên */}
-                    <XStack alignItems="center" marginBottom="$5">
-                        <Image
-                            source={{ uri: selectedMember.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
-                            style={styles.modalAvatar}
-                        />
-                        <YStack marginLeft="$3">
-                            <Text fontSize={22} fontWeight="600">{selectedMember.user?.name || "Người dùng"}</Text>
-                        </YStack>
-                    </XStack>
-                    
-                    <Separator marginBottom="$2" />
-                    
-                    {/* Danh sách các chức năng */}
-                    <YStack space="$3">
-                        {memberActions.map((action) => (
-                            <TouchableOpacity key={action.id} onPress={action.action}>
-                                <YStack paddingVertical="$2">
-                                    <XStack alignItems="center">
-                                        <Ionicons 
-                                            name={action.icon} 
-                                            size={24} 
-                                            color={action.color || "#000"} 
-                                        />
-                                        <Text 
-                                            fontSize={16} 
-                                            fontWeight="400" 
-                                            color={action.color || "#000"} 
-                                            marginLeft="$3"
-                                        >
-                                            {action.title}
-                                        </Text>
-                                    </XStack>
-                                </YStack>
-                                <Separator />
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <XStack justifyContent="space-between" alignItems="center" paddingBottom="$4">
+                            <Text fontSize={18} fontWeight="600">Thông tin thành viên</Text>
+                            <TouchableOpacity onPress={() => setSheetOpen(false)}>
+                                <Ionicons name="close" size={24} color="#888" />
                             </TouchableOpacity>
-                        ))}
-                    </YStack>
-                </Sheet.Frame>
-            </Sheet>
+                        </XStack>
+
+                        {/* Thông tin thành viên */}
+                        <XStack alignItems="center" marginBottom="$5">
+                            <Image
+                                source={{ uri: selectedMember.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
+                                style={styles.modalAvatar}
+                            />
+                            <YStack marginLeft="$3">
+                                <Text fontSize={22} fontWeight="600">{selectedMember.user?.name || "Người dùng"}</Text>
+                            </YStack>
+                        </XStack>
+
+                        <Separator marginBottom="$2" />
+
+                        {/* Danh sách các chức năng */}
+                        <YStack space="$3">
+                            {actions.map((action) => (
+                                <TouchableOpacity key={action.id} onPress={action.action}>
+                                    <YStack paddingVertical="$2">
+                                        <XStack alignItems="center">
+                                            <Ionicons
+                                                name={action.icon}
+                                                size={24}
+                                                color={action.color || "#000"}
+                                            />
+                                            <Text
+                                                fontSize={16}
+                                                fontWeight="400"
+                                                color={action.color || "#000"}
+                                                marginLeft="$3"
+                                            >
+                                                {action.title}
+                                            </Text>
+                                        </XStack>
+                                    </YStack>
+                                    <Separator />
+                                </TouchableOpacity>
+                            ))}
+                        </YStack>
+                    </View>
+                </View>
+            </Modal>
         );
     };
 
@@ -311,7 +377,7 @@ const ManageMember = () => {
                 </YStack>
             </Tabs>
 
-            {renderMemberSheet()}
+            {renderMemberModal()}
 
             {/* Nút thêm thành viên */}
             <TouchableOpacity
@@ -366,5 +432,18 @@ const styles = StyleSheet.create({
         height: 70,
         borderRadius: 35,
         backgroundColor: '#f0f0f0'
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        maxHeight: '60%', // Chiếm tối đa 60% màn hình
+        paddingBottom: 30
     }
 });
