@@ -1,13 +1,15 @@
-import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground, TouchableWithoutFeedback, Keyboard } from 'react-native'
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import ChatHeaderComponent from '../../../components/header/ChatHeaderComponent'
 import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { sendMessage } from '../../../redux/thunks/chat'
-import { addMessage, setCurrentChat, clearMessages, setMessages, addPendingMessage, updateMessageStatus, markGroupAsRead, deleteMessage } from '../../../redux/slices/chatSlice'
+import { addMessage, setCurrentChat, clearMessages, setMessages, markGroupAsRead, deleteMessage, updateMessage, updateMessageStatus } from '../../../redux/slices/chatSlice'
+import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
@@ -17,108 +19,121 @@ const ChatDetail = () => {
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
-    const { groups, groupDetails } = useSelector((state) => state.group);
-    const [partnerName, setPartnerName] = useState('Chat');
+    const { groupDetails } = useSelector((state) => state.group);
+    const [activeTab, setActiveTab] = useState(null);
+    const bottomSheetHeight = 300;
+    const [refreshKey, setRefreshKey] = useState(0);
+    const navigation = useNavigation();
+    const hasInitializedRef = useRef(false);
+    const hasLoadedGroupDetailRef = useRef(false);
+    const lastFetchTimeRef = useRef(0);
+    const isFetchingRef = useRef(false);
+    const [nextCursor, setNextCursor] = useState(null);
+
 
     useEffect(() => {
-        if (groupDetails && groupId) {
-            const groupDetail = groupDetails[groupId];
-            if (groupDetail?.participants) {
-                const otherParticipant = groupDetail.participants.find(
-                    p => p?.userId !== profileId
+        // console.log('Messages in ChatDetail:', messages);
+    }, [messages]);
+
+    useEffect(() => {
+        if (groupId && !hasLoadedGroupDetailRef.current && !isFetchingRef.current) {
+            console.log('Initial group detail fetch');
+            isFetchingRef.current = true;
+            lastFetchTimeRef.current = Date.now();
+
+            dispatch(getGroupDetail(groupId))
+                .then(() => {
+                    hasLoadedGroupDetailRef.current = true;
+                    isFetchingRef.current = false;
+                })
+                .catch(() => {
+                    isFetchingRef.current = false;
+                });
+        }
+    }, [groupId, dispatch]);
+
+    const currentGroupDetail = useMemo(() => {
+        return groupDetails[groupId] || null;
+    }, [groupDetails, groupId]);
+
+    const partnerName = useMemo(() => {
+        if (currentGroupDetail) {
+            if (currentGroupDetail.isGroup) {
+                return currentGroupDetail.name || 'Nhóm chat';
+            } else if (currentGroupDetail.participants) {
+                const otherParticipant = currentGroupDetail.participants.find(
+                    p => p?.userId !== profile?.id
                 )?.user;
-                setPartnerName(otherParticipant?.name || 'Chat');
+                return otherParticipant?.name || 'Chat';
             }
         }
-    }, [groupDetails, groupId, profileId]);
+        return 'Chat';
+    }, [currentGroupDetail, profile?.id]);
 
+    // Đảm bảo luôn có thông tin mới nhất của nhóm - Chỉ gọi một lần khi component mount
     useEffect(() => {
-        // Clear messages khi vào chat mới
-        dispatch(clearMessages());
+        if (groupId && !hasLoadedGroupDetailRef.current) {
+            console.log('Initial group detail fetch');
+            dispatch(getGroupDetail(groupId));
+            hasLoadedGroupDetailRef.current = true;
+        }
+    }, [groupId, dispatch]);
 
+    // Khởi tạo chat - Chỉ chạy một lần khi component mount
+    useEffect(() => {
+        if (hasInitializedRef.current) return;
+
+        dispatch(clearMessages());
         const socket = socketService.getSocket();
-        // console.log('Socket object:', socket);
+        setIsLoading(true);
 
         if (socket && groupId && profileId) {
-            // Đăng ký socket và mở chat
-            socket.emit('register', { profileId }, (response) => {
-                console.log('Register event callback:', response);
-                if (response?.status === 'success') {
-                    // Đánh dấu đã đọc khi vào chat
-                    socket.emit('markAsRead', {
-                        profileId,
-                        groupId
-                    }, (markResponse) => {
-                        console.log('Mark as read response:', markResponse);
-                        if (markResponse?.status === 'success') {
-                            // Cập nhật state để xóa badge số tin nhắn chưa đọc
-                            dispatch(markGroupAsRead({ groupId }));
+            const initializeChat = async () => {
+                try {
+                    console.log('Starting chat initialization...');
+
+                    // Đợi kết quả register
+                    const registerResult = await socketService.registerChat(profileId, groupId, dispatch);
+
+                    if (registerResult?.status === 'success') {
+                        // Chỉ mở chat nếu register thành công
+                        const openResult = await socketService.openChat(profileId, groupId, dispatch);
+
+                        // console.log("aaaa  ", openResult)
+
+                        if (openResult.messages) {
+                            const sortedMessages = [...openResult.messages].sort(
+                                (a, b) => new Date(b.createdAt) - new Date(a.createdAt) // Sắp xếp giảm dần
+                            );
+                            dispatch(setMessages(sortedMessages));
                         }
-                    });
+                        setNextCursor(openResult.nextCursor);
+                        setIsLoading(false);
+                        hasInitializedRef.current = true;
+                        return;
+                    }
+
+                    // Nếu có lỗi
+                    console.log('❌ Failed to initialize chat');
+                    setIsLoading(false);
+                } catch (error) {
+                    console.error('❌ Chat initialization error:', error);
+                    setIsLoading(false);
                 }
-            });
+            };
 
-            // Kiểm tra socket listeners hiện tại
-            console.log('Current socket listeners:', socket._events);
+            initializeChat();
 
-            // Đăng ký event handlers trước khi emit
-            socket.on('connect', () => {
-                console.log('Socket connected successfully');
-            });
+            // Socket event handlers
+            socket.on('connect', () => console.log('Socket connected successfully'));
+            socket.on('disconnect', () => console.log('Socket disconnected'));
+            socket.on('error', (error) => console.log('Socket error:', error));
 
-            socket.on('disconnect', () => {
-                console.log('Socket disconnected');
-            });
-
-            socket.on('error', (error) => {
-                console.log('Socket error:', error);
-            });
-
-            // Emit events sau khi đã setup listeners
-            console.log('About to emit register event...');
-            socket.emit('register', { profileId }, (response) => {
-                console.log('Register event callback:', response);
-            });
-
-            console.log('About to emit open event...');
-            socket.emit('open', { profileId, groupId }, (response) => {
-                // console.log('Open event callback:', response);
-                if (response?.status === 'success' && response?.messages) {
-                    console.log('Processing messages:', response.messages.length);
-
-                    // Định dạng lại messages từ response
-                    const formattedMessages = response.messages.map(msg => ({
-                        id: msg.id,
-                        message: msg.content,
-                        senderId: msg.senderId,
-                        groupId: msg.groupId,
-                        createdAt: msg.createdAt,
-                        type: msg.type,
-                        imageUrl: msg.fileUrl,
-                        isRecalled: msg.isRecalled,
-                        sender: msg.sender,
-                        isMyMessage: msg.senderId === profileId,
-                        isPending: false
-                    }));
-
-                    // console.log('Formatted messages:', formattedMessages);
-                    dispatch(setMessages(formattedMessages));
-                }
-                setIsLoading(false);
-            });
-
-            // Lắng nghe các sự kiện
+            // New message handler
             socket.on('newMessage', (message) => {
-                console.log('Socket newMessage event triggered');
-                console.log('Received message:', message);
-                console.log('Current groupId:', groupId);
-                console.log('Message groupId:', message.groupId);
-
+                // console.log("nhan duoc tin nhan", message);
                 if (message.groupId === groupId) {
-                    console.log('Message matches current group');
-                    // Kiểm tra xem có phải tin nhắn của chính mình không
                     const isMyMessage = message.senderId === profileId;
-
                     const formattedMessage = {
                         id: message.id,
                         message: message.content,
@@ -135,114 +150,158 @@ const ChatDetail = () => {
                         isPending: false
                     };
 
-                    // Nếu là tin nhắn của người khác, thêm trực tiếp vào store
                     if (!isMyMessage) {
                         dispatch(addMessage(formattedMessage));
                     }
-                } else {
-                    console.log('Message does not match current group');
                 }
             });
 
+            // Thêm xử lý sự kiện messageRecalled
             socket.on('messageRecalled', (data) => {
-                if (data.messageId) {
-                    dispatch(updateMessage({
-                        id: data.messageId,
-                        recalled: true
-                    }));
-                    if (data.messageId && data.groupId === groupId) {
-                        console.log("nhận được dữ liệu thu hồi:", data);
-                        // Cập nhật tin nhắn trong redux store
-                        dispatch({
-                            type: 'chat/updateMessage',
-                            payload: {
-                                id: data.messageId,
-                                isRecalled: true,
-                            }
-                        });
-                    }
+                console.log('Nhận sự kiện messageRecalled trong chatDetail:', data);
+                const { messageId, groupId: recalledGroupId } = data;
+
+                // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+                if (recalledGroupId === groupId && messageId) {
+                    // Buộc cập nhật tin nhắn thu hồi
+                    dispatch({
+                        type: 'chat/messageRecalled',
+                        payload: {
+                            messageId,
+                            groupId: recalledGroupId
+                        }
+                    });
+
+                    // Thông báo cập nhật giao diện
+                    console.log('Đã cập nhật tin nhắn thu hồi:', messageId);
                 }
             });
 
+            // Thêm listener cho messageDeleted
             socket.on('messageDeleted', (data) => {
-                if (data.messageId) {
-                    dispatch(deleteMessage(data.messageId));
-                    if (data.messageId && data.groupId === groupId) {
-                        dispatch({
-                            type: 'chat/messageDeleted',
-                            payload: {
-                                messageId: data.messageId,
-                                groupId: data.groupId
-                            }
-                        });
-                    }
+                console.log('Nhận sự kiện messageDeleted trong chatDetail:', data);
+                const { messageId, groupId: deletedGroupId, userId } = data;
+
+                // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+                if (deletedGroupId === groupId && messageId) {
+                    // Xử lý xóa tin nhắn khỏi UI
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: { messageId, userId }
+                    });
+                    console.log('Đã xóa tin nhắn:', messageId);
                 }
             });
 
             return () => {
-                console.log('Cleaning up socket connections');
-                if (socket.connected) {
-                    socket.emit('leave', { profileId, groupId });
+                // Sử dụng leaveChat từ socketService
+                if (socket?.connected) {
+                    socketService.leaveChat(profileId, groupId);
                 }
                 socket.off('connect');
                 socket.off('disconnect');
                 socket.off('error');
-                socket.off('open');
-                socket.off('send');
-                socket.off('recall');
-                socket.off('delete');
+                socket.off('newMessage');
                 socket.off('messageRecalled');
                 socket.off('messageDeleted');
             };
-        } else {
-            console.log('Socket or required params missing:', {
-                socketExists: !!socket,
-                groupId,
-                profileId
-            });
         }
     }, [socket, groupId, profileId, dispatch]);
 
+    // Set current chat
     useEffect(() => {
         dispatch(setCurrentChat({ groupId, profileId }));
         return () => {
             dispatch(setCurrentChat(null));
         };
-    }, [groupId, profileId]);
+    }, [groupId, profileId, dispatch]);
 
+    const handleSendMessage = async (messageData) => {
+        // Xác định loại dữ liệu được gửi
+        const isTextOnly = typeof messageData === 'string';
+        const isObject = typeof messageData === 'object' && messageData !== null;
 
+        // Xác định loại tin nhắn và nội dung
+        let type = 'TEXT';
+        let content = null;
 
+        if (isTextOnly) {
+            type = 'TEXT';
+            content = messageData;
+        } else if (isObject) {
+            type = messageData.type || 'TEXT';
+            content = messageData.content || null;
+        }
 
-    const handleSendMessage = async (messageText) => {
-        const socket = socketService.getSocket();
+        if (!content && type === 'TEXT') {
+            console.error('Không có nội dung tin nhắn');
+            return;
+        }
+
+        // Với tin nhắn ảnh, cho phép nội dung rỗng
+        if (type === 'IMAGE' && (!content || !content.uri)) {
+            console.error('Không có dữ liệu ảnh');
+            return;
+        }
+
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        const pendingMessage = {
+        // Tạo tin nhắn tạm thời để hiển thị ngay lập tức
+        let pendingMessage = {
             tempId,
             id: tempId,
-            message: messageText,
             senderId: profileId,
             groupId: groupId,
-            type: 'TEXT',
+            type: type,
             createdAt: new Date().toISOString(),
             sender: profile,
             isMyMessage: true,
             isPending: true
         };
 
-        // Thêm tin nhắn pending vào messages array
-        dispatch(setMessages([...messages, pendingMessage]));
+        // Bổ sung thông tin theo loại tin nhắn
+        if (type === 'TEXT') {
+            pendingMessage.message = content;
+        } else if (type === 'IMAGE') {
+            pendingMessage.imageUrl = content.uri;
+        }
+
+        // Thêm tin nhắn pending vào danh sách - Sử dụng addMessage thay vì setMessages
+        dispatch(addMessage(pendingMessage));
 
         try {
+            // Đảm bảo socket đã kết nối
             await socketService.registerProfile(profileId);
-            const response = await dispatch(sendMessage({
-                message: messageText,
-                groupId: groupId,
-                senderId: profileId,
-                type: 'TEXT'
-            })).unwrap();
+            let response;
+
+            if (type === 'TEXT') {
+                // Gửi tin nhắn văn bản
+                response = await dispatch(sendMessage({
+                    message: content,
+                    groupId: groupId,
+                    senderId: profileId,
+                    type: 'TEXT'
+                })).unwrap();
+            } else if (type === 'IMAGE') {
+                // Tạo FormData để gửi ảnh
+                const formData = new FormData();
+                // Thêm file ảnh
+                formData.append('file', {
+                    uri: content.uri,
+                    type: content.type || 'image/jpeg',
+                    name: content.name || `image-${Date.now()}.jpg`
+                });
+                formData.append('groupId', groupId);
+                formData.append('senderId', profileId);
+                formData.append('type', 'IMAGE');
+                formData.append('content', ''); // Thêm content rỗng cho ảnh
+
+                // Gửi ảnh lên server
+                response = await dispatch(sendMessage(formData)).unwrap();
+            }
 
             if (response?.status === 'success' && response?.data) {
+                // Tạo tin nhắn chính thức từ phản hồi server
                 const newMessage = {
                     ...pendingMessage,
                     id: response.data.id,
@@ -251,82 +310,130 @@ const ChatDetail = () => {
                     createdAt: response.data.createdAt || new Date().toISOString(),
                 };
 
-                // Cập nhật messages array với tin nhắn mới
-                const updatedMessages = messages.map(msg =>
-                    msg.tempId === tempId ? newMessage : msg
-                );
+                // Cập nhật URL ảnh từ server nếu là tin nhắn ảnh
+                if (type === 'IMAGE' && response.data.fileUrl) {
+                    newMessage.imageUrl = response.data.fileUrl;
+                }
 
-                dispatch(setMessages([...updatedMessages, newMessage]));
+                // Cập nhật tin nhắn - Sử dụng updateMessageStatus thay vì map rồi setMessages
+                dispatch(updateMessageStatus({ tempId, newMessage }));
 
-                // Emit socket event
-                socket.emit('send', {
+                // Thông báo qua socket
+                socketService.sendMessage({
                     messageId: response.data.id,
                     groupId: groupId,
                     senderId: profileId,
-                    content: messageText
+                    type: type,
+                    content: type === 'TEXT' ? content : "", // Chuỗi rỗng cho ảnh
+                    fileUrl: type === 'IMAGE' ? response.data.fileUrl : undefined
                 });
             }
         } catch (error) {
-            console.error('Error in handleSendMessage:', error);
+            console.error(`Lỗi khi gửi tin nhắn ${type}:`, error);
             // Xóa tin nhắn pending nếu gửi thất bại
-            const filteredMessages = messages.filter(msg => msg.tempId !== tempId);
-            dispatch(setMessages(filteredMessages));
+            dispatch(deleteMessage(tempId));
+
+            // Hiển thị thông báo lỗi cho người dùng
+            Alert.alert(
+                "Lỗi gửi tin nhắn",
+                `Không thể gửi ${type === 'TEXT' ? 'tin nhắn' : 'ảnh'}. Vui lòng thử lại sau.`
+            );
+        }
+    };
+
+    const handleLoadMoreMessages = (data) => {
+        if (data?.messages?.length > 0) {
+            const formattedMessages = data.messages.map(msg => ({
+                id: msg.id,
+                message: msg.content,
+                senderId: msg.senderId,
+                groupId: msg.groupId,
+                createdAt: msg.createdAt,
+                type: msg.type,
+                imageUrl: msg.fileUrl,
+                isRecalled: msg.isRecalled,
+                sender: msg.sender,
+                isMyMessage: msg.senderId === profileId,
+                isPending: false
+            }));
+
+            // Lọc tin nhắn trùng lặp dựa trên ID
+            const existingIds = new Set(messages.map(msg => msg.id));
+            const newMessages = formattedMessages.filter(msg => !existingIds.has(msg.id));
+
+            if (newMessages.length > 0) {
+                // Thêm tin nhắn mới vào đầu danh sách (vì inverted)
+                const updatedMessages = [...newMessages, ...messages];
+                dispatch(setMessages(updatedMessages));
+            }
         }
     };
 
     const handleInputFocus = () => {
-        messageListRef.current?.scrollToEnd();
+        messageListRef.current?.scrollToEnd({ animated: true });
     };
+
+    const styles = StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: 'white',
+        },
+        backgroundImage: {
+            flex: 1,
+            width: '100%',
+        }
+    });
+
+    const dynamicStyles = {
+        contentContainer: {
+            flex: 1,
+            paddingBottom: activeTab ? bottomSheetHeight + 65 : 65
+        }
+    };
+
+    // console.log("messages ", messages);
+
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={[styles.container, { marginBottom: 0 }]}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-            enabled
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.container}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 70 : 0}
         >
-            <ChatHeaderComponent
-                goBack={goBack}
-                title={partnerName}
-            />
-            <ImageBackground
-                source={require('../../../assets/bgr_mess.jpg')} // hoặc có thể dùng màu solid
-                // Hoặc dùng màu nền solid nếu chưa có ảnh
-                // style={[styles.backgroundImage, { backgroundColor: '#f5f5f5' }]}
-                style={styles.backgroundImage}
-                resizeMode="cover"
-            >
-                <View style={styles.contentContainer}>
-                    <MessageList
-                        ref={messageListRef}
-                        messages={messages}
-                        profileId={profileId}
-                        isLoading={isLoading}
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <ImageBackground
+                    source={require('../../../assets/bgr_mess.jpg')}
+                    style={styles.backgroundImage}
+                    resizeMode="cover"
+                >
+                    <ChatHeaderComponent
+                        dataDetail={currentGroupDetail}
+                        goBack={goBack}
+                        title={partnerName}
+                        refreshKey={refreshKey}
+                        groupId={groupId}
                     />
-                    <MessageInput
-                        onSendMessage={handleSendMessage}
-                        onFocusInput={handleInputFocus}
-                    />
-                </View>
-            </ImageBackground>
+                    <View style={dynamicStyles.contentContainer}>
+                        <MessageList
+                            ref={messageListRef}
+                            messages={messages}
+                            profileId={profileId}
+                            isLoading={isLoading}
+                            groupId={groupId}
+                            nextCursor={nextCursor} // Truyền nextCursor xuống MessageList
+                            setNextCursor={setNextCursor}
+                            onLoadMoreMessages={handleLoadMoreMessages}
+                        />
+                        <MessageInput
+                            onSendMessage={handleSendMessage}
+                            onFocusInput={handleInputFocus}
+                            onTabChange={setActiveTab}
+                        />
+                    </View>
+                </ImageBackground>
+            </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'white',
-    },
-    backgroundImage: {
-        flex: 1,
-        width: '100%',
-    },
-    contentContainer: {
-        flex: 1,
-        marginBottom: 0,
-        paddingBottom: 0,
-    }
-});
 
 export default ChatDetail;

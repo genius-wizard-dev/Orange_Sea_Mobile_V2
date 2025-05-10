@@ -9,12 +9,23 @@ export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
   async (messageData, { dispatch, rejectWithValue }) => {
     try {
-      const response = await apiService.post(ENDPOINTS.CHAT.SEND, {
-        groupId: messageData.groupId,
-        message: messageData.message,
-        type: messageData.type,
-        senderId: messageData.senderId
-      });
+      dispatch(setLoading(true));
+
+      const isFormData = messageData instanceof FormData;
+      let response;
+
+      if (isFormData) {
+        // Nếu là FormData (upload ảnh)
+        response = await apiService.post(ENDPOINTS.CHAT.SEND, messageData);
+      } else {
+        // Nếu là tin nhắn thường
+        response = await apiService.post(ENDPOINTS.CHAT.SEND, {
+          groupId: messageData.groupId,
+          message: messageData.message,
+          type: messageData.type || 'TEXT',
+          senderId: messageData.senderId
+        });
+      }
 
       // Đảm bảo response có ID thật trước khi trả về
       if (response?.status === 'success' && response?.data?.id) {
@@ -22,7 +33,7 @@ export const sendMessage = createAsyncThunk(
           ...response,
           data: {
             ...response.data,
-            id: response.data.id, // Đảm bảo có id thật
+            id: response.data.id,
             tempId: undefined // Xóa tempId nếu có
           }
         };
@@ -30,7 +41,11 @@ export const sendMessage = createAsyncThunk(
 
       return response;
     } catch (error) {
-      return rejectWithValue(error.message);
+      console.error('Lỗi khi gửi tin nhắn:', error);
+      dispatch(setError(error.message || 'Không thể gửi tin nhắn'));
+      return rejectWithValue(error.response?.data || { message: 'Không thể gửi tin nhắn' });
+    } finally {
+      dispatch(setLoading(false));
     }
   }
 );
@@ -55,46 +70,42 @@ export const uploadSticker = createAsyncThunk(
 
 export const recallMessage = createAsyncThunk(
   'chat/recallMessage',
-  async (messageId, { dispatch }) => {
+  async (messageId, { rejectWithValue }) => {
     try {
+      console.log('Recalling message with ID:', messageId);
       const response = await apiService.put(ENDPOINTS.CHAT.RECALL(messageId));
-      // Trả về trực tiếp response để xử lý ở component
-      return response;
+      console.log('Recall API full response:', response);
+
+      // Nếu status không phải 200 thì reject
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
+      }
+
+      // Nếu thành công thì trả về data
+      return response.data;
     } catch (error) {
-      // Ném lỗi với message từ API hoặc message mặc định
-      throw error.response?.data || { 
-        status: 'error',
-        message: 'Không thể thu hồi tin nhắn' 
-      };
+      console.error('Recall message API error details:', error);
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi thu hồi tin nhắn' });
     }
   }
 );
 
 export const deleteMessageThunk = createAsyncThunk(
   'chat/deleteMessage',
-  async (messageId, { dispatch, getState }) => {
+  async (messageId, { rejectWithValue }) => {
     try {
-      dispatch(setLoading(true));
+      console.log('Deleting message with ID:', messageId);
       const response = await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
-
-      if (response.status === 'success') {
-        // Emit socket event để thông báo cho người khác
-        const socket = socketService.getSocket();
-        if (socket) {
-          socket.emit('delete', { messageId });
-        }
-
-        dispatch(deleteMessage(messageId));
-        return response;
+      console.log('Delete message API response:', response);
+      // Nếu status không phải 200 thì reject
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
       }
-
-      throw new Error('Xóa tin nhắn thất bại');
+      // Nếu thành công thì trả về data
+      return response.data;
     } catch (error) {
-      console.log('Lỗi xóa tin nhắn:', error.message);
-      dispatch(setError(error.message));
-      throw error;
-    } finally {
-      dispatch(setLoading(false));
+      console.error('Delete message API error details:', error);
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi xoá tin nhắn' });
     }
   }
 );
@@ -117,6 +128,57 @@ export const forwardMessage = createAsyncThunk(
     }
   }
 );
+
+
+export const fetchPaginatedMessages = createAsyncThunk(
+  'chat/fetchPaginatedMessages',
+  async ({ groupId, cursor }, { dispatch }) => {
+    try {
+      dispatch(setLoading(true));
+      const response = await apiService.get(
+        ENDPOINTS.CHAT.GET_MESSAGES(groupId),
+        { cursor }
+      );
+      return response;
+    } catch (error) {
+      dispatch(setError(error.message));
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+export const editMessage = createAsyncThunk(
+  'chat/editMessage',
+  async ({ messageId, newContent }, { dispatch, rejectWithValue }) => {
+    try {
+      dispatch(setLoading(true));
+      const response = await apiService.put(ENDPOINTS.CHAT.EDIT(messageId), {
+        messageId, // Thêm messageId vào body request
+        message: newContent
+      });
+
+      if (response.status !== 'success') {
+        return rejectWithValue(response);
+      }
+
+      dispatch(updateMessage({
+        id: messageId,
+        changes: { message: newContent, edited: true }
+      }));
+
+      return response.data;
+    } catch (error) {
+      dispatch(setError(error.message));
+      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi chỉnh sửa tin nhắn' });
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+
 
 export const fetchMessages = createAsyncThunk(
   'chat/fetchMessages',

@@ -25,10 +25,13 @@ export const ENDPOINTS = {
     LIST: `${BASE_ENDPOINT}/group`,
     CREATE: `${BASE_ENDPOINT}/group`,
     DETAIL: (id: string) => `${BASE_ENDPOINT}/group/${id}`,
-    UPDATE: (id: string) => `${BASE_ENDPOINT}/group/${id}`,
-    DELETE: (id: string) => `${BASE_ENDPOINT}/group/${id}`,
-    INVITE: (id: string) => `${BASE_ENDPOINT}/group/${id}/invite`,
-    LEAVE: (id: string) => `${BASE_ENDPOINT}/group/${id}/leave`,
+    SEARCH: (keyword: string) => `${BASE_ENDPOINT}/group/search/${keyword}`,
+    ADD_PARTICIPANT: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}/participant`,
+    REMOVE_PARTICIPANT: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}/participant`,
+    DELETE: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}`,
+    LEAVE: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}/leave`,
+    TRANSFER_OWNER: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}/owner`,
+    RENAME: (groupId: string) => `${BASE_ENDPOINT}/group/${groupId}/rename`,
   },
   FRIEND: {
     SEARCH_BY_PHONE: (keyword: string) => `${BASE_ENDPOINT}/friend/search/${keyword}`,
@@ -46,12 +49,7 @@ export const ENDPOINTS = {
     RECALL: (messageId: string) => `${BASE_ENDPOINT}/chat/recall/${messageId}`,
     DELETE: (messageId: string) => `${BASE_ENDPOINT}/chat/delete/${messageId}`,
     FORWARD: `${BASE_ENDPOINT}/chat/forward`,
-    GET_MESSAGES: (groupId: string, limit: number = 10) => 
-      `${BASE_ENDPOINT}/chat/${groupId}/messages?limit=${limit}`,
-    UPLOAD_FILE: `${BASE_ENDPOINT}/chat/file`,
-    UPLOAD_IMAGE: `${BASE_ENDPOINT}/chat/image`,
-    MARK_AS_READ: (groupId: string) => `${BASE_ENDPOINT}/chat/${groupId}/read`,
-    GET_UNREAD_COUNT: `${BASE_ENDPOINT}/chat/unread-count`,
-    GET_MESSAGE: (messageId: string) => `${BASE_ENDPOINT}/chat/message/${messageId}`,
+    GET_MESSAGES: (groupId: String) =>`${BASE_ENDPOINT}/chat/messages/${groupId}`,
+    EDIT_MESSAGE: (messageId: String) => `${BASE_ENDPOINT}/chat/edit/${messageId}`,
   }
 };

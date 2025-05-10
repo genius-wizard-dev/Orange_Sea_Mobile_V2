@@ -1,69 +1,404 @@
-import { StyleSheet, TextInput, Pressable, Platform } from 'react-native';
-import React, { useState } from 'react';
-import { XStack } from 'tamagui';
+import { StyleSheet, TextInput, Pressable, Platform, Animated, Keyboard, Dimensions, TouchableWithoutFeedback, View } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { XStack, YStack } from 'tamagui';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import EmojiSelector from 'react-native-emoji-selector';
+import ImageGallery from './ImageGallery';
 
-const MessageInput = ({ onSendMessage, onFocusInput }) => {
+const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const [message, setMessage] = useState('');
     const [isFocused, setIsFocused] = useState(false);
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const fadeAnimSend = useRef(new Animated.Value(0)).current;
+    const [activeTab, setActiveTab] = useState(null);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const bottomSheetAnim = useRef(new Animated.Value(0)).current;
+    const inputPosition = useRef(new Animated.Value(0)).current;
+    const bottomSheetHeight = 300;
+    const [hasSelectedImage, setHasSelectedImage] = useState(false);
+
+    useEffect(() => {
+        if (message.length > 0 && !hasSelectedImage) {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(fadeAnimSend, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true,
+                })
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 150,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(fadeAnimSend, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                })
+            ]).start();
+        }
+    }, [message, hasSelectedImage]);
+
+    useEffect(() => {
+        const keyboardWillShow = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => setKeyboardHeight(e.endCoordinates.height)
+        );
+        const keyboardWillHide = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => setKeyboardHeight(0)
+        );
+
+        return () => {
+            keyboardWillShow.remove();
+            keyboardWillHide.remove();
+        };
+    }, []);
 
     const handleSend = () => {
         if (message.trim()) {
-            onSendMessage(message.trim());
+            onSendMessage({
+                type: 'TEXT',
+                content: message.trim()
+            });
             setMessage('');
         }
     };
 
+    const closeBottomSheet = () => {
+        setActiveTab(null);
+        onTabChange && onTabChange(null);
+        setHasSelectedImage(false);
+
+        Animated.parallel([
+            Animated.spring(inputPosition, {
+                toValue: 0,
+                useNativeDriver: true,
+                friction: 8,
+                tension: 50
+            }),
+            Animated.spring(bottomSheetAnim, {
+                toValue: 0,
+                useNativeDriver: true,
+                friction: 8,
+                tension: 50
+            })
+        ]).start(() => {
+            bottomSheetAnim.setValue(0);
+        });
+    };
+
     const handleFocus = () => {
         setIsFocused(true);
+        if (activeTab) {
+            closeBottomSheet();
+        }
         onFocusInput && onFocusInput();
     };
 
+    const handleBlur = () => {
+        setIsFocused(false);
+    };
+
+    const toggleTab = (tabName) => {
+        Keyboard.dismiss();
+        if (activeTab === tabName) {
+            // Đóng tab
+            setActiveTab(null);
+            setHasSelectedImage(false);
+            onTabChange && onTabChange(null);
+            Animated.parallel([
+                Animated.spring(inputPosition, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    friction: 8,
+                    tension: 50
+                }),
+                Animated.spring(bottomSheetAnim, {
+                    toValue: 0,
+                    useNativeDriver: true,
+                    friction: 8,
+                    tension: 50
+                })
+            ]).start(() => {
+                // Reset bottomSheetAnim sau khi đóng
+                bottomSheetAnim.setValue(0);
+            });
+        } else {
+            // Mở tab mới
+            setActiveTab(tabName);
+            // Nếu là tab image, xóa text để ẩn nút gửi tin nhắn
+            if (tabName === 'images') {
+                setMessage('');
+            }
+            onTabChange && onTabChange(tabName);
+            // Đặt giá trị bottomSheetAnim về 0 trước khi animation
+            bottomSheetAnim.setValue(0);
+            Animated.parallel([
+                Animated.spring(inputPosition, {
+                    toValue: -1,
+                    useNativeDriver: true,
+                    friction: 8,
+                    tension: 50
+                }),
+                Animated.spring(bottomSheetAnim, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    friction: 8,
+                    tension: 50
+                })
+            ]).start();
+        }
+    };
+
+    const handleOutsidePress = (event) => {
+        // Chỉ xử lý click bên ngoài nếu bottomSheet đang mở
+        if (!activeTab) return;
+
+        // Lấy tọa độ click
+        const { locationY } = event.nativeEvent;
+        // Lấy chiều cao màn hình
+        const screenHeight = Dimensions.get('window').height;
+        // Tính vị trí của bottomSheet (tính từ dưới lên)
+        const bottomSheetPosition = bottomSheetHeight + 60; // 60 là chiều cao ước lượng của input
+
+        // Nếu click ở vùng trên bottomSheet thì đóng nó
+        if (locationY < (screenHeight - bottomSheetPosition)) {
+            closeBottomSheet();
+        }
+    };
+
+    const handleSendImage = (imageData) => {
+        if (imageData) {
+            // Gọi hàm onSendMessage với đúng định dạng
+            onSendMessage({
+                type: 'IMAGE',
+                content: {
+                    ...imageData,
+                    content: ""  // Đảm bảo content là chuỗi rỗng
+                }
+            });
+
+            // Đóng bottom sheet
+            closeBottomSheet();
+
+            // Reset trạng thái đã chọn ảnh
+            setHasSelectedImage(false);
+
+            // Đảm bảo message là rỗng
+            setMessage('');
+        }
+    };
+
+    const renderTabContent = () => {
+        if (!activeTab) return null;
+        return (
+            <YStack height={bottomSheetHeight} backgroundColor="#fff" padding={10}>
+                {activeTab === 'sticker' && (
+                    <XStack flex={1} alignItems="center" justifyContent="center">
+                        {/* <Ionicons name="happy-outline" size={50} color="#65676b" /> */}
+                        <EmojiSelector
+                            onEmojiSelected={emoji => {
+                                setMessage(prevMessage => prevMessage + emoji);
+                            }}
+                        />
+                    </XStack>
+                )}
+                {activeTab === 'duplicate' && (
+                    <XStack flex={1} alignItems="center" justifyContent="center">
+                        <Ionicons name="duplicate-outline" size={50} color="#65676b" />
+                    </XStack>
+                )}
+
+                {activeTab === 'images' && (
+                    <XStack flex={1} alignItems="center" justifyContent="center">
+                        <ImageGallery
+                            onImageSelect={(image) => {
+                                // Nếu image là null, tức là người dùng đã hủy chọn ảnh
+                                setHasSelectedImage(!!image);
+                                if (!image) {
+                                    // Người dùng đã hủy, cho phép nhập text trở lại
+                                    setMessage('');
+                                }
+                            }}
+                            onSendImage={handleSendImage}
+                        />
+                    </XStack>
+                )}
+            </YStack>
+        );
+    };
+
     return (
-        <XStack style={[
-            styles.inputContainer, 
-            isFocused && { marginBottom: 50 }
-        ]}>
-            <XStack space="$2" flex={1} backgroundColor="#f0f2f5" borderRadius={20} alignItems="center" padding={5}>
-                <Ionicons name="happy-outline" size={24} color="#65676b" />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Tin nhắn"
-                    value={message}
-                    onChangeText={setMessage}
-                    multiline
-                    maxLength={1000}
-                    onFocus={handleFocus}
-                    onBlur={() => setIsFocused(false)}
-                />
-                <Ionicons name="images-outline" size={24} color="#65676b" />
-                <FontAwesome name="microphone" size={24} color="#65676b" />
-            </XStack>
-            <Pressable onPress={handleSend}>
-                <XStack padding={10}>
-                    <Ionicons name="send" size={24} color="#0084ff" />
-                </XStack>
-            </Pressable>
-        </XStack>
+        <>
+            {activeTab && (
+                <TouchableWithoutFeedback onPress={handleOutsidePress}>
+                    <View style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'transparent'
+                    }} />
+                </TouchableWithoutFeedback>
+            )}
+
+            <YStack
+                position="absolute"
+                bottom={0}
+                left={0}
+                right={0}
+                zIndex={2}
+            >
+                <Animated.View style={{
+                    transform: [{
+                        translateY: inputPosition
+                    }]
+                }}>
+                    <XStack
+                        space="$2"
+                        backgroundColor="white"
+                        borderTopWidth={1}
+                        borderColor="#ddd"
+                        padding={8}
+                        alignItems="center"
+                        style={{
+                            paddingBottom: Platform.OS === 'ios' ? keyboardHeight + 8 : 8
+                        }}
+                    >
+                        <XStack
+                            space="$2"
+                            flex={1}
+                            backgroundColor="#f0f2f5"
+                            borderRadius={20}
+                            alignItems="center"
+                            padding={5}
+                            paddingLeft={15}
+                        >
+                            <Ionicons
+                                onPress={() => toggleTab('sticker')}
+                                color={activeTab === 'sticker' ? '#0084ff' : '#65676b'}
+                                name="happy-outline"
+                                size={30}
+
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Tin nhắn"
+                                value={message}
+                                onChangeText={(text) => {
+                                    // Chỉ cho phép nhập text khi không có ảnh được chọn
+                                    if (!hasSelectedImage) {
+                                        setMessage(text);
+                                    }
+                                }}
+                                multiline
+                                maxLength={1000}
+                                onFocus={handleFocus}
+                                onBlur={handleBlur}
+                                editable={!hasSelectedImage}
+                            />
+                            <Animated.View style={{
+                                flexDirection: 'row',
+                                opacity: fadeAnim,
+                                gap: 10,
+                                position: 'absolute',
+                                right: 10,
+                                transform: [{
+                                    scale: fadeAnim
+                                }]
+                            }}>
+                                <Pressable onPress={() => toggleTab('duplicate')}>
+                                    <Ionicons
+                                        name="duplicate-outline"
+                                        size={30}
+                                        color={activeTab === 'duplicate' ? '#0084ff' : '#65676b'}
+                                    />
+                                </Pressable>
+
+                                <Pressable onPress={() => toggleTab('images')}>
+                                    <Ionicons
+                                        name="images-outline"
+                                        size={30}
+                                        color={activeTab === 'images' ? '#0084ff' : '#65676b'}
+                                        style={{ marginLeft: 10, marginRight: 40 }}
+                                    />
+                                </Pressable>
+
+
+                            </Animated.View>
+                            <Animated.View style={{
+                                opacity: fadeAnimSend,
+                                position: 'absolute',
+                                right: 10,
+                                transform: [{
+                                    scale: fadeAnimSend
+                                }]
+                            }}>
+                                <Pressable onPress={handleSend}>
+                                    <XStack padding={10}>
+                                        <Ionicons name="send" size={30} color="#0084ff" />
+                                    </XStack>
+                                </Pressable>
+                            </Animated.View>
+                        </XStack>
+                    </XStack>
+
+                    {activeTab && (
+                        <Animated.View style={{
+                            height: bottomSheetHeight,
+                            backgroundColor: 'white',
+                            borderTopWidth: 1,
+                            borderColor: '#ddd',
+                            opacity: bottomSheetAnim,
+                            transform: [{
+                                translateY: bottomSheetAnim.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [bottomSheetHeight, 0],
+                                    extrapolate: 'clamp'
+                                })
+                            }]
+                        }}>
+                            {renderTabContent()}
+                        </Animated.View>
+                    )}
+                </Animated.View>
+            </YStack>
+        </>
     );
 };
 
 const styles = StyleSheet.create({
     inputContainer: {
-        padding: 10,
-        borderTopWidth: 1,
-        borderTopColor: '#e4e6eb',
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
         backgroundColor: 'white',
-        minHeight: 60,
-        marginBottom: 0,
-        paddingBottom: Platform.OS === 'ios' ? 20 : 10
+        padding: 8,
+        paddingLeft: 10,
+        paddingRight: 20,
+        borderTopWidth: 1,
+        borderColor: '#ddd',
     },
     input: {
+        maxWidth: 250,
         flex: 1,
+        minHeight: 40,
+        maxHeight: 120,
+        borderRadius: 20,
         fontSize: 16,
-        paddingHorizontal: 10,
-        maxHeight: 100,
-        paddingVertical: 5
+        paddingHorizontal: 12,
     }
 });
 

@@ -122,7 +122,7 @@ export default function OTP() {
       if (response.success) {
         setTimeLeft(60);
         setCanResend(false);
-        Alert.alert('Success', 'A new OTP has been sent to your email');
+        Alert.alert('Success', 'Mã OTP đã được gửi lại thành công', );
         // Removed redirect to '/' to keep user on verification page
       } else {
         Alert.alert('Error', response.message || 'Failed to resend OTP');
@@ -151,10 +151,10 @@ export default function OTP() {
     <YStack flex={1} padding="$4" justifyContent="center" backgroundColor="$background" space="$4">
       <YStack space="$2" marginBottom="$4">
         <Text fontSize="$8" fontWeight="bold" textAlign="center">
-          Verify your email
+          Xác thực OTP
         </Text>
         <Text fontSize="$4" color="$gray10" textAlign="center">
-          Please enter the 6-digit code sent to{'\n'}
+          Vui lòng nhập 6 mã số được gửi từ email{'\n'}
           <Text color="$orange10" fontWeight="bold">
             {email}
           </Text>
@@ -194,12 +194,12 @@ export default function OTP() {
           color="white"
           onPress={handleVerifyOtp}
           disabled={verifying || otp.some((digit) => digit === '')}>
-          {verifying ? <Spinner color="white" /> : 'Verify OTP'}
+          {verifying ? <Spinner color="white" /> : 'Xác thực OTP'}
         </Button>
 
         <XStack justifyContent="center" marginTop="$2" space="$2">
           <Text fontSize="$3" color="$gray10">
-            Didn't receive code?
+            Không nhận được mã?
           </Text>
           {canResend ? (
             <Button
@@ -209,12 +209,12 @@ export default function OTP() {
               paddingHorizontal="$0"
               paddingVertical="$0">
               <Text fontSize="$3" color="$orange10" fontWeight="bold">
-                {resending ? 'Sending...' : 'Resend OTP'}
+                {resending ? 'Đang gửi...' : 'Gửi lại OTP'}
               </Text>
             </Button>
           ) : (
             <Text fontSize="$3" color="$gray10">
-              Resend in {timeLeft}s
+              Gửi lại sau{timeLeft}s
             </Text>
           )}
         </XStack>
@@ -226,7 +226,7 @@ export default function OTP() {
           onPress={handleCancelRegister}
           icon={<MaterialIcons name="cancel" size={20} color="#ff6600" />}>
           <Text color="$orange10" fontSize="$4">
-            Cancel Registration
+            Huỷ đăng ký
           </Text>
         </Button>
       </XStack>

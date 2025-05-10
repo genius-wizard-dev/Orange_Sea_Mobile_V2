@@ -1,7 +1,7 @@
 import { Popover, YStack, Button, View } from 'tamagui'
 import React, { useState, useEffect, useRef } from 'react'
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { Pressable, Dimensions, StyleSheet, ActivityIndicator, Animated } from 'react-native'
+import { Pressable, Dimensions, StyleSheet, ActivityIndicator, Animated, Clipboard } from 'react-native'
 import { Portal } from '@tamagui/portal'
 
 const { width, height } = Dimensions.get('window')
@@ -14,6 +14,7 @@ const MessageOptionsPopover = ({
     isMyMessage,
     isRecalled,
     children,
+    message
 }) => {
     const [isRecalling, setIsRecalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -68,6 +69,19 @@ const MessageOptionsPopover = ({
         }
     };
 
+    const handleCopy = async () => {
+        try {
+            const messageText = message?.message || '';
+            if (messageText) {
+                await Clipboard.setString(messageText);
+            }
+            onClose();
+        } catch (error) {
+            console.error('Error copying message:', error);
+            onClose(); // Đảm bảo đóng popover ngay cả khi có lỗi
+        }
+    };
+
     return (
         <>
             <Popover open={isOpen} onOpenChange={onClose}>
@@ -76,9 +90,9 @@ const MessageOptionsPopover = ({
                         style={{
                             zIndex: isOpen ? 10000 : 0,
                             borderWidth: isOpen ? 2 : 0,
-                            borderColor: isOpen ? '#FF7A1E' : 'transparent',
+                            borderColor: isOpen ? '#FF7A1E' : 'transparent',    
                             borderRadius: 12,
-                            backgroundColor: isOpen ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                            backgroundColor: isOpen ? 'rgba(128,128,128,0.05)' : 'transparent',
                         }}
                     >
                         {children}
@@ -86,15 +100,13 @@ const MessageOptionsPopover = ({
                 </Popover.Trigger>
             </Popover>
 
-            {/* Portal để overlay và popover content luôn nằm top */}
             {isOpen && (
-                <Portal>
-                    {/* Overlay */}
+                <Portal >
                     <Animated.View
                         style={[
                             StyleSheet.absoluteFillObject,
                             {
-                                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                                backgroundColor: 'rgba(0, 0, 0, 0.6)',
                                 zIndex: 100,
                                 opacity: fadeAnim,
                             },
@@ -103,7 +115,6 @@ const MessageOptionsPopover = ({
                         <Pressable onPress={onClose} style={StyleSheet.absoluteFillObject} />
                     </Animated.View>
 
-                    {/* Popover content */}
                     <Animated.View
                         style={{
                             position: 'absolute',
@@ -121,9 +132,9 @@ const MessageOptionsPopover = ({
                     >
                         <YStack space="$3">
                             {!isRecalled && <Button
-                                size="$3"
-                                onPress={onClose}
-                                iconAfter={<Ionicons name="copy-outline" size={18} />}
+                                size="$4"
+                                onPress={handleCopy}
+                                iconAfter={<Ionicons name="copy-outline" size={20} color="#9CA3AF"/>}
                                 justifyContent="space-between"
                             >
                                 Sao chép
@@ -131,12 +142,12 @@ const MessageOptionsPopover = ({
 
                             {isMyMessage && !isRecalled && (
                                 <Button
-                                    size="$3"
+                                    size="$4"
                                     onPress={handleRecall}
                                     disabled={isRecalling}
                                     iconAfter={isRecalling ? 
                                         <ActivityIndicator size="small" color="#FF7A1E" /> : 
-                                        <Ionicons name="refresh-outline" size={18} />
+                                        <Ionicons name="refresh-outline" size={20} color="#EF4444"/>
                                     }
                                     justifyContent="space-between"
                                 >
@@ -145,12 +156,12 @@ const MessageOptionsPopover = ({
                             )}
 
                             <Button
-                                size="$3"
+                                size="$4"
                                 onPress={handleDelete}
                                 disabled={isDeleting}
                                 iconAfter={isDeleting ? 
                                     <ActivityIndicator size="small" color="#FF7A1E" /> : 
-                                    <Ionicons name="trash-outline" size={18} />
+                                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
                                 }
                                 justifyContent="space-between"
                             >
@@ -158,9 +169,9 @@ const MessageOptionsPopover = ({
                             </Button>
 
                             {!isRecalled && <Button
-                                size="$3"
+                                size="$4"
                                 onPress={onClose}
-                                iconAfter={<Ionicons name="arrow-redo-outline" size={18} />}
+                                iconAfter={<Ionicons name="arrow-redo-outline" size={20} color="#3B82F6"/>}
                                 justifyContent="space-between"
                             >
                                 Chuyển tiếp
