@@ -157,13 +157,15 @@ const Chat = () => {
         ? (
           lastMessage.type === "IMAGE"
             ? "[Hình ảnh]"
-            : lastMessage.content
-              ? (
-                lastMessage.content.replace(/\n/g, ' ').length > 16
-                  ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
-                  : lastMessage.content.replace(/\n/g, ' ')
-              )
-              : "Không có tin nhắn"
+            : lastMessage.type === "VIDEO"
+              ? "[Video]"
+              : lastMessage.content
+                ? (
+                  lastMessage.content.replace(/\n/g, ' ').length > 16
+                    ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
+                    : lastMessage.content.replace(/\n/g, ' ')
+                )
+                : "Không có tin nhắn"
         )
         : "Không có tin nhắn";
 

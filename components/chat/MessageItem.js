@@ -1,7 +1,9 @@
 import { XStack, YStack, Text, Image, Button, Adapt } from 'tamagui';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import VideoPlayer from 'react-native-video';
+import { Video } from 'expo-av';
 import { formatTime } from '../../utils/time';
-import { ActivityIndicator, Pressable, Alert, View } from 'react-native';
+import { ActivityIndicator, Pressable, Alert, View, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useDispatch } from 'react-redux';
 import { recallMessage, deleteMessageThunk } from '../../redux/thunks/chat';
@@ -15,6 +17,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isPressed, setIsPressed] = useState(false);
     const pressTimeoutRef = useRef(null);
     const dispatch = useDispatch();
+    const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
 
     useEffect(() => {
@@ -93,6 +96,16 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         }
     }, [msg.id, msg.groupId, msg.senderId, dispatch]);
 
+    const handleVideoPress = useCallback(() => {
+        if (!msg.imageUrl) {
+            Alert.alert("Lỗi", "Không thể phát video này");
+            return;
+        }
+
+        // Đảo ngược trạng thái phát video
+        setIsVideoPlaying(prevState => !prevState);
+    }, [msg.imageUrl]);
+
     return (
         <MessageOptionsPopover
             isOpen={isOpen}
@@ -120,13 +133,14 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                         padding={2}
                         shadowRadius={6}
                     >
-                        <XStack alignItems="center" space={isMyMessage ? 35 : 10} >
+                        <XStack alignItems="flex-start" space={isMyMessage ? 35 : 10} >
                             {!isMyMessage && showAvatar && msg.sender && (
                                 <Image
                                     source={{ uri: msg.sender.avatar || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
                                     width={30}
                                     height={30}
-                                    borderRadius={15}
+                                    borderRadius={13}
+                                    marginTop={5}
                                 />
                             )}
                             {!isMyMessage && !showAvatar && (
@@ -206,6 +220,80 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 )}
                                             </YStack>
                                         )}
+
+
+                                        {msg.type === 'VIDEO' && msg.imageUrl && (
+
+                                            <TouchableOpacity onPress={handleVideoPress}>
+                                                <YStack
+                                                    width={200}
+                                                    height={200}
+                                                    borderRadius={10}
+                                                    overflow="hidden"
+                                                    backgroundColor="#000"
+                                                >
+                                                    {isVideoPlaying ? (
+                                                        <Video
+                                                            source={{ uri: msg.imageUrl }}
+                                                            style={{ width: '100%', height: '100%' }}
+                                                            useNativeControls
+                                                            resizeMode="contain"
+                                                            shouldPlay
+                                                            onPlaybackStatusUpdate={(status) => {
+                                                                if (status.didJustFinish) {
+                                                                    setIsVideoPlaying(false);
+                                                                }
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <>
+                                                            <Image
+                                                                source={{ uri: msg.thumbnailUrl || msg.imageUrl }}
+                                                                style={{ width: '100%', height: '100%' }}
+                                                                resizeMode="cover"
+                                                            />
+                                                            <YStack
+                                                                position="absolute"
+                                                                top={0}
+                                                                left={0}
+                                                                right={0}
+                                                                bottom={0}
+                                                                justifyContent="center"
+                                                                alignItems="center"
+                                                            >
+                                                                <XStack
+                                                                    backgroundColor="rgba(0,0,0,0.4)"
+                                                                    borderRadius={30}
+                                                                    width={60}
+                                                                    height={60}
+                                                                    justifyContent="center"
+                                                                    alignItems="center"
+                                                                >
+                                                                    <Ionicons name="play" size={30} color="white" />
+                                                                </XStack>
+                                                            </YStack>
+                                                        </>
+                                                    )}
+
+                                                    {msg.isPending && (
+                                                        <YStack
+                                                            position="absolute"
+                                                            top={0}
+                                                            left={0}
+                                                            right={0}
+                                                            bottom={0}
+                                                            justifyContent="center"
+                                                            alignItems="center"
+                                                            backgroundColor="rgba(0,0,0,0.2)"
+                                                        >
+                                                            <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                        </YStack>
+                                                    )}
+                                                </YStack>
+                                            </TouchableOpacity>
+
+                                        )}
+
                                     </>
                                 )}
                                 <Text
