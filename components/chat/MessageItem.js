@@ -1,7 +1,7 @@
 import { XStack, YStack, Text, Image, Button, Adapt } from 'tamagui';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import VideoPlayer from 'react-native-video';
-import { Video } from 'expo-av';
+// import { Video } from 'expo-av';
 import { formatTime } from '../../utils/time';
 import { ActivityIndicator, Pressable, Alert, View, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -11,6 +11,7 @@ import MessageOptionsPopover from './MessageOptionsPopover';
 import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
 import { Popover } from '@tamagui/popover';
 import socketService from '../../service/socket.service';
+import { deleteMessage } from '../../redux/slices/chatSlice';
 
 const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -57,15 +58,24 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const handleRecallMessage = async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(recallMessage(msg.id));
-                if (result.meta.requestStatus === 'rejected') {
-                    alert(result.payload?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
+                const result = await dispatch(recallMessage(msg.id)).unwrap();
+                // Truy cập trực tiếp vào dữ liệu trả về từ API
+                if (result?.statusCode === 200) {
+                    // Lấy messageId từ data của response
+                    const messageId = result.data.messageId;
+                    if (messageId) {
+                        socketService.emitRecallMessage(messageId);
+                        setIsOpen(false);
+                    } else {
+                        console.error('Không tìm thấy messageId trong phản hồi API');
+                        alert('Có lỗi xảy ra khi thu hồi tin nhắn');
+                    }
                 } else {
-                    socketService.emitRecallMessage(result.payload.id, result.payload.groupId);
-                    setIsOpen(false);
+                    alert(result?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
                 }
             } catch (error) {
                 console.error('Lỗi khi thu hồi tin nhắn:', error);
+                alert(error?.message || 'Có lỗi xảy ra khi thu hồi tin nhắn');
             }
         }
     };
@@ -73,28 +83,36 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const handleDelete = useCallback(async () => {
         if (msg.id) {
             try {
-                const result = await dispatch(deleteMessageThunk(msg.id));
-                if (result.meta.requestStatus === 'rejected') {
-                    alert(result.payload?.message || 'Có lỗi xảy ra khi xoá tin nhắn');
+                const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
+                console.log('Delete API result:', result);
+                
+                // Truy cập trực tiếp vào dữ liệu trả về từ API
+                if (result?.statusCode === 200) {
+                    // Lấy messageId từ data của response
+                    const messageId = result.data.messageId || msg.id;
+                    
+                    if (messageId) {
+                        console.log('Gửi socket event xóa tin nhắn với ID:', messageId);
+                        socketService.emitDeleteMessage(messageId);
+                        setIsOpen(false);
+                        
+                        // Cập nhật UI trực tiếp sử dụng action deleteMessage
+                        console.log('Xóa tin nhắn khỏi UI trực tiếp:', messageId);
+                        dispatch(deleteMessage(messageId));
+                    } else {
+                        console.error('Không tìm thấy messageId trong phản hồi API');
+                        alert('Có lỗi xảy ra khi xóa tin nhắn');
+                    }
                 } else {
-                    socketService.emitDeleteMessage(msg.id, msg.groupId, msg.senderId);
-                    setIsOpen(false);
-                    dispatch({
-                        type: 'chat/messageDeleted',
-                        payload: {
-                            messageId: msg.id,
-                            groupId: msg.groupId,
-                            userId: msg.senderId
-                        }
-                    });
+                    alert(result?.message || 'Có lỗi xảy ra khi xóa tin nhắn');
                 }
-
             } catch (error) {
                 console.error('Lỗi khi xoá tin nhắn:', error);
+                alert(error?.message || 'Có lỗi xảy ra khi xóa tin nhắn');
             }
             handleClose();
         }
-    }, [msg.id, msg.groupId, msg.senderId, dispatch]);
+    }, [msg.id, dispatch]);
 
     const handleVideoPress = useCallback(() => {
         if (!msg.imageUrl) {
@@ -233,18 +251,21 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                     backgroundColor="#000"
                                                 >
                                                     {isVideoPlaying ? (
-                                                        <Video
-                                                            source={{ uri: msg.imageUrl }}
-                                                            style={{ width: '100%', height: '100%' }}
-                                                            useNativeControls
-                                                            resizeMode="contain"
-                                                            shouldPlay
-                                                            onPlaybackStatusUpdate={(status) => {
-                                                                if (status.didJustFinish) {
-                                                                    setIsVideoPlaying(false);
-                                                                }
-                                                            }}
-                                                        />
+                                                        // <Video
+                                                        //     source={{ uri: msg.imageUrl }}
+                                                        //     style={{ width: '100%', height: '100%' }}
+                                                        //     useNativeControls
+                                                        //     resizeMode="contain"
+                                                        //     shouldPlay
+                                                        //     onPlaybackStatusUpdate={(status) => {
+                                                        //         if (status.didJustFinish) {
+                                                        //             setIsVideoPlaying(false);
+                                                        //         }
+                                                        //     }}
+                                                        // />
+                                                        <>
+                                                        <Text>VIDEO</Text>
+                                                        </>
                                                     ) : (
                                                         <>
                                                             <Image

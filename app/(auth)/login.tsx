@@ -69,13 +69,16 @@ export default function Login() {
       const response = await apiService.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, loginData);
 
 
-      if (response.status === 'success' && response.data) {
+      if (response.statusCode === 200 && response.data) {
         setAccessToken(response.data.access_token);
         console.log(response.data.access_token);
         setRefreshToken(response.data.refresh_token);
 
         const profileRes: ProfileResponse = await dispatch(getProfile() as any).unwrap();
-        if (profileRes.status === 'success') {
+
+        console.log("profileRes : ", profileRes);
+
+        if (profileRes.statusCode === 200 && profileRes.data) {
           setUsername('');
           setPassword('');
           router.replace('/');

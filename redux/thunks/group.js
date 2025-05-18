@@ -6,6 +6,7 @@ export const getListGroup = createAsyncThunk('group/list', async (_, { rejectWit
     try {
         const res = await apiService.get(ENDPOINTS.GROUP.LIST);
 
+        // console.log("thunk group list", res);
         return res;
     } catch (error) {
         return rejectWithValue(error.message);

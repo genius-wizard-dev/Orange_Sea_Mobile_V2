@@ -8,7 +8,7 @@ export const LoginRequestSchema = z.object({
 
 // Login Response Schema
 export const LoginResponseSchema = z.object({
-  status: z.enum(["success", "fail"]),
+  statusCode: z.number(),
   message: z.string(),
   data: z
     .object({
