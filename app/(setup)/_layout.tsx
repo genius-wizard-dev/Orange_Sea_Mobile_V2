@@ -45,9 +45,10 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/otp" />;
   }
 
-  if (!hasToken) {
+  if (!hasToken || userProfile?.isSetup === undefined) {
     return <Redirect href="/(auth)/login" />;
   }
+
 
   if (userProfile?.isSetup) {
     return <Redirect href="/(tabs)/chat" />;

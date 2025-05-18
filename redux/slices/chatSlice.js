@@ -37,7 +37,14 @@ const chatSlice = createSlice({
     },
     deleteMessage: (state, action) => {
       const messageId = action.payload;
-      state.messages = state.messages.filter(msg => msg.id !== messageId && msg.tempId !== messageId);
+      // Lọc tin nhắn dựa trên ID hoặc tempId
+      state.messages = state.messages.filter(msg => 
+        msg.id !== messageId && 
+        msg.tempId !== messageId
+      );
+      // Cập nhật state để kích hoạt re-render
+      state.messages = [...state.messages];
+      console.log('Đã xóa tin nhắn qua reducer deleteMessage:', messageId);
     },
     updateMessage: (state, action) => {
       const { id, tempId, ...updates } = action.payload;
@@ -155,9 +162,23 @@ const chatSlice = createSlice({
       })
       .addCase('chat/messageDeleted', (state, action) => {
         const { messageId } = action.payload;
+        console.log('Xử lý xóa tin nhắn với ID:', messageId);
+        
+        // Lọc tin nhắn dựa trên ID
+        const previousLength = state.messages.length;
         state.messages = state.messages.filter(msg => msg.id !== messageId);
+        
+        // Kiểm tra xem có thực sự xóa được tin nhắn không
+        if (previousLength !== state.messages.length) {
+          console.log(`Đã xóa tin nhắn: ${messageId} (từ ${previousLength} xuống ${state.messages.length} tin nhắn)`);
+        } else {
+          console.warn(`Không tìm thấy tin nhắn với ID: ${messageId} để xóa`);
+          // In ra IDs hiện tại để debug
+          console.log('Các tin nhắn hiện có:', state.messages.map(m => m.id).join(', '));
+        }
+        
+        // Cập nhật state để kích hoạt re-render
         state.messages = [...state.messages];
-        console.log('Đã xóa tin nhắn:', messageId);
       })
       .addCase('chat/messageRecalled', (state, action) => {
         const { messageId, groupId } = action.payload;
@@ -166,7 +187,6 @@ const chatSlice = createSlice({
           payload: { messageId, groupId }
         };
         chatSlice.caseReducers.recallMessage(state, recallAction);
-        console.log('📱 Tin nhắn đã được cập nhật trạng thái thu hồi:', messageId);
       });
   }
 });
