@@ -1,24 +1,30 @@
 import io from 'socket.io-client';
 import Constants from 'expo-constants';
-import { markGroupAsRead, setMessages } from '../redux/slices/chatSlice';
-
+import { markGroupAsRead, setMessages, addMessage, setError } from '../redux/slices/chatSlice';
+import { getDeviceId } from '../utils/fingerprint';
 
 class SocketService {
     socket = null;
     isRegistered = false;
 
-    connect() {
+    // --- SOCKET CONNECTION MANAGEMENT ---
 
+    connect() {
         const link_socket = `${Constants.expoConfig?.extra?.API_BASE_URL_SOCKET}`;
-        console.log("link socket ", link_socket);
+        console.log("SOCKET URL ", link_socket);
+
+        if (!link_socket || link_socket === 'undefined') {
+            console.error('URL socket không hợp lệ:', link_socket);
+            return null;
+        }
 
         this.socket = io(link_socket, {
-            transports: ['websocket', 'polling'],
+            transports: ['websocket'],
             autoConnect: true,
         });
 
         this.socket.on('connect', () => {
-            console.log('Socket connected successfully');
+            console.log('Socket connected successfully with ID:', this.socket.id);
         });
 
         this.socket.on('disconnect', () => {
@@ -44,20 +50,48 @@ class SocketService {
         return this.socket;
     }
 
-    // --- CLIENT TO SERVER EVENTS ---
+    // --- EMIT EVENTS (CLIENT TO SERVER) ---
 
-    // register: { profileId: string }
+    /**
+     * Register user profile with the socket server
+     * @param {string} profileId - User profile ID
+     * @returns {Promise<boolean>} - Registration success status
+     */
     async registerProfile(profileId) {
-        return new Promise((resolve, reject) => {
-            if (!this.socket?.connected) {
-                this.socket?.connect();
+        return new Promise(async (resolve, reject) => {
+            if (!this.socket) {
+                console.log('Socket not initialized, creating new connection');
+                this.socket = this.connect();
             }
 
-            this.socket?.emit('register', { profileId }, (response) => {
+            if (!this.socket?.connected) {
+                console.log('Socket not connected, waiting for connection...');
+
+                const connectionTimeout = setTimeout(() => {
+                    reject(new Error('Socket connection timeout after 5 seconds'));
+                }, 5000);
+
+                await new Promise((connResolve) => {
+                    this.socket.once('connect', () => {
+                        clearTimeout(connectionTimeout);
+                        connResolve();
+                    });
+
+                    // Đảm bảo socket bắt đầu kết nối
+                    this.socket.connect();
+                });
+            }
+
+            // Lấy deviceId từ phương thức getDeviceId
+            const deviceId = await getDeviceId();
+            console.log("Sending register event with:", { profileId, deviceId });
+
+            this.socket?.emit('register', { profileId, deviceId }, (response) => {
                 console.log('Register response:', response);
-                if (response?.status === 'success') {
+                if (response?.success) {
                     this.isRegistered = true;
                     resolve(true);
+                    console.log("reg oke")
                 } else {
                     this.isRegistered = false;
                     reject(new Error('Failed to register profile'));
@@ -66,9 +100,15 @@ class SocketService {
         });
     }
 
-    // open: { profileId: string, groupId: string }
-    async openChat(profileId, groupId, dispatch) {
+    /**
+     * Open a chat group
+     * @param {string} profileId - User profile ID
+     * @param {string} groupId - Chat group ID
+     * @returns {Promise<Object>} - Server response
+     */
+    async openChat(profileId, groupId) {
         console.log('Opening chat:', { profileId, groupId });
+
         if (!this.socket?.connected) {
             console.log('Socket not connected for openChat');
             return { status: 'error', message: 'Socket not connected' };
@@ -76,48 +116,29 @@ class SocketService {
 
         return new Promise((resolve, reject) => {
             this.socket.emit('open', { profileId, groupId }, (response) => {
-                // console.log('Open chat response:', response);
-                if (response?.status === 'success' && response?.messages) {
-                    const formattedMessages = response.messages.map(msg => ({
-                        id: msg.id,
-                        message: msg.content,
-                        senderId: msg.senderId,
-                        groupId: msg.groupId,
-                        createdAt: msg.createdAt,
-                        type: msg.type,
-                        imageUrl: msg.fileUrl,
-                        isRecalled: msg.isRecalled,
-                        sender: msg.sender,
-                        isMyMessage: msg.senderId === profileId,
-                        isPending: false,
-                    }));
-
-                    // // Lưu nextCursor từ response
-                    // this.currentCursor = response.nextCursor;
-                    // console.log('Saved nextCursor:', this.currentCursor);
-
-                    dispatch(setMessages(formattedMessages));
-                    resolve({
-                        status: 'success',
-                        nextCursor: response.nextCursor,
-                        messages: formattedMessages,
-                        hasMore: response.hasMore
-                    });
+                if (response?.success) {
+                    resolve(response);
                 } else {
-                    reject(new Error('Failed to open chat'));
+                    reject(response || { status: 'error', message: 'Unknown error' });
                 }
             });
         });
     }
 
-    // markAsRead: { profileId: string, groupId: string }
-    async markChatAsRead(profileId, groupId, dispatch) {
+    /**
+     * Handle a chat group (mark as read)
+     * @param {string} profileId - User profile ID
+     * @param {string} groupId - Chat group ID
+     * @param {Function} dispatch - Redux dispatch function
+     * @returns {Promise<Object>} - Server response
+     */
+    async handleGroup(profileId, groupId, dispatch) {
         if (!this.socket?.connected) return;
 
         return new Promise((resolve) => {
-            this.socket.emit('markAsRead', { profileId, groupId }, (response) => {
-                console.log('Mark as read response:', response);
-                if (response?.status === 'success') {
+            this.socket.emit('handleGroup', { profileId, groupId }, (response) => {
+                console.log('handleGroup response:', response);
+                if (response?.success) {
                     dispatch(markGroupAsRead({ groupId }));
                 }
                 resolve(response);
@@ -125,53 +146,69 @@ class SocketService {
         });
     }
 
-    // send: { messageId: string, groupId: string, senderId: string, content: string }
-    sendMessage(messageData) {
-        if (!this.socket?.connected) return;
-
-        console.log('Sending message:', messageData);
-        this.socket.emit('send', messageData);
+    /**
+     * Send message notification to other clients
+     * @param {string} messageId - Message ID to notify about
+     */
+    emitNewMessage(messageId) {
+        if (!this.socket?.connected) {
+            console.log('Socket not connected, cannot emit new message');
+            return;
+        }
+        console.log('Emitting message event with messageId:', messageId);
+        this.socket.emit('sendMessage', { messageId });
     }
 
-    // recall: { messageId: string, groupId: string }
-    recallMessage(messageId, groupId) {
+    /**
+     * Emit event to recall (unsend) a message
+     * @param {string} messageId - Message ID to recall
+     */
+    emitRecallMessage(messageId) {
         if (!this.socket?.connected) {
             console.log('Socket không kết nối, không thể thu hồi tin nhắn');
             return;
         }
-
-        console.log('Gửi sự kiện thu hồi tin nhắn:', { messageId, groupId });
-
-        // Gửi yêu cầu thu hồi tin nhắn đến server
-        this.socket.emit('recall', { messageId, groupId }, (response) => {
-            console.log('Phản hồi thu hồi từ server:', response);
-
-            // Nếu server xác nhận thành công, phát sóng sự kiện đến tất cả client
-            if (response?.status === 'success') {
-                console.log('Thu hồi thành công, thông báo cho tất cả client');
-            }
-        });
+        console.log('Emitting recall message event với messageId:', messageId);
+        this.socket.emit('recallMessage', { messageId });
     }
 
-    // delete: { messageId: string, groupId: string, userId: string }
-    deleteMessage(messageId, groupId, userId) {
-        if (!this.socket?.connected) return;
-
-        console.log('Deleting message:', { messageId, groupId, userId });
-        this.socket.emit('delete', { messageId, groupId, userId });
+    /**
+     * Emit event to delete a message
+     * @param {string} messageId - Message ID to delete
+     */
+    emitDeleteMessage(messageId) {
+        if (!this.socket?.connected) {
+            console.log('Socket không kết nối, không thể xóa tin nhắn');
+            return;
+        }
+        console.log('Emitting delete message event với messageId:', messageId);
+        this.socket.emit('deleteMessage', { messageId });
     }
 
-    // leave: { profileId: string, groupId: string }
-    leaveChat(profileId, groupId) {
-        if (!this.socket?.connected) return;
-
+    /**
+     * Leave a chat group
+     * @param {string} profileId - User profile ID
+     * @param {string} groupId - Chat group ID to leave
+     */
+    emitLeaveChat(profileId, groupId) {
+        if (!this.socket?.connected) {
+            console.log('Socket not connected, cannot leave chat');
+            return;
+        }
         console.log('Leaving chat:', { profileId, groupId });
         this.socket.emit('leave', { profileId, groupId });
     }
 
-    // Thêm phương thức registerChat lại vào
+    /**
+     * Register for a chat (combined register + handleGroup)
+     * @param {string} profileId - User profile ID
+     * @param {string} groupId - Chat group ID
+     * @param {Function} dispatch - Redux dispatch function
+     * @returns {Promise<Object>} - Server response
+     */
     async registerChat(profileId, groupId, dispatch) {
         console.log('Registering chat:', { profileId, groupId });
+
         if (!this.socket?.connected) {
             console.log('Socket not connected for registerChat');
             return { status: 'error', message: 'Socket not connected' };
@@ -179,20 +216,83 @@ class SocketService {
 
         try {
             await this.registerProfile(profileId);
-            const markReadResult = await this.markChatAsRead(profileId, groupId, dispatch);
-            return { status: 'success', markReadResult };
+            const resHanleGroup = await this.handleGroup(profileId, groupId, dispatch);
+            return resHanleGroup;
         } catch (error) {
             console.error('Register chat error:', error);
-            return { status: 'error', message: error.message };
+            return error;
         }
     }
 
+    // --- SOCKET INITIALIZATION AND LISTENERS ---
+
+    /**
+     * Initialize chat and fetch messages
+     * @param {string} profileId - User profile ID
+     * @param {string} groupId - Chat group ID
+     * @param {Function} dispatch - Redux dispatch function
+     * @param {Function} fetchPaginatedMessages - Function to fetch messages
+     * @returns {Promise<Object>} - Initialization results
+     */
+    async initializeChat(profileId, groupId, dispatch, fetchPaginatedMessages) {
+        try {
+            console.log('Đang bắt đầu mở chat.');
+            console.log("thông tin gửi, ", profileId, groupId);
+
+            // Đợi kết quả register
+            const registerResult = await this.registerChat(profileId, groupId, dispatch);
+
+            console.log("registerResult ", registerResult)
+
+            if (registerResult?.success === true) {
+                // Chỉ mở chat nếu register thành công
+                const openResult = await this.openChat(profileId, groupId);
+
+                console.log("openResult ", openResult);
+
+                if (openResult?.success === true) {
+                    // Nếu openResult thành công, gọi API fetchPaginatedMessages
+                    console.log('openResult thành công, gọi API fetchPaginatedMessages');
+                    try {
+                        return await dispatch(fetchPaginatedMessages({
+                            groupId,
+                            cursor: "" // Cursor rỗng để lấy tin nhắn mới nhất
+                        })).unwrap();
+                    } catch (apiError) {
+                        console.error('Lỗi khi tải tin nhắn qua API:', apiError);
+                        return { error: true, message: 'Lỗi khi tải tin nhắn' };
+                    }
+                } else {
+                    // Nếu openResult không thành công
+                    console.log('openResult không thành công');
+                    return { error: true, message: 'Không thể mở chat' };
+                }
+            }
+
+            // Nếu registerResult không thành công
+            console.log('❌ Failed to initialize chat - Register failed');
+            return { error: true, message: 'Đăng ký chat thất bại' };
+        } catch (error) {
+            console.error('❌ Chat initialization error:', error);
+            return { error: true, message: error.message || 'Lỗi khởi tạo chat' };
+        }
+    }
+
+    // --- SOCKET LISTENERS SETUP ---
+
+    /**
+     * Set up common socket listeners for app
+     * @param {string} profileId - User profile ID
+     * @param {Function} dispatch - Redux dispatch function
+     * @returns {Function} - Cleanup function to remove listeners
+     */
     setupCommonListeners(profileId, dispatch) {
         if (!this.socket || !profileId) return;
 
         // Đăng ký và keep-alive socket
-        const registerSocket = () => {
-            this.socket.emit('register', { profileId });
+        const registerSocket = async () => {
+            const deviceId = await getDeviceId();
+            this.socket.emit('register', { profileId, deviceId });
         };
 
         // Register ngay lập tức và setup interval để giữ kết nối
@@ -204,8 +304,8 @@ class SocketService {
 
         // --- SERVER TO CLIENT EVENTS ---
 
-        // newMessage: MessageObject
-        this.socket.on('newMessage', (message) => {
+        // Receive new message event
+        this.socket.on('receiveMessage', (message) => {
             console.log('New message received:', message);
             dispatch({
                 type: 'chat/messageReceived',
@@ -217,7 +317,7 @@ class SocketService {
             });
         });
 
-        // unreadCountUpdated: [{ groupId: string, unreadCount: number }]
+        // Unread count updates
         this.socket.on('unreadCountUpdated', (updates) => {
             console.log('Unread count updated:', updates);
             dispatch({
@@ -226,7 +326,7 @@ class SocketService {
             });
         });
 
-        // messageRecalled: { messageId: string, groupId: string }
+        // Message recall notifications
         this.socket.on('messageRecalled', (data) => {
             console.log('🔄 Nhận sự kiện messageRecalled:', data);
 
@@ -243,7 +343,7 @@ class SocketService {
             }
         });
 
-        // messageDeleted: { messageId: string, userId: string }
+        // Message deletion notifications
         this.socket.on('messageDeleted', (data) => {
             console.log('Message deleted:', data);
             if (data?.messageId) {
@@ -258,7 +358,7 @@ class SocketService {
             }
         });
 
-        // userStatusUpdate: { profileId: string, isOnline: boolean, isActive: boolean }
+        // User status updates
         this.socket.on('userStatusUpdate', (data) => {
             // console.log('User status update:', data);
             const { profileId, isOnline, isActive, groupId } = data;
@@ -268,7 +368,7 @@ class SocketService {
             });
         });
 
-        // socketError: { message: string, error: string }
+        // Socket error handling
         this.socket.on('socketError', (error) => {
             console.error('Socket error from server:', error);
             dispatch({
@@ -288,58 +388,119 @@ class SocketService {
         };
     }
 
-    // Thêm method mới để emit socket event recall
-    emitRecallMessage(messageId, groupId) {
-        if (!this.socket?.connected) {
-            console.log('Socket không kết nối');
-            return;
-        }
+    /**
+     * Set up chat detail specific listeners
+     * @param {string} groupId - Chat group ID
+     * @param {string} profileId - User profile ID
+     * @param {Function} dispatch - Redux dispatch function
+     * @returns {Function} - Cleanup function to remove listeners
+     */
+    setupChatDetailListeners(groupId, profileId, dispatch) {
+        if (!this.socket || !profileId || !groupId) return null;
 
-        this.socket.emit('recall', { messageId, groupId });
+        // Socket event handlers
+        this.socket.on('connect', () => console.log('Socket connected successfully'));
+        this.socket.on('disconnect', () => console.log('Socket disconnected'));
+        this.socket.on('error', (error) => console.log('Socket error:', error));
+
+        // New message handler for specific chat
+        this.socket.on('receiveMessage', (message) => {
+            if (message.groupId === groupId) {
+                const isMyMessage = message.senderId === profileId;
+                const formattedMessage = {
+                    id: message.id,
+                    message: message.content,
+                    senderId: message.senderId,
+                    groupId: message.groupId,
+                    createdAt: message.createdAt,
+                    type: message.type,
+                    imageUrl: message.imageUrl,
+                    videoUrl: message.videoUrl,
+                    stickerUrl: message.stickerUrl,
+                    isRecalled: message.isRecalled,
+                    sender: message.sender,
+                    isMyMessage: isMyMessage,
+                    isPending: false
+                };
+
+                if (!isMyMessage) {
+                    dispatch(addMessage(formattedMessage));
+                }
+            }
+        });
+
+        // Xử lý sự kiện messageRecalled trong chat
+        this.socket.on('notifyRecallMessage', (data) => {
+            console.log('Nhận sự kiện messageRecalled trong chatDetail:', data);
+            const { messageId, groupId: recalledGroupId } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (recalledGroupId === groupId && messageId) {
+                // Cập nhật tin nhắn thu hồi
+                dispatch({
+                    type: 'chat/messageRecalled',
+                    payload: {
+                        messageId,
+                        groupId: recalledGroupId
+                    }
+                });
+
+                // Thông báo cập nhật giao diện
+                console.log('Đã cập nhật tin nhắn thu hồi:', messageId);
+            }
+        });
+
+        // Xử lý sự kiện thu hồi tin nhắn trong chat
+        this.socket.on('messageRecall', (data) => {
+            console.log('Nhận sự kiện messageRecall trong chatDetail:', data);
+            const { messageId, groupId: recalledGroupId } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (recalledGroupId === groupId && messageId) {
+                // Cập nhật tin nhắn thu hồi
+                dispatch({
+                    type: 'chat/messageRecalled',
+                    payload: {
+                        messageId,
+                        groupId: recalledGroupId
+                    }
+                });
+
+                // Thông báo cập nhật giao diện
+                console.log('Đã cập nhật tin nhắn thu hồi:', messageId);
+            }
+        });
+
+        // Xử lý sự kiện xóa tin nhắn trong chat (đã xóa bản trùng lặp)
+        this.socket.on('messageDelete', (data) => {
+            console.log('📱 Nhận sự kiện messageDelete trong chatDetail:', data);
+            const { messageId, groupId: deletedGroupId } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (deletedGroupId === groupId && messageId) {
+                // Dispatch action xóa tin nhắn trực tiếp
+                console.log('Gửi action xóa tin nhắn từ socket event với ID:', messageId);
+                dispatch({
+                    type: 'chat/deleteMessage',
+                    payload: messageId
+                });
+            }
+        });
+
+        // Trả về hàm cleanup để remove event listeners
+        return () => {
+            if (this.socket?.connected) {
+                this.emitLeaveChat(profileId, groupId);
+            }
+            this.socket.off('connect');
+            this.socket.off('disconnect');
+            this.socket.off('error');
+            this.socket.off('receiveMessage');
+            this.socket.off('notifyRecallMessage');
+            this.socket.off('messageRecall');
+            this.socket.off('messageDelete');
+        };
     }
-
-    emitDeleteMessage(messageId, groupId, userId) {
-        if (!this.socket?.connected) {
-            console.log('Socket không kết nối');
-            return;
-        }
-        console.log('Emitting delete event:', { messageId, groupId, userId });
-        this.socket.emit('delete', { messageId, groupId, userId });
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
 
 export default new SocketService();

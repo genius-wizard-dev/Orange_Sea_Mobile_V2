@@ -27,14 +27,16 @@ export const sendMessage = createAsyncThunk(
         });
       }
 
-      // Đảm bảo response có ID thật trước khi trả về
-      if (response?.status === 'success' && response?.data?.id) {
+      console.log("res send message", response);
+
+      // Đảm bảo response có messageId hoặc id trước khi trả về
+      if (response?.statusCode === 200 && response?.data?.messageId) {
         return {
           ...response,
           data: {
             ...response.data,
-            id: response.data.id,
-            tempId: undefined // Xóa tempId nếu có
+            id: response.data.messageId || response.data.id,
+            tempId: undefined
           }
         };
       }
@@ -76,13 +78,8 @@ export const recallMessage = createAsyncThunk(
       const response = await apiService.put(ENDPOINTS.CHAT.RECALL(messageId));
       console.log('Recall API full response:', response);
 
-      // Nếu status không phải 200 thì reject
-      if (response.status !== 'success') {
-        return rejectWithValue(response);
-      }
-
       // Nếu thành công thì trả về data
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Recall message API error details:', error);
       return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi thu hồi tin nhắn' });
@@ -97,12 +94,8 @@ export const deleteMessageThunk = createAsyncThunk(
       console.log('Deleting message with ID:', messageId);
       const response = await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
       console.log('Delete message API response:', response);
-      // Nếu status không phải 200 thì reject
-      if (response.status !== 'success') {
-        return rejectWithValue(response);
-      }
-      // Nếu thành công thì trả về data
-      return response.data;
+   
+      return response;
     } catch (error) {
       console.error('Delete message API error details:', error);
       return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi xoá tin nhắn' });

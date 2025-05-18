@@ -33,7 +33,7 @@ export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
 // API Response schema
 export const ProfileResponseSchema = z.object({
-  status: z.string(),
+  statusCode: z.number(),
   message: z.string(),
   data: ProfileSchema,
 });

@@ -44,6 +44,16 @@ const Chat = () => {
       const groupResult = await dispatch(getListGroup()).unwrap();
 
       if (Array.isArray(groupResult)) {
+
+        const loadDetailsPromises = groupResult.map(async (group) => {
+          if (!group || !group.id) return;
+          try {
+            await dispatch(getGroupDetail(group.id));
+          } catch (error) {
+            console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
+          }
+        });
+
         const nonGroupChats = groupResult.filter(group => !group.isGroup);
         // console.log('Non group chats:', JSON.stringify(nonGroupChats, null, 2));
 
@@ -87,14 +97,14 @@ const Chat = () => {
           }
         });
 
-        const loadDetailsPromises = nonGroupChats.map(async (group) => {
-          if (!group || !group.id) return;
-          try {
-            await dispatch(getGroupDetail(group.id));
-          } catch (error) {
-            console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
-          }
-        });
+        // const loadDetailsPromises = nonGroupChats.map(async (group) => {
+        //   if (!group || !group.id) return;
+        //   try {
+        //     await dispatch(getGroupDetail(group.id));
+        //   } catch (error) {
+        //     console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
+        //   }
+        // });
 
         await Promise.all(loadDetailsPromises);
         setIsLoading(false);
@@ -139,41 +149,50 @@ const Chat = () => {
   const renderGroup = (group) => {
     if (!group) return null; // Thêm check này
 
+    // console.log(`Rendering group ${group.id}: ${group.name || 'Unnamed'}`);
+    // console.log(`Has groupDetail: ${!!groupDetails[group.id]}`);
+
     const groupDetail = groupDetails[group.id];
 
-    // Lấy lastMessage từ nhiều nguồn và ưu tiên theo thứ tự
-    const lastMessage = lastMessages[group.id] ||
-      group.messages?.[0] ||
-      groupDetail?.messages?.[0];
+    // if (!groupDetail && group.id) {
+    //   console.log(`Missing groupDetail for group ID: ${group.id}`);
+    // }
 
+    // Lấy lastMessage từ nhiều nguồn và ưu tiên theo thứ tự
+    const lastMessage = group.lastMessage;
 
     // Kiểm tra isRecalled từ messages trong groupDetail nếu có
     const messageInDetail = groupDetail?.messages?.find(m => m.id === lastMessage?.id);
     const isRecalled = messageInDetail?.isRecalled || lastMessage?.isRecalled || false;
 
-    const lastMessageContent = isRecalled
-      ? "Tin nhắn đã thu hồi"
-      : lastMessage
-        ? (
-          lastMessage.type === "IMAGE"
-            ? "[Hình ảnh]"
-            : lastMessage.content
-              ? (
-                lastMessage.content.replace(/\n/g, ' ').length > 16
-                  ? lastMessage.content.replace(/\n/g, ' ').slice(0, 16) + '...'
-                  : lastMessage.content.replace(/\n/g, ' ')
-              )
-              : "Không có tin nhắn"
-        )
-        : "Không có tin nhắn";
+    let lastMessageContent = "Không có tin nhắn";
+
+    if (isRecalled) {
+      lastMessageContent = "Tin nhắn đã thu hồi";
+    } else if (lastMessage) {
+      switch (lastMessage.type) {
+        case "IMAGE":
+          lastMessageContent = "[Hình ảnh]";
+          break;
+        case "VIDEO":
+          lastMessageContent = "[Video]";
+          break;
+        default:
+          if (lastMessage.content) {
+            const content = lastMessage.content.replace(/\n/g, ' ');
+            lastMessageContent = content.length > 16 ? content.slice(0, 16) + '...' : content;
+          }
+          break;
+      }
+    }
 
 
-    const otherParticipant = !group.isGroup && groupDetail?.participants?.find(
-      p => p?.userId !== profile?.id
+    // console.log("profile ", profile)
+    const otherParticipant = group.isGroup === false && group?.participants?.find(
+      p => p?.profileId !== profile?.id
     );
 
     // Lấy userId từ participant
-    const otherUserId = otherParticipant?.userId;
     const userStatus = otherParticipant ? userStatuses[otherParticipant.userId] : null;
 
 
@@ -191,9 +210,11 @@ const Chat = () => {
       return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
     };
 
+    // console.log("otherParticipant ", otherParticipant)
+
     const displayName = group.isGroup
       ? limitText(group.name || 'Nhóm chat', 25)
-      : limitText(otherParticipant?.user?.name || 'Loading...', 25);
+      : limitText(otherParticipant?.name || 'Loading...', 25);
 
 
 
@@ -201,7 +222,7 @@ const Chat = () => {
     const prefix = lastMessage?.senderId === profile?.id ? "Bạn: " : sender ? `` : "";
     const unreadCount = unreadCounts[group.id] || 0;
 
-
+    // console.log("groups ", JSON.stringify(groups, null, 2));
 
     return (
       <XStack

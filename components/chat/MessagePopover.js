@@ -11,7 +11,8 @@ const MessagePopover = ({
     onDelete,
     onCopy,
     onForward,
-    children
+    children,
+    message,
 }) => {
     return (
         <Popover

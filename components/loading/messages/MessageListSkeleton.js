@@ -12,8 +12,6 @@ const MessageListSkeleton = () => {
         { isMyMessage: true },
         { isMyMessage: true },
         { isMyMessage: false },
-        { isMyMessage: false },
-        { isMyMessage: true },
     ];
 
     return (

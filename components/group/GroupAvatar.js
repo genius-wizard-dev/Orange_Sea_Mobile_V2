@@ -3,6 +3,22 @@ import { View, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Image, Text } from 'tamagui';
 
+
+const DefaultAvatar = ({ name, size }) => {
+    // Lấy chữ cái đầu tiên và chuyển thành in hoa
+    const firstLetter = name && typeof name === 'string'
+        ? name.charAt(0).toUpperCase()
+        : '?';
+
+    return (
+        <View style={[styles.defaultAvatar, { width: size, height: size }]}>
+            <Text color="white" fontWeight="bold" fontSize={size * 0.4}>
+                {firstLetter}
+            </Text>
+        </View>
+    );
+};
+
 const GroupAvatar = ({ group, size = 50 }) => {
     const participants = group.participants || [];
     const memberCount = participants.length;
@@ -10,13 +26,20 @@ const GroupAvatar = ({ group, size = 50 }) => {
 
     if (!group.isGroup) {
         // Single user chat - show single avatar
-        const otherParticipant = participants.find(p => p?.userId !== profile?.id);
+        const otherParticipant = participants.find(p => p?.profileId !== profile?.id);
         return (
             <View style={[styles.singleContainer, { width: size, height: size }]}>
-                <Image
-                    source={{ uri: otherParticipant?.user?.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
-                    style={[styles.singleAvatar, { width: size, height: size }]}
-                />
+                {otherParticipant?.avatar ? (
+                    <Image
+                        source={{ uri: otherParticipant.avatar }}
+                        style={[styles.singleAvatar, { width: size, height: size }]}
+                    />
+                ) : (
+                    <DefaultAvatar
+                        name={otherParticipant?.name || ''}
+                        size={size}
+                    />
+                )}
             </View>
         );
     }
@@ -29,21 +52,48 @@ const GroupAvatar = ({ group, size = 50 }) => {
         <View style={[styles.groupContainer, { width: size, height: size }]}>
             {memberCount === 1 ? (
                 // One member
-                <Image
-                    source={{ uri: participants[0]?.user?.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
-                    style={[styles.singleAvatar, { width: size, height: size }]}
-                />
+                participants[0]?.avatar ? (
+                    <Image
+                        source={{ uri: participants[0].avatar }}
+                        style={[styles.singleAvatar, { width: size, height: size }]}
+                    />
+                ) : (
+                    <DefaultAvatar
+                        name={participants[0]?.name || group?.name || ''}
+                        size={size}
+                    />
+                )
             ) : memberCount === 2 ? (
                 // Two members - show both avatars
                 <>
-                    <Image
-                        source={{ uri: participants[0]?.user?.avatar }}
-                        style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize }]}
-                    />
-                    <Image
-                        source={{ uri: participants[1]?.user?.avatar }}
-                        style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize, marginLeft:-20 }]}
-                    />
+                    {participants[0]?.avatar ? (
+                        <Image
+                            source={{ uri: participants[0].avatar }}
+                            style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize }]}
+                        />
+                    ) : (
+                        <View style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize }]}>
+                            <DefaultAvatar
+                                name={participants[0]?.name || ''}
+                                size={smallAvatarSize}
+                            />
+                        </View>
+                    )}
+
+                    {participants[1]?.avatar ? (
+                        <Image
+                            source={{ uri: participants[1].avatar }}
+                            style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize, marginLeft: -20 }]}
+                        />
+                    ) : (
+                        <View style={[styles.doubleAvatar, { width: smallAvatarSize, height: smallAvatarSize, marginLeft: -20 }]}>
+                            <DefaultAvatar
+                                name={participants[1]?.name || ''}
+                                size={smallAvatarSize}
+                            />
+                        </View>
+                    )}
+
                     <View style={styles.memberCount}>
                         <Text color="white" fontSize={10}>
                             {memberCount < 9 ? memberCount : '9+'}
@@ -54,18 +104,37 @@ const GroupAvatar = ({ group, size = 50 }) => {
                 // Three or more members
                 <>
                     {visibleParticipants.map((participant, index) => (
-                        <Image
-                            key={participant.id}
-                            source={{ uri: participant.user?.avatar }}
-                            style={[
-                                styles.multiAvatar,
-                                {
-                                    width: smallAvatarSize,
-                                    height: smallAvatarSize,
-                                    left: index * (smallAvatarSize / 2)
-                                }
-                            ]}
-                        />
+                        participant?.avatar ? (
+                            <Image
+                                key={participant.id}
+                                source={{ uri: participant.avatar }}
+                                style={[
+                                    styles.multiAvatar,
+                                    {
+                                        width: smallAvatarSize,
+                                        height: smallAvatarSize,
+                                        left: index * (smallAvatarSize / 2)
+                                    }
+                                ]}
+                            />
+                        ) : (
+                            <View
+                                key={participant.id}
+                                style={[
+                                    styles.multiAvatar,
+                                    {
+                                        width: smallAvatarSize,
+                                        height: smallAvatarSize,
+                                        left: index * (smallAvatarSize / 2)
+                                    }
+                                ]}
+                            >
+                                <DefaultAvatar
+                                    name={participant?.name || ''}
+                                    size={smallAvatarSize}
+                                />
+                            </View>
+                        )
                     ))}
                     <View style={styles.memberCount}>
                         <Text color="white" fontSize={10}>
@@ -116,6 +185,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 2,
         borderColor: 'white',
+    },
+    defaultAvatar: {
+        backgroundColor: '#888', // Nền xám
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 30,
     }
 });
 
