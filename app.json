@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Orange Sea",
+    "slug": "orange-sea",
+    "version": "1.0.0",
+    "scheme": "orange-sea",
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-dev-launcher",
+        {
+          "launchMode": "most-recent"
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "googleServicesFile": "./google-services.json",
+      "package": "com.orangesea.app"
+    },
+    "extra": {
+      "API_BASE_URL": "https://api-orange-sea.nonegroup.io.vn",
+      "API_BASE_URL_SOCKET": "wss://api-orange-sea.nonegroup.io.vn/ws",
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "74169951-6882-40ac-a9b4-1baa9372f2ce"
+      }
+    }
+  }
+}
