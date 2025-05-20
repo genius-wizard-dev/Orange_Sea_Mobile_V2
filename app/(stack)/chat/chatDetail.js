@@ -7,19 +7,22 @@ import ChatHeaderComponent from '../../../components/header/ChatHeaderComponent'
 import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
-import { fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
+import { editMessageThunk, fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
 import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage } from '../../../redux/slices/chatSlice'
 import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
-    const { messages } = useSelector(state => state.chat);
     const { profile } = useSelector(state => state.profile);
     const { groupId, profileId } = useLocalSearchParams();
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
     const { groupDetails } = useSelector((state) => state.group);
+
+
+    const { messages, editingMessage } = useSelector(state => state.chat);
+
     const [activeTab, setActiveTab] = useState(null);
     const bottomSheetHeight = 300;
     const [refreshKey, setRefreshKey] = useState(0);
@@ -55,15 +58,16 @@ const ChatDetail = () => {
 
     const partnerName = useMemo(() => {
 
-        console.log("currentGroupDetail ", currentGroupDetail);
 
         if (currentGroupDetail) {
             if (currentGroupDetail.isGroup) {
                 return currentGroupDetail.name || 'Nhóm chat';
             } else if (currentGroupDetail.participants) {
+
                 const otherParticipant = currentGroupDetail.participants.find(
-                    p => p?.id !== profile?.userId
+                    p => p?.profileId !== profile?.id
                 );
+
                 return otherParticipant?.name || 'Chat';
             }
         }
@@ -84,16 +88,24 @@ const ChatDetail = () => {
             // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
             if (deletedGroupId === groupId && messageId) {
                 console.log('Xóa tin nhắn khỏi UI:', messageId);
-                dispatch(deleteMessage(messageId));
 
-                // Force re-render nếu cần
+                // Tìm tin nhắn trong store hiện tại theo API ID
+                const apiMessageId = messageId;
+                console.log('Tìm kiếm tin nhắn theo API ID:', apiMessageId);
+
+                // Lấy toàn bộ tin nhắn hiện tại
+                const currentMessages = messages;
+                console.log('IDs hiện tại:', currentMessages.map(m => m.id));
+
+                dispatch(deleteMessage(apiMessageId));
+
+                // Force re-render component
                 setRefreshKey(prev => prev + 1);
             }
         };
 
         // Xử lý sự kiện thu hồi tin nhắn
         const handleMessageRecall = (data) => {
-            console.log('ChatDetail nhận sự kiện messageRecall:', data);
             const { messageId, groupId: recalledGroupId } = data;
 
             // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
@@ -106,7 +118,6 @@ const ChatDetail = () => {
                     }
                 });
 
-                console.log('Đã cập nhật tin nhắn thu hồi trong ChatDetail:', messageId);
                 // Force re-render nếu cần
                 setRefreshKey(prev => prev + 1);
             }
@@ -148,6 +159,11 @@ const ChatDetail = () => {
                         dispatch,
                         fetchPaginatedMessages
                     );
+
+                    // console.log('API fetchPaginatedMessages response:', response);
+                    if (response?.data?.messages) {
+                        console.log('Tin nhắn được tải:', response.data.messages.map(msg => msg.id));
+                    }
 
                     if (response?.error) {
                         console.error('Lỗi khởi tạo chat:', response.message);
@@ -317,7 +333,6 @@ const ChatDetail = () => {
                     newMessage.imageUrl = response.data.fileUrl;
                 }
 
-                // Cập nhật tin nhắn
                 dispatch({
                     type: 'chat/updateMessageStatus',
                     payload: { tempId, newMessage }
@@ -408,6 +423,46 @@ const ChatDetail = () => {
         console.log('Current messages in state:', messages.map(m => ({ id: m.id, message: m.message?.substring(0, 15) })));
     }
 
+
+
+    const handleEditComplete = async (editData) => {
+        if (!editData) {
+            // Hủy chỉnh sửa, reset state
+            dispatch(setEditingMessage(null));
+            return;
+        }
+
+        const { messageId, content } = editData;
+        console.log('Hoàn thành chỉnh sửa tin nhắn:', messageId, 'Nội dung mới:', content);
+
+        try {
+            // Hiển thị loading hoặc indicator nếu cần
+            // setIsSubmitting(true);
+
+            // Gọi API để chỉnh sửa tin nhắn
+            const result = await dispatch(editMessageThunk({ messageId, content })).unwrap();
+            console.log('Edit message result:', result);
+
+            if (result.statusCode === 200) {
+                // Cập nhật nội dung tin nhắn trong UI ngay lập tức
+                dispatch(updateMessageContent({ messageId, content }));
+                console.log('Đã cập nhật tin nhắn trong UI');
+
+                // Reset editingMessage
+                dispatch(setEditingMessage(null));
+            } else {
+                // Hiển thị lỗi nếu có
+                console.error('API trả về lỗi:', result.message);
+                alert(result.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
+            }
+        } catch (error) {
+            console.error('Lỗi khi chỉnh sửa tin nhắn:', error);
+            alert(error?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
+        } finally {
+            // setIsSubmitting(false);
+        }
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -444,6 +499,8 @@ const ChatDetail = () => {
                             onSendMessage={handleSendMessage}
                             onFocusInput={handleInputFocus}
                             onTabChange={setActiveTab}
+                            editingMessage={editingMessage} // Thêm dòng này
+                            onEditComplete={handleEditComplete}
                         />
                     </View>
                 </ImageBackground>

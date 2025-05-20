@@ -142,33 +142,29 @@ export const fetchPaginatedMessages = createAsyncThunk(
   }
 );
 
-export const editMessage = createAsyncThunk(
-  'chat/editMessage',
-  async ({ messageId, newContent }, { dispatch, rejectWithValue }) => {
-    try {
-      dispatch(setLoading(true));
-      const response = await apiService.put(ENDPOINTS.CHAT.EDIT(messageId), {
-        messageId, // Thêm messageId vào body request
-        message: newContent
-      });
-
-      if (response.status !== 'success') {
-        return rejectWithValue(response);
-      }
-
-      dispatch(updateMessage({
-        id: messageId,
-        changes: { message: newContent, edited: true }
-      }));
-
-      return response.data;
-    } catch (error) {
-      dispatch(setError(error.message));
-      return rejectWithValue(error.response?.data || { message: 'Có lỗi xảy ra khi chỉnh sửa tin nhắn' });
-    } finally {
-      dispatch(setLoading(false));
+export const editMessageThunk = createAsyncThunk(
+    'chat/editMessage',
+    async ({ messageId, newContent }, { rejectWithValue }) => {
+        try {
+            console.log('Editing message with ID:', messageId, 'New content:', newContent);
+            
+            // Gọi API để chỉnh sửa tin nhắn
+            const response = await apiService.put(`/api/chat/edit/${messageId}`, { newContent });
+            console.log('Edit message API response:', response);
+            
+            // Nếu API thành công, emit socket event
+            if (response.statusCode === 200) {
+                // Emit sự kiện editMessage qua socket
+                socketService.emitEditMessage(messageId);
+                console.log('Emitted editMessage event with messageId:', messageId);
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('Error editing message:', error);
+            return rejectWithValue(error.response?.data || { message: 'Lỗi khi chỉnh sửa tin nhắn' });
+        }
     }
-  }
 );
 
 

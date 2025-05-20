@@ -6,7 +6,7 @@ import EmojiSelector from 'react-native-emoji-selector';
 import ImageGallery from './ImageGallery';
 import emojiMap from '../../utils/emojiMap';
 
-const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
+const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage, onEditComplete }) => {
     const [message, setMessage] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -17,9 +17,34 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const inputPosition = useRef(new Animated.Value(0)).current;
     const bottomSheetHeight = 300;
     const [hasSelectedImage, setHasSelectedImage] = useState(false);
+    const [isEditing, setIsEditing] = useState(false); // Thêm state isEditing
+    const inputRef = useRef(null);
 
     useEffect(() => {
-        if (message.length > 0 && !hasSelectedImage) {
+        if (editingMessage) {
+            console.log('MessageInput nhận được tin nhắn cần chỉnh sửa:', editingMessage);
+
+            // Truy cập nội dung tin nhắn, đảm bảo không bị null
+            const messageContent = editingMessage.message || editingMessage.content || '';
+            console.log('Nội dung sẽ hiển thị trong input:', messageContent);
+
+            // Cập nhật giá trị input và trạng thái chỉnh sửa
+            setMessage(messageContent);
+            setIsEditing(true);
+
+            // Focus vào input khi chuyển sang chế độ chỉnh sửa
+            setTimeout(() => {
+                if (inputRef.current) {
+                    inputRef.current.focus();
+                }
+            }, 100);
+        } else {
+            setIsEditing(false);
+        }
+    }, [editingMessage]);
+
+    useEffect(() => {
+        if (message.length > 0 && !hasSelectedImage || isEditing) {
             Animated.parallel([
                 Animated.timing(fadeAnim, {
                     toValue: 0,
@@ -46,7 +71,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                 })
             ]).start();
         }
-    }, [message, hasSelectedImage]);
+    }, [message, hasSelectedImage, isEditing]);
 
     useEffect(() => {
         const keyboardWillShow = Keyboard.addListener(
@@ -65,13 +90,32 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     }, []);
 
     const handleSend = () => {
-        if (message.trim()) {
-            onSendMessage({
-                type: 'TEXT',
-                content: message.trim()
-            });
-            setMessage('');
+        if (isEditing) {
+            // Xử lý chỉnh sửa tin nhắn
+            if (message.trim() && editingMessage) {
+                onEditComplete({
+                    messageId: editingMessage.id,
+                    content: message.trim()
+                });
+            }
+            // Reset trạng thái sau khi chỉnh sửa
+            setIsEditing(false);
+        } else {
+            // Xử lý gửi tin nhắn mới
+            if (message.trim()) {
+                onSendMessage({
+                    type: 'TEXT',
+                    content: message.trim()
+                });
+            }
         }
+        setMessage('');
+    };
+
+    const cancelEditing = () => {
+        setIsEditing(false);
+        setMessage('');
+        onEditComplete(null); // Gọi onEditComplete với null để hủy chỉnh sửa
     };
 
     const closeBottomSheet = () => {
@@ -110,6 +154,9 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     };
 
     const toggleTab = (tabName) => {
+        // Nếu đang trong chế độ chỉnh sửa, không cho phép chuyển tab
+        if (isEditing) return;
+
         Keyboard.dismiss();
         if (activeTab === tabName) {
             // Đóng tab
@@ -313,6 +360,28 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                 right={0}
                 zIndex={2}
             >
+
+                {/* Thanh thông báo đang chỉnh sửa */}
+                {isEditing && (
+                    <XStack
+                        backgroundColor="#E3F2FD"
+                        paddingVertical={8}
+                        paddingHorizontal={15}
+                        alignItems="center"
+                        justifyContent="space-between"
+                        borderTopWidth={1}
+                        borderColor="#ccd0d5"
+                    >
+                        <XStack alignItems="center" flex={1}>
+                            <Ionicons name="pencil-outline" size={18} color="#2196F3" style={{ marginRight: 8 }} />
+                            <Text style={{ color: "#2196F3", fontSize: 14 }}>Đang chỉnh sửa tin nhắn</Text>
+                        </XStack>
+                        <Pressable onPress={cancelEditing} style={{ padding: 5 }}>
+                            <Ionicons name="close" size={20} color="#666" />
+                        </Pressable>
+                    </XStack>
+                )}
+
                 <Animated.View style={{
                     transform: [{
                         translateY: inputPosition
@@ -346,9 +415,10 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
 
                             />
                             <TextInput
+                                ref={inputRef}
                                 style={styles.input}
                                 placeholderTextColor="#424242"
-                                placeholder="Nhập tin nhắn..."
+                                placeholder={isEditing ? "Chỉnh sửa tin nhắn..." : "Nhập tin nhắn..."}
                                 value={message}
                                 onChangeText={(text) => {
                                     // Chỉ cho phép nhập text khi không có ảnh được chọn
@@ -371,8 +441,8 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                 transform: [{
                                     scale: fadeAnim
                                 }],
-                                zIndex: 5, 
-                                paddingHorizontal: 5, 
+                                zIndex: 5,
+                                paddingHorizontal: 5,
                                 paddingVertical: 5
                             }}>
                                 <Pressable onPress={() => toggleTab('duplicate')}>
@@ -405,7 +475,12 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                             }}>
                                 <Pressable onPress={handleSend} style={{ padding: 5 }}>
                                     <XStack padding={10} paddingRight={0}>
-                                        <Ionicons name="send" size={30} color="#0084ff" />
+                                        {/* Thay đổi biểu tượng khi đang chỉnh sửa */}
+                                        <Ionicons
+                                            name={isEditing ? "checkmark-outline" : "send"}
+                                            size={30}
+                                            color="#0084ff"
+                                        />
                                     </XStack>
                                 </Pressable>
                             </Animated.View>
