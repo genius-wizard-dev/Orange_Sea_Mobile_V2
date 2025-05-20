@@ -1,9 +1,10 @@
 import { StyleSheet, TextInput, Pressable, Platform, Animated, Keyboard, Dimensions, TouchableWithoutFeedback, View } from 'react-native';
 import React, { useState, useRef, useEffect } from 'react';
-import { XStack, YStack } from 'tamagui';
+import { ScrollView, Text, XStack, YStack } from 'tamagui';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import EmojiSelector from 'react-native-emoji-selector';
 import ImageGallery from './ImageGallery';
+import emojiMap from '../../utils/emojiMap';
 
 const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
     const [message, setMessage] = useState('');
@@ -203,14 +204,67 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
         return (
             <YStack height={bottomSheetHeight} backgroundColor="#fff" padding={10}>
                 {activeTab === 'sticker' && (
-                    <XStack flex={1} alignItems="center" justifyContent="center">
-                        {/* <Ionicons name="happy-outline" size={50} color="#65676b" /> */}
-                        <EmojiSelector
-                            onEmojiSelected={emoji => {
-                                setMessage(prevMessage => prevMessage + emoji);
-                            }}
-                        />
-                    </XStack>
+                    <View style={{ flex: 1 }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'flex-end',
+                            marginBottom: 10,
+                        }}>
+                            <Pressable
+                                onPress={() => {
+                                    setMessage(prevMessage => {
+                                        if (prevMessage.length === 0) return prevMessage;
+
+                                        const chars = Array.from(prevMessage);
+                                        chars.pop();
+                                        return chars.join('');
+                                    });
+                                }}
+                                style={{
+                                    padding: 10,
+                                    backgroundColor: '#e8e8e8',
+                                    borderRadius: 10,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <Ionicons name="backspace-outline" size={24} color="#666" />
+                                <Text style={{ marginLeft: 5, color: '#666', fontWeight: '500' }}>Xóa</Text>
+                            </Pressable>
+                        </View>
+
+                        <ScrollView
+                            // style={{ flex: 1 }}
+                            showsVerticalScrollIndicator={true}
+                            contentContainerStyle={{ paddingBottom: 20 }}
+                        >
+                            <View style={{
+                                flexDirection: 'row',
+                                flexWrap: 'wrap',
+                                justifyContent: 'space-between',
+                            }}>
+                                {Array.from(new Set(Object.values(emojiMap))).map((emoji, index) => (
+                                    <Pressable
+                                        key={index}
+                                        onPress={() => {
+                                            setMessage(prevMessage => prevMessage + emoji);
+                                        }}
+                                        style={{
+                                            padding: 8,
+                                            backgroundColor: '#f5f5f5',
+                                            borderRadius: 10,
+                                            margin: 4,
+                                            width: '15%', // 4 emoji mỗi hàng
+                                            alignItems: 'center',
+                                            marginBottom: 8,
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: 30 }}>{emoji}</Text>
+                                    </Pressable>
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </View>
                 )}
                 {activeTab === 'duplicate' && (
                     <XStack flex={1} alignItems="center" justifyContent="center">
@@ -293,7 +347,8 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                             />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Tin nhắn"
+                                placeholderTextColor="#424242"
+                                placeholder="Nhập tin nhắn..."
                                 value={message}
                                 onChangeText={(text) => {
                                     // Chỉ cho phép nhập text khi không có ảnh được chọn
@@ -315,7 +370,10 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                 right: 10,
                                 transform: [{
                                     scale: fadeAnim
-                                }]
+                                }],
+                                zIndex: 5, 
+                                paddingHorizontal: 5, 
+                                paddingVertical: 5
                             }}>
                                 <Pressable onPress={() => toggleTab('duplicate')}>
                                     <Ionicons
@@ -330,7 +388,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                         name="images-outline"
                                         size={30}
                                         color={activeTab === 'images' ? '#0084ff' : '#65676b'}
-                                        style={{ marginLeft: 10, marginRight: 40 }}
+                                        style={{ marginLeft: 10, marginRight: 0 }}
                                     />
                                 </Pressable>
 
@@ -342,10 +400,11 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange }) => {
                                 right: 10,
                                 transform: [{
                                     scale: fadeAnimSend
-                                }]
+                                }],
+                                zIndex: message.trim().length > 0 ? 6 : 4
                             }}>
-                                <Pressable onPress={handleSend}>
-                                    <XStack padding={10}>
+                                <Pressable onPress={handleSend} style={{ padding: 5 }}>
+                                    <XStack padding={10} paddingRight={0}>
                                         <Ionicons name="send" size={30} color="#0084ff" />
                                     </XStack>
                                 </Pressable>
@@ -395,10 +454,9 @@ const styles = StyleSheet.create({
         maxWidth: 250,
         flex: 1,
         minHeight: 40,
-        maxHeight: 120,
+        maxHeight: 150,
         borderRadius: 20,
         fontSize: 16,
-        paddingHorizontal: 12,
     }
 });
 

@@ -54,13 +54,16 @@ const ChatDetail = () => {
     }, [groupDetails, groupId]);
 
     const partnerName = useMemo(() => {
+
+        console.log("currentGroupDetail ", currentGroupDetail);
+
         if (currentGroupDetail) {
             if (currentGroupDetail.isGroup) {
                 return currentGroupDetail.name || 'Nhóm chat';
             } else if (currentGroupDetail.participants) {
                 const otherParticipant = currentGroupDetail.participants.find(
-                    p => p?.userId !== profile?.id
-                )?.user;
+                    p => p?.id !== profile?.userId
+                );
                 return otherParticipant?.name || 'Chat';
             }
         }
