@@ -210,6 +210,7 @@ const ChatDetail = () => {
                             type: msg.type,
                             imageUrl: msg.fileUrl,
                             isRecalled: msg.isRecalled,
+                            fileName: msg.fileName,
                             sender: msg.sender,
                             isMyMessage: msg.senderId === profileId,
                             isPending: false,
@@ -411,6 +412,7 @@ const ChatDetail = () => {
                 type: msg.type,
                 imageUrl: msg.fileUrl,
                 isRecalled: msg.isRecalled,
+                fileName: msg.fileName,
                 sender: msg.sender,
                 isMyMessage: msg.senderId === profileId,
                 isPending: false

@@ -152,7 +152,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
 
 
 
-
+    { console.log("msg  ", msg) }
 
 
     return (
@@ -272,6 +272,86 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                     }}
                                                     resizeMode="cover"
                                                 />
+                                                {msg.isPending && (
+                                                    <YStack
+                                                        position="absolute"
+                                                        top={0}
+                                                        left={0}
+                                                        right={0}
+                                                        bottom={0}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                        backgroundColor="rgba(0,0,0,0.2)"
+                                                    >
+                                                        <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                    </YStack>
+                                                )}
+                                            </YStack>
+                                        )}
+                                        {console.log("msg.type  ", msg.fileName)}
+                                        {msg.type === 'RAW' && (
+                                            <YStack
+                                                borderRadius={10}
+                                                overflow="hidden"
+                                                backgroundColor={isMyMessage ? '#c57d49' : '#d8d9df'}
+                                                padding={10}
+                                                space={8}
+                                                width={200}
+                                            >
+                                                <XStack alignItems="center" space={8} flex={1}>
+                                                    <YStack
+                                                        backgroundColor="rgba(0,0,0,0.1)"
+                                                        width={40}
+                                                        height={40}
+                                                        borderRadius={20}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                    >
+                                                        <Ionicons name="document-outline" size={24} color={isMyMessage ? "white" : "#444"} />
+                                                    </YStack>
+
+                                                    <YStack flex={1}>
+                                                        <Text
+                                                            color={isMyMessage ? "white" : "#333"}
+                                                            numberOfLines={1}
+                                                            ellipsizeMode="middle"
+                                                            fontWeight="500"
+                                                        >
+                                                            {msg.fileName || "Tài liệu"}
+                                                        </Text>
+
+                                                        <Text
+                                                            fontSize={12}
+                                                            color={isMyMessage ? "#f0f2f5" : "#65676b"}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {msg.fileSize ? `${Math.round(msg.fileSize / 1024)} KB` : ""}
+                                                        </Text>
+                                                    </YStack>
+
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            // Xử lý tải tệp tin
+                                                            if (msg.fileUrl) {
+                                                                // Gọi hàm tải xuống ở đây
+                                                                Alert.alert("Thông báo", "Đang tải tệp...");
+                                                                // Thêm xử lý tải file thực tế ở đây
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: 8,
+                                                            borderRadius: 20,
+                                                            backgroundColor: isMyMessage ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                                        }}
+                                                    >
+                                                        <Ionicons
+                                                            name="cloud-download-outline"
+                                                            size={24}
+                                                            color={isMyMessage ? "white" : "#444"}
+                                                        />
+                                                    </TouchableOpacity>
+                                                </XStack>
+
                                                 {msg.isPending && (
                                                     <YStack
                                                         position="absolute"

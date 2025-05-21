@@ -139,7 +139,7 @@ export default function Info() {
         action: 'ACCEPT'
       })).unwrap();
 
-      if (result.status === 'success') {
+      if (result.statusCode === 200) {
         Alert.alert('Thông báo', 'Đã chấp nhận lời mời kết bạn');
         // Cập nhật lại friendshipStatus
         setFriendshipStatus({
@@ -169,7 +169,7 @@ export default function Info() {
         action: 'REJECT'
       })).unwrap();
 
-      if (result.status === 'success') {
+      if (result.statusCode === 200) {
         Alert.alert('Thông báo', 'Đã từ chối lời mời kết bạn');
         // Refresh lại trạng thái
         await Promise.all([
@@ -200,7 +200,7 @@ export default function Info() {
     }
 
     // Check xem có trong danh sách nhận request không
-    const pendingRequest = receivedRequests?.data.find(request => request.profileId === id);
+    const pendingRequest = receivedRequests?.data?.find(request => request.profileId === id);
     if (pendingRequest) {
       return (
         <YStack space={10} flex={1}>
@@ -216,6 +216,7 @@ export default function Info() {
                   padding={7}
                   onPress={() => handleAcceptRequest(pendingRequest.id)}
                 >
+                  <Ionicons name="checkmark-done-outline" size={20} color="#FFFFFF" />
                   <Text color="white">Chấp nhận</Text>
                 </Button>
                 <Button
@@ -226,6 +227,7 @@ export default function Info() {
                   marginLeft={10}
                   onPress={() => handleRejectRequest(pendingRequest.id)}
                 >
+                  <Ionicons name="close-outline" size={20} color="#000" />
                   <Text>Từ chối</Text>
                 </Button>
               </>
@@ -282,7 +284,7 @@ export default function Info() {
     }
 
     // Sửa lại check dùng profileId thay vì id
-    const hasSentRequest = sentRequests?.some(request => request.profileId === id);
+    const hasSentRequest = sentRequests?.data?.some(request => request.profileId === id);
 
     if (hasSentRequest) {
       return (
@@ -367,7 +369,7 @@ export default function Info() {
         }}
       >
         <ImageBackground
-          source={{ uri: 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
+          source={{ uri: 'https://res.cloudinary.com/dubwmognz/image/upload/v1747834144/chat-images/photo-1747834136025_6edcab02.jpg?dl=photo-1747834136025.jpg' }}
           style={{ width: '100%', height: '100%' }}
           resizeMode="cover"
         >

@@ -224,6 +224,8 @@ const chatSlice = createSlice({
             groupId: message.groupId,
             sender: message.sender,
             isRecalled: message.isRecalled,
+            fileName: message.fileName,
+            type: message.type,
           };
           if (state.currentChat?.groupId !== message.groupId) {
             state.unreadCounts[message.groupId] =

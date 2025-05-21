@@ -214,7 +214,7 @@ export default function OTP() {
             </Button>
           ) : (
             <Text fontSize="$3" color="$gray10">
-              Gửi lại sau{timeLeft}s
+              Gửi lại sau {timeLeft}s
             </Text>
           )}
         </XStack>

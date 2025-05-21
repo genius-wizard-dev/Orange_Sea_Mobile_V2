@@ -60,7 +60,7 @@ const friendSlice = createSlice({
             // Handle handleFriendRequest
             .addCase(handleFriendRequest.fulfilled, (state, action) => {
                 if (action.payload.action === 'ACCEPT') {
-                    state.friends.push(action.payload);
+                    state.friends.data.push(action.payload);
                     // Cập nhật friendshipStatus khi chấp nhận kết bạn
                     state.friendshipStatus = {
                         isFriend: action.payload.data?.isFriend,

@@ -15,7 +15,7 @@ const MessageOptionsPopover = ({
     isMyMessage,
     isRecalled,
     children,
-    message
+    message,
 }) => {
     const [isRecalling, setIsRecalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -142,7 +142,7 @@ const MessageOptionsPopover = ({
                         }}
                     >
                         <YStack space="$3">
-                            {!isRecalled && <Button
+                            {!isRecalled && message.type!=="RAW" && <Button
                                 size="$4"
                                 onPress={handleCopy}
                                 iconAfter={<Ionicons name="copy-outline" size={20} color="#9CA3AF"/>}

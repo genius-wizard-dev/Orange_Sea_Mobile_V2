@@ -44,7 +44,7 @@ export default function Layout() {
   if (!loaded) return null;
 
   return (
-    <TamaguiProvider config={config}>
+    <TamaguiProvider config={config}  defaultTheme="light">
       <Provider store={store}>
         <StatusBar barStyle="dark-content" />
         <AppContent />

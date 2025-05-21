@@ -20,6 +20,7 @@ export const LoginResponseSchema = z.object({
         username: z.string(),
         role: z.string(),
       }),
+      error: z.string(),
       profile: z.object({
         id: z.string(),
         name: z.string(),
