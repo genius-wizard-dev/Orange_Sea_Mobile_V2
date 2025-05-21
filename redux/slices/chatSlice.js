@@ -43,24 +43,59 @@ const chatSlice = createSlice({
     updateMessageContent: (state, action) => {
       const { messageId, content } = action.payload;
 
-      console.log('Updating message content:', messageId, content);
+      console.log('Cập nhật nội dung tin nhắn:', messageId, content);
 
       // Tìm tin nhắn cần cập nhật
       const messageIndex = state.messages.findIndex(msg => msg.id === messageId);
 
       if (messageIndex !== -1) {
-        // Cập nhật nội dung tin nhắn
-        state.messages[messageIndex].message = content;
-        state.messages[messageIndex].isEdited = true;
+        const originalContent = state.messages[messageIndex].message;
 
-        console.log('Message updated successfully');
+        // Kiểm tra nếu nội dung thực sự thay đổi
+        if (originalContent !== content) {
+          // Cập nhật nội dung tin nhắn
+          state.messages[messageIndex].message = content;
+          state.messages[messageIndex].isEdited = true;
+
+          console.log('Nội dung tin nhắn đã thay đổi:',
+            'Từ', originalContent,
+            'Thành', content);
+        } else {
+          console.log('Nội dung tin nhắn không thay đổi');
+        }
+
+        // Force update UI
+        state.messages = [...state.messages];
       } else {
-        console.warn('Message not found:', messageId);
+        console.warn('Không tìm thấy tin nhắn:', messageId);
       }
 
       // Reset editingMessage
       state.editingMessage = null;
     },
+
+
+    markMessageAsEdited: (state, action) => {
+      const { messageId, groupId } = action.payload;
+
+      // Tìm tin nhắn cần đánh dấu
+      const messageIndex = state.messages.findIndex(msg =>
+        msg.id === messageId && (!groupId || msg.groupId === groupId)
+      );
+
+      if (messageIndex !== -1) {
+        // Chỉ đánh dấu là đã chỉnh sửa mà không thay đổi nội dung
+        state.messages[messageIndex].isEdited = true;
+
+        // Cập nhật mảng messages để kích hoạt re-render
+        state.messages = [...state.messages];
+
+        console.log('Đã đánh dấu tin nhắn là đã chỉnh sửa:', messageId);
+      }
+    },
+
+
+
     deleteMessage: (state, action) => {
       const messageId = action.payload;
       console.log('Đang xóa tin nhắn với ID:', messageId);
@@ -266,11 +301,14 @@ const chatSlice = createSlice({
           state.messages[messageIndex].message = newContent;
           state.messages[messageIndex].isEdited = true;
 
-          console.log('Đã cập nhật tin nhắn:', messageId);
+          // Đảm bảo update UI bằng cách tạo mảng mới
+          state.messages = [...state.messages];
+
+          console.log('Đã cập nhật tin nhắn từ socket:', messageId);
         } else {
           console.warn('Không tìm thấy tin nhắn để cập nhật:', messageId);
         }
-      });
+      })
 
 
 

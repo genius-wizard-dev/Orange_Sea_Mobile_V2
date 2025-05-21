@@ -25,7 +25,7 @@ const GroupDetail = () => {
     const { profile } = useSelector((state) => state.profile);
 
     // console.log("groupId ", groupId)
-    // console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
+    console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
     // console.log("profile ", profile)
 
 
@@ -367,12 +367,15 @@ const GroupDetail = () => {
             return currentData.name || "Nhóm chat";
         } else {
             // Kiểm tra xem participants có tồn tại không trước khi dùng find
+
+            console.log("currentData", currentData)
+
             if (!currentData?.participants || !Array.isArray(currentData?.participants)) {
                 return "Cá nhân";
             }
             // Lấy participant khác mình
             const otherUser = currentData?.participants?.find(p => p?.role === "MEMBER");
-            return otherUser?.user?.name || "Cá nhân";
+            return otherUser?.name || "Cá nhân";
         }
     };
 

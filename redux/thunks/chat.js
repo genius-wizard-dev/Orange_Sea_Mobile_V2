@@ -94,7 +94,7 @@ export const deleteMessageThunk = createAsyncThunk(
       console.log('Deleting message with ID:', messageId);
       const response = await apiService.delete(ENDPOINTS.CHAT.DELETE(messageId));
       console.log('Delete message API response:', response);
-   
+
       return response;
     } catch (error) {
       console.error('Delete message API error details:', error);
@@ -143,28 +143,52 @@ export const fetchPaginatedMessages = createAsyncThunk(
 );
 
 export const editMessageThunk = createAsyncThunk(
-    'chat/editMessage',
-    async ({ messageId, newContent }, { rejectWithValue }) => {
-        try {
-            console.log('Editing message with ID:', messageId, 'New content:', newContent);
-            
-            // Gọi API để chỉnh sửa tin nhắn
-            const response = await apiService.put(`/api/chat/edit/${messageId}`, { newContent });
-            console.log('Edit message API response:', response);
-            
-            // Nếu API thành công, emit socket event
-            if (response.statusCode === 200) {
-                // Emit sự kiện editMessage qua socket
-                socketService.emitEditMessage(messageId);
-                console.log('Emitted editMessage event with messageId:', messageId);
+  'chat/editMessage',
+  async ({ messageId, newContent }, { rejectWithValue, dispatch }) => {
+    try {
+      console.log('Editing message with ID:', messageId, 'New content:', newContent);
+
+      // Gọi API để chỉnh sửa tin nhắn
+      const response = await apiService.put(
+        ENDPOINTS.CHAT.EDIT_MESSAGE(messageId),
+        { newContent }
+      );
+
+      console.log('Edit message API response:', response);
+
+      if (response.statusCode === 200) {
+        // LƯU Ý: Server trả về response.data là đối tượng tin nhắn đã cập nhật
+        const updatedMessage = response.data;
+
+        // Cập nhật UI ngay lập tức (không đợi socket)
+        if (updatedMessage) {
+          // Khởi tạo và lưu tin nhắn đã cập nhật vào global cache
+          if (!globalThis.EDITED_MESSAGES) {
+            globalThis.EDITED_MESSAGES = {};
+          }
+          globalThis.EDITED_MESSAGES[messageId] = updatedMessage;
+
+          // Dispatch action cập nhật UI
+          dispatch({
+            type: 'chat/messageEdited',
+            payload: {
+              messageId,
+              groupId: updatedMessage.groupId,
+              newContent: updatedMessage.content || updatedMessage.message
             }
-            
-            return response;
-        } catch (error) {
-            console.error('Error editing message:', error);
-            return rejectWithValue(error.response?.data || { message: 'Lỗi khi chỉnh sửa tin nhắn' });
+          });
         }
+
+        // Emit socket event
+        socketService.emitEditMessage(messageId);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Error editing message:', error);
+      return rejectWithValue(error.response?.data || { message: 'Lỗi khi chỉnh sửa tin nhắn' });
     }
+  }
 );
 
 

@@ -22,26 +22,27 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
 
     useEffect(() => {
         if (editingMessage) {
-            console.log('MessageInput nhận được tin nhắn cần chỉnh sửa:', editingMessage);
+            console.log('MessageInput nhận được tin nhắn cần chỉnh sửa:',
+                JSON.stringify(editingMessage, null, 2));
 
-            // Truy cập nội dung tin nhắn, đảm bảo không bị null
-            const messageContent = editingMessage.message || editingMessage.content || '';
-            console.log('Nội dung sẽ hiển thị trong input:', messageContent);
-
-            // Cập nhật giá trị input và trạng thái chỉnh sửa
-            setMessage(messageContent);
+            // Hiển thị nội dung tin nhắn trong input để chỉnh sửa
+            setMessage(editingMessage.message || '');
             setIsEditing(true);
 
-            // Focus vào input khi chuyển sang chế độ chỉnh sửa
-            setTimeout(() => {
-                if (inputRef.current) {
+            // Focus vào input
+            if (inputRef.current) {
+                setTimeout(() => {
                     inputRef.current.focus();
-                }
-            }, 100);
+                }, 100);
+            }
         } else {
-            setIsEditing(false);
+            // Reset trạng thái khi không có tin nhắn nào được chỉnh sửa
+            if (isEditing) {
+                setIsEditing(false);
+            }
         }
     }, [editingMessage]);
+
 
     useEffect(() => {
         if (message.length > 0 && !hasSelectedImage || isEditing) {
@@ -89,16 +90,17 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
         };
     }, []);
 
+    // Cập nhật hàm handleSend
     const handleSend = () => {
-        if (isEditing) {
+        if (isEditing && editingMessage) {
+
             // Xử lý chỉnh sửa tin nhắn
-            if (message.trim() && editingMessage) {
+            if (message.trim()) {
                 onEditComplete({
                     messageId: editingMessage.id,
-                    content: message.trim()
+                    content: message.trim() // Vẫn dùng content ở đây, sẽ được đổi thành newContent trong thunk
                 });
             }
-            // Reset trạng thái sau khi chỉnh sửa
             setIsEditing(false);
         } else {
             // Xử lý gửi tin nhắn mới

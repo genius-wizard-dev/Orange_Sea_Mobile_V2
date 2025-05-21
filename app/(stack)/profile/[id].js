@@ -9,6 +9,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { getProfile } from '~/redux/thunks/profile';
 import HeaderLeft from '~/components/header/HeaderLeft';
 import { checkFriendshipStatus, sendFriendRequest, deleteFriend, getSentRequests, getReceivedRequests, handleFriendRequest } from '~/redux/thunks/friend';
+import DefaultAvatar from '~/components/chat/DefaultAvatar';
 
 const LoadingButton = () => (
   <Button
@@ -56,7 +57,7 @@ export default function Info() {
 
       // console.log(result);
 
-      if (result.status === 'success' && result.data) {
+      if (result.statusCode === 200 && result.data) {
         setInfo(result.data);
       } else {
         setError('Could not load profile data');
@@ -199,7 +200,7 @@ export default function Info() {
     }
 
     // Check xem có trong danh sách nhận request không
-    const pendingRequest = receivedRequests?.find(request => request.profileId === id);
+    const pendingRequest = receivedRequests?.data.find(request => request.profileId === id);
     if (pendingRequest) {
       return (
         <YStack space={10} flex={1}>
@@ -378,10 +379,13 @@ export default function Info() {
       <YStack marginTop={-50} paddingHorizontal={20}>
         {/* Avatar */}
         <Avatar circular size={100} borderWidth={4} borderColor="white">
-          <Avatar.Image source={{ uri: info?.avatar }} />
-          <Avatar.Fallback>
-            <Ionicons name="person" size={50} color="#666" />
-          </Avatar.Fallback>
+          {info?.avatar && info.avatar.trim() !== '' ? (
+            <Avatar.Image source={{ uri: info.avatar }} />
+          ) : (
+            <Avatar.Fallback>
+              <DefaultAvatar name={info?.name} size={100} />
+            </Avatar.Fallback>
+          )}
         </Avatar>
 
         {/* Name and Bio */}

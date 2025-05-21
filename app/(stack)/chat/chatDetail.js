@@ -8,7 +8,7 @@ import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { editMessageThunk, fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
-import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage } from '../../../redux/slices/chatSlice'
+import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage, updateMessageContent, setEditingMessage } from '../../../redux/slices/chatSlice'
 import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
@@ -83,23 +83,34 @@ const ChatDetail = () => {
         // Xử lý sự kiện xóa tin nhắn
         const handleMessageDelete = (data) => {
             console.log('📱 ChatDetail nhận sự kiện messageDelete:', data);
-            const { messageId, groupId: deletedGroupId } = data;
+            const { messageId, groupId: deletedGroupId, newContent } = data;
 
-            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            // Nếu có newContent, có thể đây thực sự là sự kiện edit nhưng bị gửi nhầm
+            if (newContent !== undefined) {
+                console.log('Phát hiện sự kiện edit được gửi dưới dạng delete:', messageId, newContent);
+
+                // Xử lý như là edit thay vì delete
+                if (deletedGroupId === groupId && messageId) {
+                    console.log('Cập nhật tin nhắn thay vì xóa:', messageId, newContent);
+
+                    // Dispatch action để cập nhật tin nhắn
+                    dispatch(updateMessageContent({
+                        messageId,
+                        content: newContent
+                    }));
+
+                    // Force re-render component
+                    setRefreshKey(prev => prev + 1);
+
+                    // Dừng xử lý ở đây, không xóa tin nhắn
+                    return;
+                }
+            }
+
+            // Nếu không có newContent, xử lý như sự kiện delete thông thường
             if (deletedGroupId === groupId && messageId) {
                 console.log('Xóa tin nhắn khỏi UI:', messageId);
-
-                // Tìm tin nhắn trong store hiện tại theo API ID
-                const apiMessageId = messageId;
-                console.log('Tìm kiếm tin nhắn theo API ID:', apiMessageId);
-
-                // Lấy toàn bộ tin nhắn hiện tại
-                const currentMessages = messages;
-                console.log('IDs hiện tại:', currentMessages.map(m => m.id));
-
-                dispatch(deleteMessage(apiMessageId));
-
-                // Force re-render component
+                dispatch(deleteMessage(messageId));
                 setRefreshKey(prev => prev + 1);
             }
         };
@@ -123,6 +134,25 @@ const ChatDetail = () => {
             }
         };
 
+        const handleMessageEdit = (data) => {
+            console.log('📱 ChatDetail nhận sự kiện messageEdit trực tiếp:', data);
+            const { messageId, groupId: editedGroupId, newContent } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (editedGroupId === groupId && messageId) {
+                console.log('Cập nhật tin nhắn từ socket event:', messageId, newContent);
+
+                // Dispatch action để cập nhật tin nhắn trong store
+                dispatch(updateMessageContent({
+                    messageId,
+                    content: newContent
+                }));
+
+                // Force re-render component nếu cần
+                setRefreshKey(prev => prev + 1);
+            }
+        };
+
         socket.on('connect', () => console.log('Socket connected successfully chatdetail'));
         socket.on('disconnect', () => console.log('Socket disconnected'));
         socket.on('error', (error) => console.log('Socket error:', error));
@@ -130,6 +160,7 @@ const ChatDetail = () => {
         // Đăng ký lắng nghe các sự kiện
         socket.on('messageDelete', handleMessageDelete);
         socket.on('messageRecall', handleMessageRecall);
+        socket.on('messageEdit', handleMessageEdit);
 
         // Dọn dẹp khi component unmount
         return () => {
@@ -140,6 +171,7 @@ const ChatDetail = () => {
 
             socket.off('messageDelete', handleMessageDelete);
             socket.off('messageRecall', handleMessageRecall);
+            socket.off('messageEdit', handleMessageEdit);
         };
     }, [groupId, profileId, dispatch, socketService.socket]);
 
@@ -427,7 +459,7 @@ const ChatDetail = () => {
 
     const handleEditComplete = async (editData) => {
         if (!editData) {
-            // Hủy chỉnh sửa, reset state
+            // Người dùng hủy chỉnh sửa
             dispatch(setEditingMessage(null));
             return;
         }
@@ -436,30 +468,56 @@ const ChatDetail = () => {
         console.log('Hoàn thành chỉnh sửa tin nhắn:', messageId, 'Nội dung mới:', content);
 
         try {
-            // Hiển thị loading hoặc indicator nếu cần
-            // setIsSubmitting(true);
+            // Lưu trước vào cache global để đảm bảo UI luôn có dữ liệu
+            if (!globalThis.EDITED_MESSAGES) {
+                globalThis.EDITED_MESSAGES = {};
+            }
+            globalThis.EDITED_MESSAGES[messageId] = {
+                content,
+                groupId,
+                messageId
+            };
 
-            // Gọi API để chỉnh sửa tin nhắn
-            const result = await dispatch(editMessageThunk({ messageId, content })).unwrap();
-            console.log('Edit message result:', result);
+            // Gọi API với tên tham số đúng là newContent
+            const result = await dispatch(editMessageThunk({
+                messageId,
+                newContent: content
+            })).unwrap();
 
-            if (result.statusCode === 200) {
-                // Cập nhật nội dung tin nhắn trong UI ngay lập tức
-                dispatch(updateMessageContent({ messageId, content }));
-                console.log('Đã cập nhật tin nhắn trong UI');
+            console.log('Kết quả chỉnh sửa tin nhắn:', result);
 
-                // Reset editingMessage
+            if (result && result.statusCode === 200) {
+                // Cập nhật UI ngay lập tức không cần đợi socket
+                dispatch(updateMessageContent({
+                    messageId,
+                    content
+                }));
+
+                // Reset editing state
                 dispatch(setEditingMessage(null));
+
+                // Giả lập event socket để đảm bảo UI được cập nhật
+                setTimeout(() => {
+                    console.log('Tự gửi fake socket event sau 500ms để đảm bảo UI cập nhật');
+                    dispatch({
+                        type: 'chat/messageEdited',
+                        payload: {
+                            messageId,
+                            groupId,
+                            newContent: content
+                        }
+                    });
+
+                    // Force re-render
+                    setRefreshKey(prev => prev + 1);
+                }, 500);
             } else {
-                // Hiển thị lỗi nếu có
-                console.error('API trả về lỗi:', result.message);
-                alert(result.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
+                console.error('Lỗi chỉnh sửa tin nhắn:', result);
+                Alert.alert('Thông báo', result?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
             }
         } catch (error) {
             console.error('Lỗi khi chỉnh sửa tin nhắn:', error);
-            alert(error?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
-        } finally {
-            // setIsSubmitting(false);
+            Alert.alert('Thông báo', error?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
         }
     };
 

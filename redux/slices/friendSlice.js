@@ -63,11 +63,11 @@ const friendSlice = createSlice({
                     state.friends.push(action.payload);
                     // Cập nhật friendshipStatus khi chấp nhận kết bạn
                     state.friendshipStatus = {
-                        isFriend: true,
-                        friendshipId: action.payload.data?.id || action.payload.id
+                        isFriend: action.payload.data?.isFriend,
+                        // friendshipId: action.payload.data?.id || action.payload.id
                     };
                 }
-                state.receivedRequests = state.receivedRequests.filter(
+                state.receivedRequests = state.receivedRequests.data.filter(
                     request => request.id !== action.payload.requestId
                 );
             })
@@ -93,7 +93,7 @@ const friendSlice = createSlice({
                 console.log('checkFriendshipStatus raw response:', action.payload);
                 // API chỉ trả về { isFriend: true/false }
                 state.friendshipStatus = {
-                    isFriend: action.payload.isFriend,
+                    isFriend: action.payload.data?.isFriend,
                     // Tạm thời bỏ friendshipId vì API không trả về
                 };
             })
