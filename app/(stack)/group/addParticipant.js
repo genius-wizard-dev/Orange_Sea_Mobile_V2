@@ -74,7 +74,7 @@ const AddParticipant = () => {
 
     // Tạo danh sách người liên hệ từ bạn bè
     const contacts = useMemo(() => {
-        return friends.map(friend => {
+        return friends.data?.map(friend => {
             // Tùy thuộc vào cấu trúc API bạn bè, điều chỉnh dữ liệu cho phù hợp
             return {
                 id: friend.profileId || friend.id,

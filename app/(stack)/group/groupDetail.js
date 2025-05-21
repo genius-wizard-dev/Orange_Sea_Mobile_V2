@@ -25,7 +25,7 @@ const GroupDetail = () => {
     const { profile } = useSelector((state) => state.profile);
 
     // console.log("groupId ", groupId)
-    // console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
+    console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
     // console.log("profile ", profile)
 
 
@@ -351,14 +351,14 @@ const GroupDetail = () => {
 
     const getAvatar = () => {
         if (currentData?.isGroup) {
-            return currentData.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+            return currentData.avatar || "https://res.cloudinary.com/dubwmognz/image/upload/v1747834144/chat-images/photo-1747834136025_6edcab02.jpg?dl=photo-1747834136025.jpg";
         } else {
             // Kiểm tra xem participants có tồn tại không trước khi dùng find
             if (!currentData?.participants || !Array.isArray(currentData?.participants)) {
-                return "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+                return "https://res.cloudinary.com/dubwmognz/image/upload/v1747834144/chat-images/photo-1747834136025_6edcab02.jpg?dl=photo-1747834136025.jpg";
             }
             const otherUser = currentData?.participants?.find(p => p?.role === "MEMBER");
-            return otherUser?.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png";
+            return otherUser?.avatar || "https://res.cloudinary.com/dubwmognz/image/upload/v1747834144/chat-images/photo-1747834136025_6edcab02.jpg?dl=photo-1747834136025.jpg";
         }
     };
 
@@ -370,9 +370,20 @@ const GroupDetail = () => {
             if (!currentData?.participants || !Array.isArray(currentData?.participants)) {
                 return "Cá nhân";
             }
-            // Lấy participant khác mình
-            const otherUser = currentData?.participants?.find(p => p?.role === "MEMBER");
-            return otherUser?.user?.name || "Cá nhân";
+
+            // Tìm người dùng khác mình trong cuộc trò chuyện 1-1
+            const otherUser = currentData.participants.find(p =>
+                p.profileId !== profile.id
+            );
+            // console.log("profile ", profile)
+            // console.log("otherUser", otherUser)
+
+            // Nếu tìm thấy người dùng khác, hiển thị tên của họ
+            if (otherUser) {
+                return otherUser.name || otherUser.name || "Cá nhân";
+            }
+
+            return "Cá nhân";
         }
     };
 

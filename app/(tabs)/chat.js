@@ -13,6 +13,7 @@ import { formatTime, displayTime } from '../../utils/time';
 import GroupAvatar from '../../components/group/GroupAvatar';
 import { useRoute } from '@react-navigation/native';
 import ChatItemSkeleton from '../../components/loading/ChatItemSkeleton';
+import { Button } from 'tamagui';
 
 const Chat = () => {
   const router = useRouter();
@@ -299,17 +300,77 @@ const Chat = () => {
         ) : Array.isArray(groups) && groups.length > 0 ? (
           [...groups]
             .sort((a, b) => {
-              const lastMessageA = lastMessages[a.id] || a.messages?.[0] || groupDetails[a.id]?.messages?.[0];
-              const lastMessageB = lastMessages[b.id] || b.messages?.[0] || groupDetails[b.id]?.messages?.[0];
+              // Lấy tin nhắn mới nhất cho mỗi nhóm
+              const lastMessageA = lastMessages[a.id] || a.lastMessage || groupDetails[a.id]?.messages?.[0];
+              const lastMessageB = lastMessages[b.id] || b.lastMessage || groupDetails[b.id]?.messages?.[0];
 
-              const timeA = lastMessageA?.createdAt ? new Date(lastMessageA.createdAt).getTime() : 0;
-              const timeB = lastMessageB?.createdAt ? new Date(lastMessageB.createdAt).getTime() : 0;
+              // Nếu cả hai nhóm đều không có tin nhắn, so sánh thời gian tạo nhóm
+              if (!lastMessageA && !lastMessageB) {
+                const groupTimeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const groupTimeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return groupTimeB - groupTimeA; // Nhóm mới tạo hiển thị trước
+              }
+
+              // Nếu nhóm A không có tin nhắn nhưng có thời gian tạo, ưu tiên so với B có tin nhắn cũ
+              if (!lastMessageA && a.createdAt) {
+                const groupTimeA = new Date(a.createdAt).getTime();
+                const messageTimeB = lastMessageB ? (
+                  lastMessageB.updatedAt ? new Date(lastMessageB.updatedAt).getTime() :
+                    lastMessageB.createdAt ? new Date(lastMessageB.createdAt).getTime() : 0
+                ) : 0;
+
+                // Nếu nhóm A tạo gần đây hơn tin nhắn cuối cùng của nhóm B
+                if (groupTimeA > messageTimeB) {
+                  return -1; // Nhóm A (mới tạo) hiển thị trước nhóm B (có tin nhắn cũ)
+                }
+              }
+
+              // Nếu nhóm B không có tin nhắn nhưng có thời gian tạo, ưu tiên so với A có tin nhắn cũ
+              if (!lastMessageB && b.createdAt) {
+                const messageTimeA = lastMessageA ? (
+                  lastMessageA.updatedAt ? new Date(lastMessageA.updatedAt).getTime() :
+                    lastMessageA.createdAt ? new Date(lastMessageA.createdAt).getTime() : 0
+                ) : 0;
+                const groupTimeB = new Date(b.createdAt).getTime();
+
+                // Nếu nhóm B tạo gần đây hơn tin nhắn cuối cùng của nhóm A
+                if (groupTimeB > messageTimeA) {
+                  return 1; // Nhóm B (mới tạo) hiển thị trước nhóm A (có tin nhắn cũ)
+                }
+              }
+
+              // Trường hợp cả hai nhóm đều có tin nhắn, so sánh theo thời gian tin nhắn gần nhất
+              const timeA = lastMessageA ? (
+                lastMessageA.updatedAt ? new Date(lastMessageA.updatedAt).getTime() :
+                  lastMessageA.createdAt ? new Date(lastMessageA.createdAt).getTime() :
+                    a.createdAt ? new Date(a.createdAt).getTime() : 0
+              ) : a.createdAt ? new Date(a.createdAt).getTime() : 0;
+
+              const timeB = lastMessageB ? (
+                lastMessageB.updatedAt ? new Date(lastMessageB.updatedAt).getTime() :
+                  lastMessageB.createdAt ? new Date(lastMessageB.createdAt).getTime() :
+                    b.createdAt ? new Date(b.createdAt).getTime() : 0
+              ) : b.createdAt ? new Date(b.createdAt).getTime() : 0;
 
               return timeB - timeA; // Sắp xếp giảm dần (mới nhất lên đầu)
             })
             .map((group) => renderGroup(group))
         ) : (
-          <Text>Không có cuộc trò chuyện nào</Text>
+          <YStack flex={1} justifyContent="center" alignItems="center" space="$4" paddingVertical={40}>
+            <Text fontSize={16} color="$gray10" textAlign="center">
+              Không có cuộc trò chuyện nào
+            </Text>
+            <Button
+              backgroundColor="#FF7A1E"
+              color="white"
+              paddingHorizontal={20}
+              paddingVertical={10}
+              borderRadius={20}
+              onPress={() => router.push('/friend/addFriend')}
+            >
+              Thêm bạn bè
+            </Button>
+          </YStack>
         )}
       </YStack>
     </ScrollView>

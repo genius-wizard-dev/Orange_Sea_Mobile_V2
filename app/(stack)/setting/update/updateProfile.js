@@ -147,7 +147,7 @@ export default function UpdateProfile() {
 
             const result = await dispatch(updateProfile(formDataToSend)).unwrap();
 
-            if (result?.status === 'success') {
+            if (result?.statusCode === 200) {
                 alert('cập nhật thông tin thàng công');
                 router.back();
             }

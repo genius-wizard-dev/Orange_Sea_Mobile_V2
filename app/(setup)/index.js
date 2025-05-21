@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, H3, Paragraph, ScrollView, Text, YStack } from 'tamagui';
 import InputField from '../../components/InputField';
@@ -10,7 +10,7 @@ import { formatDate } from '../utils/formatDate';
 
 const DEFAULT_AVATAR = "https://res.cloudinary.com/dubwmognz/image/upload/v1744715587/profile-avatars/profile_67fe2aaf936aacebb59fb978.png";
 
-const isValidName = (name) => /^[a-zA-Z0-9\s]+$/.test(name);
+const isValidName = (name) => /^[a-zA-Z0-9\sÀ-ỹẠ-ỹĂăÂâĐđÊêÔôƠơƯư]+$/.test(name);
 const isValidPhone = (phone) => /^0\d{9}$/.test(phone);
 const isOver11YearsOld = (birthday) => {
     if (!birthday) return false;
@@ -136,16 +136,24 @@ export default function Setup() {
 
             console.log('Kết quả cập nhật:', result);
 
-            if (result?.data?.message) {
-                alert(`❌ ${result.data.message}`);
+            if (result?.data?.error) {
+                alert(`❌ ${result?.data?.error}`);
                 return;
             }
 
-            if (result?.status === 'success') {
-                alert('Cập nhật thông tin thành công!');
-                router.replace('/chat');
+            if (result?.statusCode === 200) {
+                Alert.alert(
+                    'Thông báo',
+                    'Cập nhật thông tin thành công!',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => router.replace('/chat')
+                        }
+                    ]
+                );
             } else {
-                const errorMessage = result?.data?.message;
+                const errorMessage = result?.message;
                 alert(errorMessage);
                 // console.error('Lỗi từ API:', result);
             }

@@ -10,6 +10,8 @@ const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey, group
     const navigation = useNavigation();
     const { groupDetails } = useSelector((state) => state.group); // Lấy trực tiếp từ Redux
 
+    // console.log("dataDetail: ", dataDetail);
+
     const handleBackPress = () => {
         // Đơn giản hóa logic back: nếu có goBack thì sử dụng, nếu không thì router.back()
         if (goBack) {

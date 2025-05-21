@@ -11,13 +11,15 @@ const MessageOptionsPopover = ({
     onClose,
     onRecall,
     onDelete,
+    onEdit,
     isMyMessage,
     isRecalled,
     children,
-    message
+    message,
 }) => {
     const [isRecalling, setIsRecalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(50)).current;
 
@@ -66,6 +68,15 @@ const MessageOptionsPopover = ({
             await onDelete();
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const handleEdit = async () => {
+        setIsEditing(true);
+        try {
+            await onEdit();
+        } finally {
+            setIsEditing(false);
         }
     };
 
@@ -131,7 +142,7 @@ const MessageOptionsPopover = ({
                         }}
                     >
                         <YStack space="$3">
-                            {!isRecalled && <Button
+                            {!isRecalled && message.type!=="RAW" && <Button
                                 size="$4"
                                 onPress={handleCopy}
                                 iconAfter={<Ionicons name="copy-outline" size={20} color="#9CA3AF"/>}
@@ -139,6 +150,21 @@ const MessageOptionsPopover = ({
                             >
                                 Sao chép
                             </Button>}
+
+                            {isMyMessage && !isRecalled && message?.type === 'TEXT' && (
+                                <Button
+                                    size="$4"
+                                    onPress={handleEdit}
+                                    disabled={isEditing}
+                                    iconAfter={isEditing ? 
+                                        <ActivityIndicator size="small" color="#FF7A1E" /> : 
+                                        <Ionicons name="pencil-outline" size={20} color="#3B82F6"/>
+                                    }
+                                    justifyContent="space-between"
+                                >
+                                    {isEditing ? 'Đang chỉnh sửa...' : 'Chỉnh sửa'}
+                                </Button>
+                            )}
 
                             {isMyMessage && !isRecalled && (
                                 <Button

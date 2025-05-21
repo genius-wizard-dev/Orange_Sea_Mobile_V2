@@ -46,8 +46,9 @@ export default function Register() {
 
     try {
       const result = await apiService.post<RegisterRespone>(ENDPOINTS.AUTH.REGISTER, formData);
+      console.log("result", result);
 
-      if (result.status === 'success') {
+      if (result.statusCode === 200) {
         setEmailInSecureStore(formData.email);
         Alert.alert('Info:', result.message);
         router.push('/otp');
@@ -57,12 +58,20 @@ export default function Register() {
       }
     } catch (error: any) {
       console.error('Registration failed:', error);
+
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message ||
+        'Đã xảy ra lỗi khi đăng nhập';
+
+      setApiError(errorMessage);
       // Handle error from API service
-      if (error.response?.data?.message) {
-        setApiError(error.response.data.message);
-      } else {
-        setApiError('Đăng ký không thành công. Vui lòng thử lại sau!');
-      }
+      // if (error.response?.data?.message) {
+      //   setApiError(error.response.data.message);
+      // } else {
+      //   setApiError('Đăng ký không thành công. Vui lòng thử lại sau!');
+      // }
     } finally {
       setIsLoading(false);
     }
@@ -72,9 +81,11 @@ export default function Register() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }}
+        style={{ backgroundColor: 'white' }}
+      >
         <YStack f={1} p="$4" space="$4" justifyContent="center">
-          <YStack space="$2" mb="$4"  justifyContent="center" alignItems='center'>
+          <YStack space="$2" mb="$4" justifyContent="center" alignItems='center'>
             <Image
               source={require('~/assets/logo_icon_text.png')}
               alt="Logo"

@@ -181,10 +181,10 @@ const ManageMember = () => {
         setSheetOpen(true);
     };
 
-    console.log("selectedMember ", selectedMember?.user?.id);
+    console.log("selectedMember ", selectedMember?.id);
 
     const renderMemberItem = ({ item }) => {
-        const isAdmin = isUserAdmin(item.userId);
+        const isAdmin = isUserAdmin(item.id);
         const isFriend = isAddedByMe(item);
 
         return (
@@ -196,13 +196,13 @@ const ManageMember = () => {
                     <XStack py="$3" px="$4" alignItems="center" justifyContent="space-between">
                         <XStack alignItems="center" flex={1}>
                             <Image
-                                source={{ uri: item.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
+                                source={{ uri: item.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
                                 style={styles.avatar}
                             />
                             <YStack ml="$3" flex={1}>
                                 <XStack alignItems="center">
                                     <Text fontSize="$5" fontWeight="500" numberOfLines={1} flex={1}>
-                                        {item.user?.name || "Người dùng"}
+                                        {item.name || "Người dùng"}
                                     </Text>
                                     {isAdmin && (
                                         <XStack
@@ -261,11 +261,11 @@ const ManageMember = () => {
                         {/* Thông tin thành viên */}
                         <XStack alignItems="center" marginBottom="$5">
                             <Image
-                                source={{ uri: selectedMember.user?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
+                                source={{ uri: selectedMember?.avatar || "https://i.ibb.co/jvVzkvBm/bgr-default.png" }}
                                 style={styles.modalAvatar}
                             />
                             <YStack marginLeft="$3">
-                                <Text fontSize={22} fontWeight="600">{selectedMember.user?.name || "Người dùng"}</Text>
+                                <Text fontSize={22} fontWeight="600">{selectedMember?.name || "Người dùng"}</Text>
                             </YStack>
                         </XStack>
 
@@ -301,6 +301,8 @@ const ManageMember = () => {
             </Modal>
         );
     };
+
+    console.log("renderMemberItem ", groupMembers);
 
     return (
         <YStack flex={1} backgroundColor="white">
@@ -362,6 +364,8 @@ const ManageMember = () => {
                         <Text color="gray" paddingHorizontal="$4" paddingBottom="$2">
                             Thành viên ({getFilteredMembers().length})
                         </Text>
+
+                        
 
                         <FlatList
                             data={getFilteredMembers()}

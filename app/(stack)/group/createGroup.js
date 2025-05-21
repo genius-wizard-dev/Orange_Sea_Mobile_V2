@@ -163,7 +163,7 @@ const createGroup = () => {
                     contentContainerStyle={{ paddingBottom: selectedUsers.length > 0 ? 100 : 0 }}
                     backgroundColor="$background"
                 >
-                    {friends.map(user => (
+                    {friends.data.map(user => (
                         <Button
                             key={user.id}
                             onPress={() => toggleUserSelection(user)}

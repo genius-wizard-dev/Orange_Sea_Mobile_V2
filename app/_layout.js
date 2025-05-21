@@ -8,6 +8,7 @@ import { store } from '~/redux/store';
 import { initializeTokenCache } from '~/utils/token';
 import config from '../tamagui.config';
 import { initializeSocket } from '~/redux/thunks/chat';
+import { StatusBar } from 'react-native';
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -43,8 +44,9 @@ export default function Layout() {
   if (!loaded) return null;
 
   return (
-    <TamaguiProvider config={config}>
+    <TamaguiProvider config={config}  defaultTheme="light">
       <Provider store={store}>
+        <StatusBar barStyle="dark-content" />
         <AppContent />
       </Provider>
     </TamaguiProvider>
