@@ -19,9 +19,9 @@ const AddFriend = () => {
         try {
             setIsLoading(true);
             const response = await dispatch(getSearchByPhone(searchText)).unwrap();
-            console.log(response)
+            console.log("res tim ",response)
 
-            if (!response || response.length === 0) {
+            if (!response || response.data.length === 0) {
                 Alert.alert('Thông báo', 'Không tìm thấy người dùng');
                 return;
             }
@@ -30,11 +30,12 @@ const AddFriend = () => {
             router.push({
                 pathname: 'profile/[id]',
                 params: {
-                    id: response[0].id,
+                    id: response.data[0].id,
                     goBack: '/friend/addFriend',
                 },
             });
         } catch (error) {
+            console.error('Error searching for user:', error);
             Alert.alert('Lỗi', error.message || 'Có lỗi xảy ra khi tìm kiếm');
         } finally {
             setIsLoading(false);

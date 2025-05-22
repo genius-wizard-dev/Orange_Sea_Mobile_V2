@@ -68,6 +68,7 @@ export default function Login() {
 
       const response = await apiService.post<LoginResponse>(ENDPOINTS.AUTH.LOGIN, loginData);
 
+      console.log("response login : ", response);
 
       if (response.statusCode === 200 && response.data) {
         setAccessToken(response.data.access_token);
@@ -76,7 +77,7 @@ export default function Login() {
 
         const profileRes: ProfileResponse = await dispatch(getProfile() as any).unwrap();
 
-        console.log("profileRes : ", profileRes);
+        // console.log("profileRes : ", profileRes);
 
         if (profileRes.statusCode === 200 && profileRes.data) {
           setUsername('');
@@ -88,12 +89,18 @@ export default function Login() {
       } else {
         console.log(response)
 
-        setError(response.message || 'Đăng nhập thất bại');
+        setError(response.data?.error || 'Đăng nhập thất bại');
       }
 
 
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'An error occurred during login';
+      console.log("err : ", err);
+
+      const errorMessage =
+        err.response?.data?.error || // lấy message lỗi cụ thể từ server
+        err.response?.data?.message || // hoặc message tổng nếu không có error
+        err.message || // hoặc message của Axios error
+        'Đã xảy ra lỗi khi đăng nhập';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -242,7 +249,7 @@ export default function Login() {
                 <Separator />
                 <XStack space="$2" marginTop="$2">
                   <Text>Chưa có tài khoản?</Text>
-                  <Text color="$blue10"  fontWeight="bold" onPress={handleRegister}>
+                  <Text color="$blue10" fontWeight="bold" onPress={handleRegister}>
                     Đăng ký
                   </Text>
                 </XStack>

@@ -5,6 +5,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { useDispatch, useSelector } from 'react-redux';
 import { getFriendList } from '../../redux/thunks/friend';
 import { Image } from 'react-native';
+import DefaultAvatar from "~/components/chat/DefaultAvatar";
 
 const ContactItem = ({ name, isSystem, onPress, avatar }) => (
     <XStack padding={16} alignItems="center" space={12}
@@ -28,12 +29,14 @@ const ContactItem = ({ name, isSystem, onPress, avatar }) => (
                 borderRadius={25}
                 overflow="hidden"
             >
-                {avatar && (
+                {avatar ? (
                     <Image
                         source={{ uri: avatar }}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                     />
+                ) : (
+                    <DefaultAvatar name={name} size={52} />
                 )}
             </YStack>
         )}
@@ -76,6 +79,7 @@ export default function Contact() {
         });
     };
 
+    console.log("friends", friends)
 
 
     return (
@@ -138,7 +142,7 @@ export default function Contact() {
                         <ScrollView>
                             <XStack padding={12} space={5}>
                                 <Text fontSize={14} color="$gray11">Tất cả</Text>
-                                <Text fontSize={14} color="$gray11" >{friends?.length || 0}</Text>
+                                <Text fontSize={14} color="$gray11" >{friends.data?.length || 0}</Text>
                             </XStack>
 
                             <ContactItem
@@ -153,8 +157,8 @@ export default function Contact() {
                                 <YStack height={200} justifyContent="center" alignItems="center">
                                     <Spinner size="large" color="$orange10" />
                                 </YStack>
-                            ) : friends?.length > 0 ? (
-                                friends.map((friend) => (
+                            ) : friends.data?.length > 0 ? (
+                                friends.data.map((friend) => (
                                     <ContactItem
                                         key={friend.id}
                                         name={friend.name}

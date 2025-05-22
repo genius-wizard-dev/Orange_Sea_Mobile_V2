@@ -7,9 +7,9 @@ export const getSearchByPhone = createAsyncThunk(
     async (keyword, { rejectWithValue }) => {
         try {
             const res = await apiService.get(ENDPOINTS.FRIEND.SEARCH_BY_PHONE(keyword));
-            if (res.status === 'fail') {
-                throw new Error(`Friend search failed with error: ${res.message}`);
-            }
+
+            // console.log("res thunk, ", res)
+
             return res;
         } catch (error) {
             return rejectWithValue(error.message);
@@ -24,7 +24,7 @@ export const sendFriendRequest = createAsyncThunk(
             const res = await apiService.post(ENDPOINTS.FRIEND.SEND_REQUEST, {
                 receiverId: userId  // gửi _id của user
             });
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message || 'Gửi lời mời kết bạn thất bại');
             }
             return res;
@@ -39,7 +39,7 @@ export const getFriendList = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const res = await apiService.get(ENDPOINTS.FRIEND.LIST);
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
             return res;
@@ -54,7 +54,7 @@ export const getReceivedRequests = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const res = await apiService.get(ENDPOINTS.FRIEND.LIST_RECEIVED_REQUESTS);
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
             return res;
@@ -69,7 +69,7 @@ export const handleFriendRequest = createAsyncThunk(
     async ({ requestId, action }, { rejectWithValue }) => {
         try {
             const res = await apiService.put(ENDPOINTS.FRIEND.HANDLE_REQUEST(requestId), { action });
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
             return { ...res, requestId, action };
@@ -84,7 +84,7 @@ export const deleteFriend = createAsyncThunk(
     async (friendshipId, { rejectWithValue }) => {
         try {
             const res = await apiService.delete(ENDPOINTS.FRIEND.DELETE(friendshipId));
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
             return { ...res, friendshipId };
@@ -99,7 +99,7 @@ export const getSentRequests = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const res = await apiService.get(ENDPOINTS.FRIEND.LIST_SENT_REQUESTS);
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
             return res; // Trả về toàn bộ res thay vì chỉ res.data
@@ -114,9 +114,10 @@ export const checkFriendshipStatus = createAsyncThunk(
     async (profileId, { rejectWithValue }) => {
         try {
             const res = await apiService.get(ENDPOINTS.FRIEND.CHECK_FRIENDSHIP(profileId));
-            if (res.status === 'fail') {
+            if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
+            
             return res;
         } catch (error) {
             return rejectWithValue(error.message);

@@ -47,13 +47,13 @@ const AccountAndSecurity = () => {
             icon: "call-outline",
             title: "Số điện thoại",
             description: profile?.phone,
-            action: () => router.push('/phone'),
+            // action: () => router.push('/phone'),
         },
         {
             icon: "mail-outline",
             title: "Email",
             description: profile?.email || 'Chưa liên kết',
-            action: () => router.push('/email'),
+            // action: () => router.push('/email'),
         },
         // {
         //     icon: "qr-code-outline",
@@ -69,7 +69,7 @@ const AccountAndSecurity = () => {
             title: "Thiết bị đăng nhập",
             description: "Quản lý thiết bị đăng nhập",
             descriptionColor: "$yellow10",
-            action: () => router.push('/security-check'),
+            // action: () => router.push('/security-check'),
         },
         {
             icon: "lock-closed-outline",

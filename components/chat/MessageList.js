@@ -132,7 +132,7 @@ const MessageList = React.forwardRef(({
             console.log("result fetchPaginatedMessages", result);
             onLoadMoreMessages(result.data);
 
-            if (result?.status === 'success' && result.data?.messages?.length > 0) {
+            if (result?.statusCode === 200 && result.data?.messages?.length > 0) {
                 const formattedMessages = result.data.messages.map(msg => ({
                     id: msg.id,
                     message: msg.content,
@@ -141,6 +141,7 @@ const MessageList = React.forwardRef(({
                     createdAt: msg.createdAt,
                     type: msg.type,
                     imageUrl: msg.fileUrl,
+                    fileName: msg.fileName,
                     isRecalled: msg.isRecalled,
                     sender: msg.sender,
                     isMyMessage: msg.senderId === profileId,

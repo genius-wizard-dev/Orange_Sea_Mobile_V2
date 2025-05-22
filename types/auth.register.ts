@@ -14,6 +14,7 @@ export const RegisterResponseSchema = z.object({
     isPending: z.boolean(),
     key: z.string().optional(),
   }),
+  statusCode: z.number(),
 });
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;

@@ -7,19 +7,22 @@ import ChatHeaderComponent from '../../../components/header/ChatHeaderComponent'
 import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
-import { fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
-import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage } from '../../../redux/slices/chatSlice'
+import { editMessageThunk, fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
+import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage, updateMessageContent, setEditingMessage } from '../../../redux/slices/chatSlice'
 import { getGroupDetail } from '../../../redux/thunks/group';
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
-    const { messages } = useSelector(state => state.chat);
     const { profile } = useSelector(state => state.profile);
     const { groupId, profileId } = useLocalSearchParams();
     const { goBack } = useLocalSearchParams();
     const [isLoading, setIsLoading] = useState(true);
     const messageListRef = React.useRef(null);
     const { groupDetails } = useSelector((state) => state.group);
+
+
+    const { messages, editingMessage } = useSelector(state => state.chat);
+
     const [activeTab, setActiveTab] = useState(null);
     const bottomSheetHeight = 300;
     const [refreshKey, setRefreshKey] = useState(0);
@@ -54,13 +57,17 @@ const ChatDetail = () => {
     }, [groupDetails, groupId]);
 
     const partnerName = useMemo(() => {
+
+
         if (currentGroupDetail) {
             if (currentGroupDetail.isGroup) {
                 return currentGroupDetail.name || 'Nhóm chat';
             } else if (currentGroupDetail.participants) {
+
                 const otherParticipant = currentGroupDetail.participants.find(
-                    p => p?.userId !== profile?.id
-                )?.user;
+                    p => p?.profileId !== profile?.id
+                );
+
                 return otherParticipant?.name || 'Chat';
             }
         }
@@ -76,21 +83,40 @@ const ChatDetail = () => {
         // Xử lý sự kiện xóa tin nhắn
         const handleMessageDelete = (data) => {
             console.log('📱 ChatDetail nhận sự kiện messageDelete:', data);
-            const { messageId, groupId: deletedGroupId } = data;
+            const { messageId, groupId: deletedGroupId, newContent } = data;
 
-            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            // Nếu có newContent, có thể đây thực sự là sự kiện edit nhưng bị gửi nhầm
+            if (newContent !== undefined) {
+                console.log('Phát hiện sự kiện edit được gửi dưới dạng delete:', messageId, newContent);
+
+                // Xử lý như là edit thay vì delete
+                if (deletedGroupId === groupId && messageId) {
+                    console.log('Cập nhật tin nhắn thay vì xóa:', messageId, newContent);
+
+                    // Dispatch action để cập nhật tin nhắn
+                    dispatch(updateMessageContent({
+                        messageId,
+                        content: newContent
+                    }));
+
+                    // Force re-render component
+                    setRefreshKey(prev => prev + 1);
+
+                    // Dừng xử lý ở đây, không xóa tin nhắn
+                    return;
+                }
+            }
+
+            // Nếu không có newContent, xử lý như sự kiện delete thông thường
             if (deletedGroupId === groupId && messageId) {
                 console.log('Xóa tin nhắn khỏi UI:', messageId);
                 dispatch(deleteMessage(messageId));
-
-                // Force re-render nếu cần
                 setRefreshKey(prev => prev + 1);
             }
         };
 
         // Xử lý sự kiện thu hồi tin nhắn
         const handleMessageRecall = (data) => {
-            console.log('ChatDetail nhận sự kiện messageRecall:', data);
             const { messageId, groupId: recalledGroupId } = data;
 
             // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
@@ -103,8 +129,26 @@ const ChatDetail = () => {
                     }
                 });
 
-                console.log('Đã cập nhật tin nhắn thu hồi trong ChatDetail:', messageId);
                 // Force re-render nếu cần
+                setRefreshKey(prev => prev + 1);
+            }
+        };
+
+        const handleMessageEdit = (data) => {
+            console.log('📱 ChatDetail nhận sự kiện messageEdit trực tiếp:', data);
+            const { messageId, groupId: editedGroupId, newContent } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (editedGroupId === groupId && messageId) {
+                console.log('Cập nhật tin nhắn từ socket event:', messageId, newContent);
+
+                // Dispatch action để cập nhật tin nhắn trong store
+                dispatch(updateMessageContent({
+                    messageId,
+                    content: newContent
+                }));
+
+                // Force re-render component nếu cần
                 setRefreshKey(prev => prev + 1);
             }
         };
@@ -116,6 +160,7 @@ const ChatDetail = () => {
         // Đăng ký lắng nghe các sự kiện
         socket.on('messageDelete', handleMessageDelete);
         socket.on('messageRecall', handleMessageRecall);
+        socket.on('messageEdit', handleMessageEdit);
 
         // Dọn dẹp khi component unmount
         return () => {
@@ -126,6 +171,7 @@ const ChatDetail = () => {
 
             socket.off('messageDelete', handleMessageDelete);
             socket.off('messageRecall', handleMessageRecall);
+            socket.off('messageEdit', handleMessageEdit);
         };
     }, [groupId, profileId, dispatch, socketService.socket]);
 
@@ -146,6 +192,11 @@ const ChatDetail = () => {
                         fetchPaginatedMessages
                     );
 
+                    // console.log('API fetchPaginatedMessages response:', response);
+                    if (response?.data?.messages) {
+                        console.log('Tin nhắn được tải:', response.data.messages.map(msg => msg.id));
+                    }
+
                     if (response?.error) {
                         console.error('Lỗi khởi tạo chat:', response.message);
                         dispatch(setMessages([]));
@@ -159,6 +210,7 @@ const ChatDetail = () => {
                             type: msg.type,
                             imageUrl: msg.fileUrl,
                             isRecalled: msg.isRecalled,
+                            fileName: msg.fileName,
                             sender: msg.sender,
                             isMyMessage: msg.senderId === profileId,
                             isPending: false,
@@ -314,7 +366,6 @@ const ChatDetail = () => {
                     newMessage.imageUrl = response.data.fileUrl;
                 }
 
-                // Cập nhật tin nhắn
                 dispatch({
                     type: 'chat/updateMessageStatus',
                     payload: { tempId, newMessage }
@@ -361,6 +412,7 @@ const ChatDetail = () => {
                 type: msg.type,
                 imageUrl: msg.fileUrl,
                 isRecalled: msg.isRecalled,
+                fileName: msg.fileName,
                 sender: msg.sender,
                 isMyMessage: msg.senderId === profileId,
                 isPending: false
@@ -405,6 +457,72 @@ const ChatDetail = () => {
         console.log('Current messages in state:', messages.map(m => ({ id: m.id, message: m.message?.substring(0, 15) })));
     }
 
+
+
+    const handleEditComplete = async (editData) => {
+        if (!editData) {
+            // Người dùng hủy chỉnh sửa
+            dispatch(setEditingMessage(null));
+            return;
+        }
+
+        const { messageId, content } = editData;
+        console.log('Hoàn thành chỉnh sửa tin nhắn:', messageId, 'Nội dung mới:', content);
+
+        try {
+            // Lưu trước vào cache global để đảm bảo UI luôn có dữ liệu
+            if (!globalThis.EDITED_MESSAGES) {
+                globalThis.EDITED_MESSAGES = {};
+            }
+            globalThis.EDITED_MESSAGES[messageId] = {
+                content,
+                groupId,
+                messageId
+            };
+
+            // Gọi API với tên tham số đúng là newContent
+            const result = await dispatch(editMessageThunk({
+                messageId,
+                newContent: content
+            })).unwrap();
+
+            console.log('Kết quả chỉnh sửa tin nhắn:', result);
+
+            if (result && result.statusCode === 200) {
+                // Cập nhật UI ngay lập tức không cần đợi socket
+                dispatch(updateMessageContent({
+                    messageId,
+                    content
+                }));
+
+                // Reset editing state
+                dispatch(setEditingMessage(null));
+
+                // Giả lập event socket để đảm bảo UI được cập nhật
+                setTimeout(() => {
+                    console.log('Tự gửi fake socket event sau 500ms để đảm bảo UI cập nhật');
+                    dispatch({
+                        type: 'chat/messageEdited',
+                        payload: {
+                            messageId,
+                            groupId,
+                            newContent: content
+                        }
+                    });
+
+                    // Force re-render
+                    setRefreshKey(prev => prev + 1);
+                }, 500);
+            } else {
+                console.error('Lỗi chỉnh sửa tin nhắn:', result);
+                Alert.alert('Thông báo', result?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
+            }
+        } catch (error) {
+            console.error('Lỗi khi chỉnh sửa tin nhắn:', error);
+            Alert.alert('Thông báo', error?.message || 'Có lỗi xảy ra khi chỉnh sửa tin nhắn');
+        }
+    };
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -441,6 +559,8 @@ const ChatDetail = () => {
                             onSendMessage={handleSendMessage}
                             onFocusInput={handleInputFocus}
                             onTabChange={setActiveTab}
+                            editingMessage={editingMessage} // Thêm dòng này
+                            onEditComplete={handleEditComplete}
                         />
                     </View>
                 </ImageBackground>

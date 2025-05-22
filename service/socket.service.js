@@ -52,6 +52,9 @@ class SocketService {
 
     // --- EMIT EVENTS (CLIENT TO SERVER) ---
 
+
+
+
     /**
      * Register user profile with the socket server
      * @param {string} profileId - User profile ID
@@ -185,6 +188,32 @@ class SocketService {
         this.socket.emit('deleteMessage', { messageId });
     }
 
+
+    // Thêm tham số newContent vào emitEditMessage trong socket.service.js
+    /**
+     * Emit event để chỉnh sửa tin nhắn
+     * @param {string} messageId - ID của tin nhắn cần chỉnh sửa
+     * @param {string} newContent - Nội dung mới của tin nhắn (tùy chọn)
+     */
+    emitEditMessage(messageId, newContent) {
+        if (!this.socket?.connected) {
+            console.log('Socket không kết nối, không thể emit sự kiện chỉnh sửa tin nhắn');
+            return false;
+        }
+
+        // Lưu nội dung mới vào cache global nếu có
+        if (newContent) {
+            if (!globalThis.EDITED_MESSAGES) {
+                globalThis.EDITED_MESSAGES = {};
+            }
+            globalThis.EDITED_MESSAGES[messageId] = { content: newContent };
+            console.log('Đã lưu nội dung chỉnh sửa vào cache:', messageId, newContent);
+        }
+
+        console.log('Emitting editMessage event với messageId:', messageId);
+        this.socket.emit('editMessage', { messageId });
+        return true;
+    }
     /**
      * Leave a chat group
      * @param {string} profileId - User profile ID
@@ -196,7 +225,7 @@ class SocketService {
             return;
         }
         console.log('Leaving chat:', { profileId, groupId });
-        this.socket.emit('leave', { profileId, groupId });
+        this.socket.emit('close', { profileId, groupId });
     }
 
     /**
@@ -327,7 +356,7 @@ class SocketService {
         });
 
         // Message recall notifications
-        this.socket.on('messageRecalled', (data) => {
+        this.socket.on('messageRecall', (data) => {
             console.log('🔄 Nhận sự kiện messageRecalled:', data);
 
             // Cập nhật store khi nhận được event từ socket
@@ -344,19 +373,83 @@ class SocketService {
         });
 
         // Message deletion notifications
-        this.socket.on('messageDeleted', (data) => {
-            console.log('Message deleted:', data);
-            if (data?.messageId) {
-                dispatch({
-                    type: 'chat/messageDeleted',
-                    payload: {
-                        messageId: data.messageId,
-                        groupId: data.groupId,
-                        userId: data.userId
-                    }
-                });
+        this.socket.on('messageDelete', (data) => {
+            console.log('🔄 Nhận sự kiện delete:', data);
+            if (data?.messageId && data?.groupId) {
+                // Trước khi dispatch, lấy về state hiện tại để kiểm tra
+                const state = store.getState();
+                const messages = state.chat.messages;
+
+                // Tìm tin nhắn trong nhóm để biết ID gốc
+                const originalMessage = messages.find(msg =>
+                    msg.groupId === data.groupId &&
+                    (msg.content === data.content || msg.createdAt === data.createdAt)
+                );
+
+                if (originalMessage) {
+                    console.log('Tìm thấy tin nhắn gốc có ID:', originalMessage.id);
+                    // Dispatch action với ID gốc
+                    dispatch(deleteMessage(originalMessage.id));
+                } else {
+                    // Nếu không tìm thấy, thử dispatch với ID từ server
+                    console.log('Không tìm thấy tin nhắn gốc, xóa với ID từ server:', data.messageId);
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: {
+                            messageId: data.messageId,
+                            groupId: data.groupId
+                        }
+                    });
+                }
             }
         });
+
+
+
+
+        this.socket.on('messageEdit', (data) => {
+            console.log('🔄 Nhận sự kiện messageEdit:', data);
+
+            // Cập nhật store khi nhận được event từ socket
+            if (data?.messageId && data?.groupId) {
+                // Kiểm tra xem có dữ liệu tin nhắn đã lưu không
+                const editedMessage = globalThis.EDITED_MESSAGES?.[data.messageId];
+
+                if (editedMessage) {
+                    console.log('Sử dụng tin nhắn từ cache:', editedMessage);
+
+                    // Lấy nội dung từ cache đã lưu
+                    const cachedContent = editedMessage.content || editedMessage.message;
+
+                    // Dispatch với nội dung từ cache
+                    dispatch({
+                        type: 'chat/messageEdited',
+                        payload: {
+                            messageId: data.messageId,
+                            groupId: data.groupId,
+                            newContent: cachedContent
+                        }
+                    });
+
+                    // Xóa khỏi cache sau khi đã sử dụng
+                    delete globalThis.EDITED_MESSAGES[data.messageId];
+                } else {
+                    console.log('Không tìm thấy dữ liệu cache cho tin nhắn:', data.messageId);
+
+                    // Chỉ đánh dấu là đã chỉnh sửa mà không thay đổi nội dung
+                    dispatch({
+                        type: 'chat/markMessageAsEdited',
+                        payload: {
+                            messageId: data.messageId,
+                            groupId: data.groupId
+                        }
+                    });
+                }
+            }
+        });
+
+
+
 
         // User status updates
         this.socket.on('userStatusUpdate', (data) => {
@@ -450,6 +543,26 @@ class SocketService {
             }
         });
 
+        this.socket.on('notifyMessageDelete', (data) => {
+            console.log('Nhận sự kiện messageDel trong chatDetail:', data);
+            const { messageId, groupId: delGroupId } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (delGroupId === groupId && messageId) {
+                // Cập nhật tin nhắn thu hồi
+                dispatch({
+                    type: 'chat/messageDeleted',
+                    payload: {
+                        messageId,
+                        groupId: delGroupId
+                    }
+                });
+
+                // Thông báo cập nhật giao diện
+                console.log('Đã cập nhật tin nhắn đ xoá:', messageId);
+            }
+        });
+
         // Xử lý sự kiện thu hồi tin nhắn trong chat
         this.socket.on('messageRecall', (data) => {
             console.log('Nhận sự kiện messageRecall trong chatDetail:', data);
@@ -473,20 +586,60 @@ class SocketService {
 
         // Xử lý sự kiện xóa tin nhắn trong chat (đã xóa bản trùng lặp)
         this.socket.on('messageDelete', (data) => {
-            console.log('📱 Nhận sự kiện messageDelete trong chatDetail:', data);
-            const { messageId, groupId: deletedGroupId } = data;
+            console.log('🔄 Nhận sự kiện delete:', data);
+            if (data?.messageId && data?.groupId) {
+                // Trước khi dispatch, lấy về state hiện tại để kiểm tra
+                const state = store.getState();
+                const messages = state.chat.messages;
 
-            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
-            if (deletedGroupId === groupId && messageId) {
-                // Dispatch action xóa tin nhắn trực tiếp
-                console.log('Gửi action xóa tin nhắn từ socket event với ID:', messageId);
-                dispatch({
-                    type: 'chat/deleteMessage',
-                    payload: messageId
-                });
+                // Tìm tin nhắn trong nhóm để biết ID gốc
+                const originalMessage = messages.find(msg =>
+                    msg.groupId === data.groupId &&
+                    (msg.content === data.content || msg.createdAt === data.createdAt)
+                );
+
+                if (originalMessage) {
+                    console.log('Tìm thấy tin nhắn gốc có ID:', originalMessage.id);
+                    // Dispatch action với ID gốc
+                    dispatch(deleteMessage(originalMessage.id));
+                } else {
+                    // Nếu không tìm thấy, thử dispatch với ID từ server
+                    console.log('Không tìm thấy tin nhắn gốc, xóa với ID từ server:', data.messageId);
+                    dispatch({
+                        type: 'chat/messageDeleted',
+                        payload: {
+                            messageId: data.messageId,
+                            groupId: data.groupId
+                        }
+                    });
+                }
             }
         });
 
+
+
+        const handleMessageEdit = (data) => {
+            console.log('📱 ChatDetail nhận sự kiện messageEdit:', data);
+            const { messageId, groupId: editedGroupId, newContent } = data;
+
+            // Chỉ xử lý nếu tin nhắn thuộc về nhóm hiện tại
+            if (editedGroupId === groupId && messageId) {
+                console.log('Cập nhật nội dung tin nhắn:', messageId, newContent);
+
+                // Dispatch action để cập nhật nội dung tin nhắn
+                dispatch({
+                    type: 'chat/messageEdited',
+                    payload: {
+                        messageId,
+                        groupId: editedGroupId,
+                        newContent
+                    }
+                });
+            }
+        };
+
+        this.socket.on('messageEdit', handleMessageEdit);
+        this.socket.on('notifyMessageEdit', handleMessageEdit);
         // Trả về hàm cleanup để remove event listeners
         return () => {
             if (this.socket?.connected) {
@@ -499,6 +652,8 @@ class SocketService {
             this.socket.off('notifyRecallMessage');
             this.socket.off('messageRecall');
             this.socket.off('messageDelete');
+            this.socket.off('messageEdit', handleMessageEdit);
+            this.socket.off('notifyMessageEdit', handleMessageEdit);
         };
     }
 }

@@ -55,13 +55,13 @@ class ApiClient {
             originalRequest._retry = true;
 
             if (ApiClient.isRefreshing) {
-              // Nếu đang refresh token, thêm request vào hàng đợi
+              // If refreshing token, add request to queue
               return new Promise((resolve, reject) => {
                 ApiClient.failedQueue.push({ resolve, reject });
               })
-                .then(() => {
-                  // Khi refresh hoàn tất, thử lại request với token mới
-                  const token = getAccessToken();
+                .then(async () => {
+                  // When refresh is complete, retry request with new token
+                  const token = await getAccessToken();
                   if (token && originalRequest.headers) {
                     originalRequest.headers.Authorization = `Bearer ${token}`;
                   }
@@ -99,7 +99,7 @@ class ApiClient {
 
               if (
                 refreshResponse.data &&
-                refreshResponse.data.status === 'success' &&
+                refreshResponse.data.statusCode === 200 &&
                 refreshResponse.data.data
               ) {
                 const { access_token, refresh_token } = refreshResponse.data.data;

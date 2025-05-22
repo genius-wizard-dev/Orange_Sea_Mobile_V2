@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { getReceivedRequests, getSentRequests } from '~/redux/thunks/friend'
 import HeaderLeft from '../../../components/header/HeaderLeft'
 import { useLocalSearchParams } from 'expo-router'
-import { Text, YStack, XStack, Tabs, ScrollView, Avatar } from "tamagui"
+import { Text, YStack, XStack, Tabs, ScrollView, Avatar, Spinner } from "tamagui"
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router';
 
@@ -84,11 +84,38 @@ const ListRequestFriend = () => {
     const { sentRequests, receivedRequests } = useSelector((state) => state.friend);
     const { goBackTo } = useLocalSearchParams()
     const [activeTab, setActiveTab] = useState("received")
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        dispatch(getReceivedRequests());
-        dispatch(getSentRequests());
+        setLoading(true);
+
+        // Fetch data with a 400ms delay to show the loading spinner
+        const fetchData = async () => {
+            try {
+                await Promise.all([
+                    dispatch(getReceivedRequests()),
+                    dispatch(getSentRequests())
+                ]);
+
+                // Set a 400ms delay before hiding the loading spinner
+                setTimeout(() => {
+                    setLoading(false);
+                }, 400);
+            } catch (error) {
+                console.error("Error fetching friend requests:", error);
+                setLoading(false);
+            }
+        };
+
+        fetchData();
     }, [dispatch]);
+
+    const LoadingPlaceholder = () => (
+        <YStack flex={1} justifyContent="center" alignItems="center" padding={20}>
+            <Spinner size="large" color="#FE781F" />
+            <Text marginTop={10} color="$gray11">Đang tải dữ liệu...</Text>
+        </YStack>
+    );
 
     return (
         <YStack flex={1} backgroundColor="white">
@@ -108,7 +135,7 @@ const ListRequestFriend = () => {
                                 fontWeight={activeTab === "received" ? "bold" : "normal"}
                                 color={activeTab === "received" ? "#FE781F" : "$gray11"}
                             >
-                                Đã nhận ({receivedRequests?.length || 0})
+                                Đã nhận ({receivedRequests?.data?.length || 0})
                             </Text>
                             {activeTab === "received" && (
                                 <YStack
@@ -126,7 +153,7 @@ const ListRequestFriend = () => {
                                 fontWeight={activeTab === "sent" ? "bold" : "normal"}
                                 color={activeTab === "sent" ? "#FE781F" : "$gray11"}
                             >
-                                Đã gửi ({sentRequests?.length || 0})
+                                Đã gửi ({sentRequests?.data?.length || 0})
                             </Text>
                             {activeTab === "sent" && (
                                 <YStack
@@ -144,20 +171,27 @@ const ListRequestFriend = () => {
                 <Tabs.Content value="received" flex={1}>
                     <ScrollView>
                         <Text padding={16} color="$gray11">Lời mời đã nhận</Text>
-                        {receivedRequests?.map((request) => (
-                            <RequestItem
-                                key={request.id}
-                                profileId={request.profileId}
-                                name={request.name}
-                                time={request.createdAt}
-                                type="received"
-                                avatar={request.avatar}
-                            />
-                        ))}
-                        {!receivedRequests?.length && (
-                            <Text padding={16} color="$gray11" textAlign="center">
-                                Chưa có lời mời kết bạn nào
-                            </Text>
+
+                        {loading ? (
+                            <LoadingPlaceholder />
+                        ) : (
+                            <>
+                                {receivedRequests?.data?.map((request) => (
+                                    <RequestItem
+                                        key={request.id}
+                                        profileId={request.profileId}
+                                        name={request.name}
+                                        time={request.createdAt}
+                                        type="received"
+                                        avatar={request.avatar}
+                                    />
+                                ))}
+                                {!receivedRequests?.data?.length && (
+                                    <Text padding={16} color="$gray11" textAlign="center">
+                                        Chưa có lời mời kết bạn nào
+                                    </Text>
+                                )}
+                            </>
                         )}
                     </ScrollView>
                 </Tabs.Content>
@@ -165,20 +199,26 @@ const ListRequestFriend = () => {
                 <Tabs.Content value="sent" flex={1}>
                     <ScrollView>
                         <Text padding={16} color="$gray11">Đã gửi</Text>
-                        {sentRequests?.map((request) => (
-                            <RequestItem
-                                key={request.id}
-                                profileId={request.profileId}
-                                name={request.name}
-                                time={request.createdAt} // Có thể cần format lại thời gian
-                                type="sent"
-                                avatar={request.avatar}
-                            />
-                        ))}
-                        {!sentRequests?.length && (
-                            <Text padding={16} color="$gray11" textAlign="center">
-                                Chưa có lời mời nào được gửi
-                            </Text>
+                        {loading ? (
+                            <LoadingPlaceholder />
+                        ) : (
+                            <>
+                                {sentRequests?.data?.map((request) => (
+                                    <RequestItem
+                                        key={request.id}
+                                        profileId={request.profileId}
+                                        name={request.name}
+                                        time={request.createdAt}
+                                        type="sent"
+                                        avatar={request.avatar}
+                                    />
+                                ))}
+                                {!sentRequests?.data?.length && (
+                                    <Text padding={16} color="$gray11" textAlign="center">
+                                        Chưa có lời mời nào được gửi
+                                    </Text>
+                                )}
+                            </>
                         )}
                     </ScrollView>
                 </Tabs.Content>

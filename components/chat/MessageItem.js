@@ -11,7 +11,8 @@ import MessageOptionsPopover from './MessageOptionsPopover';
 import { ChevronLeft, ChevronRight } from '@tamagui/lucide-icons';
 import { Popover } from '@tamagui/popover';
 import socketService from '../../service/socket.service';
-import { deleteMessage } from '../../redux/slices/chatSlice';
+import { deleteMessage, setEditingMessage } from '../../redux/slices/chatSlice';
+import DefaultAvatar from './DefaultAvatar';
 
 const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -82,27 +83,26 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
 
     const handleDelete = useCallback(async () => {
         if (msg.id) {
+            console.log("Đang xóa tin nhắn có ID:", msg.id);
             try {
                 const result = await dispatch(deleteMessageThunk(msg.id)).unwrap();
                 console.log('Delete API result:', result);
-                
-                // Truy cập trực tiếp vào dữ liệu trả về từ API
+
                 if (result?.statusCode === 200) {
-                    // Lấy messageId từ data của response
-                    const messageId = result.data.messageId || msg.id;
-                    
-                    if (messageId) {
-                        console.log('Gửi socket event xóa tin nhắn với ID:', messageId);
-                        socketService.emitDeleteMessage(messageId);
-                        setIsOpen(false);
-                        
-                        // Cập nhật UI trực tiếp sử dụng action deleteMessage
-                        console.log('Xóa tin nhắn khỏi UI trực tiếp:', messageId);
-                        dispatch(deleteMessage(messageId));
-                    } else {
-                        console.error('Không tìm thấy messageId trong phản hồi API');
-                        alert('Có lỗi xảy ra khi xóa tin nhắn');
-                    }
+                    // Lưu ID gốc (ID thực của tin nhắn hiện tại)
+                    const originalMessageId = msg.id;
+
+                    // ID từ API (chỉ cho socket event)
+                    const apiMessageId = result.data.messageId;
+
+                    console.log('Gửi socket event với ID từ API:', apiMessageId);
+                    socketService.emitDeleteMessage(apiMessageId);
+
+                    // QUAN TRỌNG: Xóa tin nhắn khỏi UI dùng ID GỐC
+                    console.log('Xóa tin nhắn khỏi UI với ID gốc:', originalMessageId);
+                    dispatch(deleteMessage(originalMessageId));
+
+                    setIsOpen(false);
                 } else {
                     alert(result?.message || 'Có lỗi xảy ra khi xóa tin nhắn');
                 }
@@ -112,17 +112,48 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
             }
             handleClose();
         }
-    }, [msg.id, dispatch]);
+    }, [msg.id, dispatch, handleClose]);
+
+
+
+
+    const handleEdit = useCallback(() => {
+        console.log('Bắt đầu chỉnh sửa tin nhắn:', msg.id, 'Nội dung:', msg.message);
+
+        // Tạo đối tượng đơn giản chỉ với thông tin cần thiết để chỉnh sửa
+        const editData = {
+            id: msg.id,
+            message: msg.message || msg.content || '', // Đảm bảo message không bị null
+            groupId: msg.groupId
+        };
+
+        // Đặt tin nhắn này vào state để chỉnh sửa
+        dispatch(setEditingMessage(editData));
+
+        // Đóng popover
+        setIsOpen(false);
+    }, [msg, dispatch]);
+
+
+
+
+
+
 
     const handleVideoPress = useCallback(() => {
-        if (!msg.imageUrl) {
+        if (!msg.fileUrl) {
             Alert.alert("Lỗi", "Không thể phát video này");
             return;
         }
 
         // Đảo ngược trạng thái phát video
         setIsVideoPlaying(prevState => !prevState);
-    }, [msg.imageUrl]);
+    }, [msg.fileUrl]);
+
+
+
+    { console.log("msg  ", msg) }
+
 
     return (
         <MessageOptionsPopover
@@ -130,6 +161,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
             onClose={handleClose}
             onRecall={handleRecallMessage}
             onDelete={handleDelete}
+            onEdit={handleEdit}
             isMyMessage={isMyMessage}
             isRecalled={msg.isRecalled}
             message={msg}  // Truyền msg vào MessageOptionsPopover
@@ -153,13 +185,17 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                     >
                         <XStack alignItems="flex-start" space={isMyMessage ? 35 : 10} >
                             {!isMyMessage && showAvatar && msg.sender && (
-                                <Image
-                                    source={{ uri: msg.sender.avatar || 'https://cebcu.com/wp-content/uploads/2024/01/anh-gai-xinh-cute-de-thuong-het-ca-nuoc-cham-27.webp' }}
-                                    width={30}
-                                    height={30}
-                                    borderRadius={13}
-                                    marginTop={5}
-                                />
+                                msg.sender.avatar ? (
+                                    <Image
+                                        source={{ uri: msg.sender.avatar }}
+                                        width={30}
+                                        height={30}
+                                        borderRadius={13}
+                                        marginTop={5}
+                                    />
+                                ) : (
+                                    <DefaultAvatar name={msg.sender.name} size={30} />
+                                )
                             )}
                             {!isMyMessage && !showAvatar && (
                                 <View style={{ width: 20 }} />
@@ -189,24 +225,38 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 ) : (
                                     <>
                                         {msg.type === 'TEXT' && (
-                                            <XStack
-                                                alignItems="center"
-                                                flexWrap="wrap"
-                                                backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
-                                            >
-                                                <Text
-                                                    color={isMyMessage ? 'white' : 'black'}
-                                                    flexShrink={1}
+                                            <YStack>
+                                                <XStack
+                                                    alignItems="center"
+                                                    flexWrap="wrap"
                                                     backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                                 >
-                                                    {msg.message}
-                                                </Text>
-                                                {msg.isPending && (
-                                                    <ActivityIndicator size="small" color={isMyMessage ? 'white' : '#65676b'} />
+                                                    <Text
+                                                        color={isMyMessage ? 'white' : 'black'}
+                                                        flexShrink={1}
+                                                        backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
+                                                    >
+                                                        {msg.message}
+                                                    </Text>
+                                                    {msg.isPending && (
+                                                        <ActivityIndicator size="small" color={isMyMessage ? 'white' : '#65676b'} />
+                                                    )}
+                                                </XStack>
+
+                                                {/* Hiển thị chỉ báo đã chỉnh sửa */}
+                                                {msg.isEdited && (
+                                                    <Text
+                                                        fontSize={11}
+                                                        color={isMyMessage ? '#f0f2f5' : '#65676b'}
+                                                        fontStyle="italic"
+                                                        marginTop={2}
+                                                    >
+                                                        Đã chỉnh sửa
+                                                    </Text>
                                                 )}
-                                            </XStack>
+                                            </YStack>
                                         )}
-                                        {msg.type === 'IMAGE' && msg.imageUrl && (
+                                        {msg.type === 'IMAGE' && (
                                             <YStack
                                                 width={200}
                                                 height={200}
@@ -217,8 +267,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 <Image
                                                     source={{ uri: msg.imageUrl }}
                                                     style={{
-                                                        width: '100%',
-                                                        height: '100%',
+                                                        width: "100%",
+                                                        height: "100%",
                                                     }}
                                                     resizeMode="cover"
                                                 />
@@ -238,9 +288,89 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 )}
                                             </YStack>
                                         )}
+                                        {console.log("msg.type  ", msg.fileName)}
+                                        {msg.type === 'RAW' && (
+                                            <YStack
+                                                borderRadius={10}
+                                                overflow="hidden"
+                                                backgroundColor={isMyMessage ? '#c57d49' : '#d8d9df'}
+                                                padding={10}
+                                                space={8}
+                                                width={200}
+                                            >
+                                                <XStack alignItems="center" space={8} flex={1}>
+                                                    <YStack
+                                                        backgroundColor="rgba(0,0,0,0.1)"
+                                                        width={40}
+                                                        height={40}
+                                                        borderRadius={20}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                    >
+                                                        <Ionicons name="document-outline" size={24} color={isMyMessage ? "white" : "#444"} />
+                                                    </YStack>
+
+                                                    <YStack flex={1}>
+                                                        <Text
+                                                            color={isMyMessage ? "white" : "#333"}
+                                                            numberOfLines={1}
+                                                            ellipsizeMode="middle"
+                                                            fontWeight="500"
+                                                        >
+                                                            {msg.fileName || "Tài liệu"}
+                                                        </Text>
+
+                                                        <Text
+                                                            fontSize={12}
+                                                            color={isMyMessage ? "#f0f2f5" : "#65676b"}
+                                                            numberOfLines={1}
+                                                        >
+                                                            {msg.fileSize ? `${Math.round(msg.fileSize / 1024)} KB` : ""}
+                                                        </Text>
+                                                    </YStack>
+
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            // Xử lý tải tệp tin
+                                                            if (msg.fileUrl) {
+                                                                // Gọi hàm tải xuống ở đây
+                                                                Alert.alert("Thông báo", "Đang tải tệp...");
+                                                                // Thêm xử lý tải file thực tế ở đây
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: 8,
+                                                            borderRadius: 20,
+                                                            backgroundColor: isMyMessage ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                                        }}
+                                                    >
+                                                        <Ionicons
+                                                            name="cloud-download-outline"
+                                                            size={24}
+                                                            color={isMyMessage ? "white" : "#444"}
+                                                        />
+                                                    </TouchableOpacity>
+                                                </XStack>
+
+                                                {msg.isPending && (
+                                                    <YStack
+                                                        position="absolute"
+                                                        top={0}
+                                                        left={0}
+                                                        right={0}
+                                                        bottom={0}
+                                                        justifyContent="center"
+                                                        alignItems="center"
+                                                        backgroundColor="rgba(0,0,0,0.2)"
+                                                    >
+                                                        <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                    </YStack>
+                                                )}
+                                            </YStack>
+                                        )}
 
 
-                                        {msg.type === 'VIDEO' && msg.imageUrl && (
+                                        {msg.type === 'VIDEO' && (
 
                                             <TouchableOpacity onPress={handleVideoPress}>
                                                 <YStack
@@ -250,6 +380,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                     overflow="hidden"
                                                     backgroundColor="#000"
                                                 >
+
                                                     {isVideoPlaying ? (
                                                         // <Video
                                                         //     source={{ uri: msg.imageUrl }}
@@ -264,12 +395,12 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                         //     }}
                                                         // />
                                                         <>
-                                                        <Text>VIDEO</Text>
+                                                            <Text>VIDEO</Text>
                                                         </>
                                                     ) : (
                                                         <>
                                                             <Image
-                                                                source={{ uri: msg.thumbnailUrl || msg.imageUrl }}
+                                                                source={{ uri: msg.fileUrl }}
                                                                 style={{ width: '100%', height: '100%' }}
                                                                 resizeMode="cover"
                                                             />
@@ -306,6 +437,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                             justifyContent="center"
                                                             alignItems="center"
                                                             backgroundColor="rgba(0,0,0,0.2)"
+                                                            marginLeft={10}
                                                         >
                                                             <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
                                                         </YStack>
@@ -320,10 +452,10 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 <Text
                                     fontSize={12}
                                     color={isMyMessage ? '#e4e6eb' : '#65676b'}
-                                    textAlign="right"
+                                    textAlign={isMyMessage ? "right" : "left"}
                                     marginTop={4}
                                     backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
-                                    alignSelf="flex-end"
+                                    alignSelf={isMyMessage ? "flex-end" : "flex-start"}
                                 >
                                     {formatTime(msg.createdAt)}
                                 </Text>
