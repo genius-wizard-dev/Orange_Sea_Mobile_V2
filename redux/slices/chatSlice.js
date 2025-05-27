@@ -160,13 +160,70 @@ const chatSlice = createSlice({
     },
     updateMessageStatus: (state, action) => {
       const { tempId, newMessage } = action.payload;
+      console.log('updateMessageStatus called with:', { tempId, newMessage });
+
       const index = state.messages.findIndex(msg => msg.tempId === tempId);
+
       if (index !== -1) {
-        state.messages[index] = newMessage;
+        const oldMessage = state.messages[index];
+
+        // SỬA: Ưu tiên giữ imageUrl từ temp message nếu newMessage không có
+        const updatedMessage = {
+          ...oldMessage, // Giữ lại dữ liệu cũ (bao gồm imageUrl từ temp)
+          ...newMessage, // Override với dữ liệu mới
+          // Đảm bảo các field quan trọng không bị undefined
+          id: newMessage.id || oldMessage.id,
+          message: newMessage.message || newMessage.content || oldMessage.message || '',
+          createdAt: newMessage.createdAt || oldMessage.createdAt,
+          updatedAt: newMessage.updatedAt || oldMessage.updatedAt,
+          senderId: newMessage.senderId || oldMessage.senderId,
+          groupId: newMessage.groupId || oldMessage.groupId,
+          type: newMessage.type || oldMessage.type,
+          sender: newMessage.sender || oldMessage.sender || {
+            id: newMessage.senderId,
+            name: 'Unknown',
+            avatar: null
+          },
+          // SỬA: Ưu tiên imageUrl từ server, nhưng fallback về temp message
+          imageUrl: newMessage.imageUrl ||
+            newMessage.fileUrl ||
+            newMessage.url ||
+            newMessage.image ||
+            newMessage.attachmentUrl ||
+            newMessage.file ||
+            newMessage.media ||
+            newMessage.src ||
+            newMessage.path ||
+            newMessage.link ||
+            oldMessage.imageUrl, // QUAN TRỌNG: Giữ imageUrl từ temp message
+          fileName: newMessage.fileName || oldMessage.fileName,
+          fileSize: newMessage.fileSize || oldMessage.fileSize
+        };
+
+        state.messages[index] = updatedMessage;
         state.messages = [...state.messages];
       } else {
         console.warn('Không tìm thấy tin nhắn với tempId:', tempId);
-        state.messages = [newMessage, ...state.messages];
+
+        // SỬA: Đảm bảo newMessage có đầy đủ thông tin trước khi thêm
+        const safeNewMessage = {
+          ...newMessage,
+          message: newMessage.message || newMessage.content || '',
+          createdAt: newMessage.createdAt || new Date().toISOString(),
+          updatedAt: newMessage.updatedAt || new Date().toISOString(),
+          sender: newMessage.sender || {
+            id: newMessage.senderId,
+            name: 'Unknown',
+            avatar: null
+          },
+          imageUrl: newMessage.imageUrl ||
+            newMessage.fileUrl ||
+            newMessage.url ||
+            newMessage.image ||
+            newMessage.attachmentUrl
+        };
+
+        state.messages = [safeNewMessage, ...state.messages];
       }
     },
     setUnreadCounts: (state, action) => {
@@ -221,11 +278,14 @@ const chatSlice = createSlice({
             content: message.content,
             senderId: message.senderId,
             createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
             groupId: message.groupId,
             sender: message.sender,
             isRecalled: message.isRecalled,
             fileName: message.fileName,
+            fileSize: message.fileSize,
             type: message.type,
+            originalContent: message.originalContent,
           };
           if (state.currentChat?.groupId !== message.groupId) {
             state.unreadCounts[message.groupId] =

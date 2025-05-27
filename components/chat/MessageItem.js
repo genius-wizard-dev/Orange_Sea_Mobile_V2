@@ -13,6 +13,10 @@ import { Popover } from '@tamagui/popover';
 import socketService from '../../service/socket.service';
 import { deleteMessage, setEditingMessage } from '../../redux/slices/chatSlice';
 import DefaultAvatar from './DefaultAvatar';
+import ImageViewer from './ImageViewer';
+
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -20,6 +24,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const pressTimeoutRef = useRef(null);
     const dispatch = useDispatch();
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+    const [showImageViewer, setShowImageViewer] = useState(false);
+    const [isDownloadingFile, setIsDownloadingFile] = useState(false);
 
 
     useEffect(() => {
@@ -141,20 +147,206 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
 
 
     const handleVideoPress = useCallback(() => {
-        if (!msg.fileUrl) {
+        if (!msg.imageUrl) {
             Alert.alert("Lỗi", "Không thể phát video này");
             return;
         }
 
         // Đảo ngược trạng thái phát video
         setIsVideoPlaying(prevState => !prevState);
-    }, [msg.fileUrl]);
+    }, [msg.imageUrl]);
 
 
 
-    { console.log("msg  ", msg) }
+    const handleImagePress = useCallback(() => {
+        if (msg.imageUrl && msg.type === 'IMAGE') {
+            setShowImageViewer(true);
+        }
+    }, [msg.imageUrl, msg.type]);
+
+    const handleCloseImageViewer = useCallback(() => {
+        setShowImageViewer(false);
+    }, []);
 
 
+    const downloadFile = async () => {
+        setIsDownloadingFile(true);
+
+        try {
+            // Xin quyền truy cập storage
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Lỗi', 'Cần quyền truy cập bộ nhớ để tải file');
+                return;
+            }
+
+            // Tạo thư mục OrangeSea trong Downloads nếu chưa có
+            const downloadDir = `${FileSystem.documentDirectory}Download/OrangeSea/`;
+            const dirInfo = await FileSystem.getInfoAsync(downloadDir);
+
+            if (!dirInfo.exists) {
+                await FileSystem.makeDirectoryAsync(downloadDir, { intermediates: true });
+                console.log('Đã tạo thư mục:', downloadDir);
+            }
+
+            // Decode fileName để lấy tên file thực
+            const decodedFileName = decodeURIComponent(msg.fileName || `file_${Date.now()}.bin`);
+            const fileExtension = decodedFileName.split('.').pop();
+            const baseName = decodedFileName.replace(`.${fileExtension}`, '');
+            const uniqueFileName = `${baseName}_${Date.now()}.${fileExtension}`;
+            const fileUri = `${downloadDir}${uniqueFileName}`;
+
+            console.log('File info:', {
+                originalFileName: msg.fileName,
+                decodedFileName: decodedFileName,
+                downloadUrl: msg.imageUrl,
+                saveToPath: fileUri
+            });
+
+            // Tải file với timeout và retry
+            const downloadWithRetry = async (retries = 3) => {
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        console.log(`Đang tải file, lần thử ${i + 1}/${retries}...`);
+
+                        const downloadResult = await Promise.race([
+                            FileSystem.downloadAsync(msg.imageUrl, fileUri, {
+                                headers: {
+                                    'User-Agent': 'OrangeSeaMobile/1.0',
+                                    'Accept': '*/*'
+                                }
+                            }),
+                            new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error('Timeout')), 30000)
+                            )
+                        ]);
+
+                        console.log(`Download result status: ${downloadResult.status}`);
+                        return downloadResult;
+                    } catch (error) {
+                        console.log(`Lần thử ${i + 1} thất bại:`, error.message);
+                        if (i === retries - 1) throw error;
+
+                        // Đợi 2 giây trước khi thử lại
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+            };
+
+            const downloadResult = await downloadWithRetry();
+
+            if (downloadResult.status === 200) {
+                // Kiểm tra file đã được tải thành công
+                const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
+                console.log('File info after download:', fileInfo);
+
+                if (fileInfo.exists && fileInfo.size > 0) {
+                    // Lưu vào thư viện media để có thể truy cập từ file manager
+                    try {
+                        await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
+                        console.log('Đã lưu vào media library');
+                    } catch (mediaError) {
+                        console.log('Không thể lưu vào media library:', mediaError);
+                        // Vẫn thành công nếu file đã được lưu vào Documents
+                    }
+
+                    Alert.alert(
+                        'Thành công',
+                        `File "${decodedFileName}" đã được tải xuống thành công!\n\nKích thước: ${Math.round(fileInfo.size / 1024)} KB\nĐường dẫn: Download/OrangeSea/`,
+                        [{ text: 'OK' }]
+                    );
+
+                    console.log('File đã được lưu tại:', downloadResult.uri);
+                } else {
+                    throw new Error('File tải về bị lỗi hoặc rỗng');
+                }
+            } else {
+                throw new Error(`HTTP ${downloadResult.status}: Không thể tải file`);
+            }
+
+        } catch (error) {
+            console.error('Lỗi khi tải file:', error);
+
+            // Xử lý lỗi 401 - Unauthorized
+            if (error.message.includes('401')) {
+                Alert.alert(
+                    'Lỗi xác thực',
+                    'URL file có thể đã hết hạn hoặc yêu cầu xác thực. Bạn có muốn thử mở file trong trình duyệt không?',
+                    [
+                        {
+                            text: 'Mở trong trình duyệt',
+                            onPress: () => {
+                                // Mở URL trong trình duyệt
+                                import('expo-linking').then(({ default: Linking }) => {
+                                    Linking.openURL(msg.imageUrl);
+                                });
+                            }
+                        },
+                        { text: 'Hủy', style: 'cancel' }
+                    ]
+                );
+            } else if (error.message.includes('Unable to resolve host') ||
+                error.message.includes('No address associated with hostname')) {
+                Alert.alert(
+                    'Lỗi mạng',
+                    'Không thể kết nối đến server. Vui lòng kiểm tra kết nối internet và thử lại.',
+                    [
+                        { text: 'Thử lại', onPress: downloadFile },
+                        { text: 'Hủy', style: 'cancel' }
+                    ]
+                );
+            } else if (error.message === 'Timeout') {
+                Alert.alert(
+                    'Timeout',
+                    'Tải file quá lâu. Vui lòng thử lại.',
+                    [
+                        { text: 'Thử lại', onPress: downloadFile },
+                        { text: 'Hủy', style: 'cancel' }
+                    ]
+                );
+            } else {
+                Alert.alert('Lỗi', `Không thể tải file: ${error.message}`);
+            }
+        } finally {
+            setIsDownloadingFile(false);
+        }
+    };
+
+
+
+    const handleDownloadFile = async () => {
+        if (!msg.imageUrl) {
+            Alert.alert('Lỗi', 'Không tìm thấy đường dẫn file');
+            return;
+        }
+
+        const decodedFileName = decodeURIComponent(msg.fileName || 'tài liệu');
+
+        Alert.alert(
+            'Tùy chọn file',
+            `File: "${decodedFileName}"`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Mở trong trình duyệt',
+                    onPress: () => {
+                        import('expo-linking').then(({ default: Linking }) => {
+                            Linking.openURL(msg.imageUrl);
+                        });
+                    }
+                },
+                {
+                    text: 'Tải xuống',
+                    onPress: () => downloadFile()
+                }
+            ]
+        );
+    };
+
+    const messageContent = msg.message || msg.content || '';
+    const updatedAt = msg.updatedAt || new Date().toISOString();
+
+    // console.log("msg:", msg);
     return (
         <MessageOptionsPopover
             isOpen={isOpen}
@@ -168,7 +360,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
         >
             <XStack
                 justifyContent={isMyMessage ? 'flex-end' : 'flex-start'}
-                width="100%"
+                width={isMyMessage ? '100%' : '85%'}
             >
                 <Pressable
                     onLongPress={handleLongPress}
@@ -180,7 +372,10 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                 >
                     <YStack
                         borderRadius={15}
-                        padding={2}
+                        paddingLeft={8}
+                        paddingRight={8}
+                        paddingTop={3}
+                        paddingBottom={3}
                         shadowRadius={6}
                     >
                         <XStack alignItems="flex-start" space={isMyMessage ? 35 : 10} >
@@ -208,9 +403,20 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 borderTopLeftRadius={!isMyMessage && !showAvatar ? 0 : 10}
                                 maxWidth="90%"
                                 width="auto"
-                                elevation={1}
+                                elevation={1.1}
 
                             >
+                                {/* Hiển thị chỉ báo đã chỉnh sửa */}
+                                {msg.isEdited || msg.originalContent ? (
+                                    <Text
+                                        fontSize={11}
+                                        color={isMyMessage ? '#2196F3' : '#2196F3'}
+                                        fontStyle="italic"
+                                        textAlign='right'
+                                    >
+                                        Đã chỉnh sửa
+                                    </Text>
+                                ) : null}
 
                                 {msg.isRecalled ? (
                                     <XStack alignItems="center" >
@@ -236,59 +442,49 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                         flexShrink={1}
                                                         backgroundColor={isMyMessage ? '#d88954' : '#e4e6eb'}
                                                     >
-                                                        {msg.message}
+                                                        {messageContent}  {/* SỬA: Sử dụng messageContent safe */}
                                                     </Text>
                                                     {msg.isPending && (
                                                         <ActivityIndicator size="small" color={isMyMessage ? 'white' : '#65676b'} />
                                                     )}
                                                 </XStack>
-
-                                                {/* Hiển thị chỉ báo đã chỉnh sửa */}
-                                                {msg.isEdited && (
-                                                    <Text
-                                                        fontSize={11}
-                                                        color={isMyMessage ? '#f0f2f5' : '#65676b'}
-                                                        fontStyle="italic"
-                                                        marginTop={2}
-                                                    >
-                                                        Đã chỉnh sửa
-                                                    </Text>
-                                                )}
                                             </YStack>
                                         )}
                                         {msg.type === 'IMAGE' && (
-                                            <YStack
-                                                width={200}
-                                                height={200}
-                                                borderRadius={10}
-                                                overflow="hidden"
-                                                backgroundColor="#000" // fallback nếu ảnh chưa load
-                                            >
-                                                <Image
-                                                    source={{ uri: msg.imageUrl }}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "100%",
-                                                    }}
-                                                    resizeMode="cover"
-                                                />
-                                                {msg.isPending && (
-                                                    <YStack
-                                                        position="absolute"
-                                                        top={0}
-                                                        left={0}
-                                                        right={0}
-                                                        bottom={0}
-                                                        justifyContent="center"
-                                                        alignItems="center"
-                                                        backgroundColor="rgba(0,0,0,0.2)"
-                                                    >
-                                                        <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
-                                                    </YStack>
-                                                )}
-                                            </YStack>
+                                            <TouchableOpacity onPress={handleImagePress}>
+                                                <YStack
+                                                    width={200}
+                                                    height={200}
+                                                    borderRadius={10}
+                                                    overflow="hidden"
+                                                    backgroundColor="#000" // fallback nếu ảnh chưa load
+                                                >
+                                                    
+                                                    <Image
+                                                        source={{ uri: msg.imageUrl }}
+                                                        style={{
+                                                            width: "100%",
+                                                            height: "100%",
+                                                        }}
+                                                        resizeMode="cover"
+                                                    />
+                                                    {msg.isPending && (
+                                                        <YStack
+                                                            position="absolute"
+                                                            top={0}
+                                                            left={0}
+                                                            right={0}
+                                                            bottom={0}
+                                                            justifyContent="center"
+                                                            alignItems="center"
+                                                            backgroundColor="rgba(0,0,0,0.2)"
+                                                        >
+                                                            <ActivityIndicator size="large" color={isMyMessage ? 'white' : '#FF7A1E'} />
+                                                        </YStack>
+                                                    )}
+                                                </YStack>
+                                            </TouchableOpacity>
                                         )}
-                                        {console.log("msg.type  ", msg.fileName)}
                                         {msg.type === 'RAW' && (
                                             <YStack
                                                 borderRadius={10}
@@ -307,7 +503,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                         justifyContent="center"
                                                         alignItems="center"
                                                     >
-                                                        <Ionicons name="document-outline" size={24} color={isMyMessage ? "white" : "#444"} />
+                                                        <Ionicons name="document" size={24} color={"#525ec9"} />
                                                     </YStack>
 
                                                     <YStack flex={1}>
@@ -325,30 +521,34 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                             color={isMyMessage ? "#f0f2f5" : "#65676b"}
                                                             numberOfLines={1}
                                                         >
-                                                            {msg.fileSize ? `${Math.round(msg.fileSize / 1024)} KB` : ""}
+                                                            {msg.fileSize ? `${Math.round(msg.fileSize / 1024)} KB` : "no size"}
                                                         </Text>
                                                     </YStack>
 
                                                     <TouchableOpacity
-                                                        onPress={() => {
-                                                            // Xử lý tải tệp tin
-                                                            if (msg.fileUrl) {
-                                                                // Gọi hàm tải xuống ở đây
-                                                                Alert.alert("Thông báo", "Đang tải tệp...");
-                                                                // Thêm xử lý tải file thực tế ở đây
-                                                            }
-                                                        }}
+                                                        onPress={handleDownloadFile}
+                                                        disabled={isDownloadingFile}
                                                         style={{
                                                             padding: 8,
                                                             borderRadius: 20,
-                                                            backgroundColor: isMyMessage ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                                            backgroundColor: isDownloadingFile
+                                                                ? 'rgba(0,0,0,0.3)'
+                                                                : (isMyMessage ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'),
+                                                            opacity: isDownloadingFile ? 0.6 : 1,
                                                         }}
                                                     >
-                                                        <Ionicons
-                                                            name="cloud-download-outline"
-                                                            size={24}
-                                                            color={isMyMessage ? "white" : "#444"}
-                                                        />
+                                                        {isDownloadingFile ? (
+                                                            <ActivityIndicator
+                                                                size="small"
+                                                                color={isMyMessage ? "white" : "#444"}
+                                                            />
+                                                        ) : (
+                                                            <Ionicons
+                                                                name="cloud-download-outline"
+                                                                size={24}
+                                                                color={isMyMessage ? "white" : "#444"}
+                                                            />
+                                                        )}
                                                     </TouchableOpacity>
                                                 </XStack>
 
@@ -400,7 +600,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                     ) : (
                                                         <>
                                                             <Image
-                                                                source={{ uri: msg.fileUrl }}
+                                                                source={{ uri: msg.imageUrl }}
                                                                 style={{ width: '100%', height: '100%' }}
                                                                 resizeMode="cover"
                                                             />
@@ -447,6 +647,12 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
 
                                         )}
 
+                                        <ImageViewer
+                                            visible={showImageViewer}
+                                            imageUri={msg.imageUrl}
+                                            onClose={handleCloseImageViewer}
+                                        />
+
                                     </>
                                 )}
                                 <Text
@@ -457,7 +663,8 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                     backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
                                     alignSelf={isMyMessage ? "flex-end" : "flex-start"}
                                 >
-                                    {formatTime(msg.createdAt)}
+
+                                    {formatTime(updatedAt)}
                                 </Text>
                             </YStack>
                         </XStack>

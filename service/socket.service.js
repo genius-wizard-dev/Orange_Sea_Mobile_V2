@@ -341,7 +341,8 @@ class SocketService {
                 payload: {
                     ...message,
                     content: message.content || message.message,
-                    createdAt: message.createdAt || new Date().toISOString()
+                    createdAt: message.createdAt || new Date().toISOString(),
+                    updatedAt: message.updatedAt || new Date().toISOString()
                 }
             });
         });
@@ -506,6 +507,7 @@ class SocketService {
                     senderId: message.senderId,
                     groupId: message.groupId,
                     createdAt: message.createdAt,
+                    updatedAt: message.updatedAt,
                     type: message.type,
                     imageUrl: message.imageUrl,
                     videoUrl: message.videoUrl,

@@ -25,7 +25,7 @@ const GroupDetail = () => {
     const { profile } = useSelector((state) => state.profile);
 
     // console.log("groupId ", groupId)
-    console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
+    // console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
     // console.log("profile ", profile)
 
 
@@ -224,6 +224,30 @@ const GroupDetail = () => {
                     onPress: () => console.log('Tìm tin nhắn')
                 },
                 {
+                    id: 'profile',
+                    icon: 'person-outline',
+                    label: 'Trang cá nhân',
+                    typeGroup: "ACCOUNT",
+                    onPress: () => {
+                        // Tìm người dùng khác trong cuộc trò chuyện 1-1
+                        const otherUser = currentData?.participants?.find(p =>
+                            p.profileId !== profile?.id
+                        );
+
+                        if (otherUser) {
+                            router.push({
+                                pathname: 'profile/[id]',
+                                params: {
+                                    id: otherUser.profileId || otherUser.id,
+                                    goBack: '/group/groupDetail',
+                                },
+                            });
+                        } else {
+                            Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+                        }
+                    }
+                },
+                {
                     id: 'addMember',
                     icon: 'person-add',
                     label: 'Thêm thành viên',
@@ -244,36 +268,36 @@ const GroupDetail = () => {
                     typeGroup: "ALL",
                     onPress: () => console.log('Ảnh, file, link')
                 },
-                {
-                    id: 'pinned',
-                    icon: 'pricetag',
-                    iconFamily: 'Ionicons',
-                    label: 'Tin nhắn đã ghim',
-                    typeGroup: "ALL",
-                    onPress: () => console.log('Tin nhắn đã ghim')
-                },
-                {
-                    id: 'calendar',
-                    icon: 'calendar',
-                    iconFamily: 'Ionicons',
-                    label: 'Lịch nhóm',
-                    typeGroup: "GROUP",
-                    onPress: () => console.log('Lịch nhóm')
-                },
+                // {
+                //     id: 'pinned',
+                //     icon: 'pricetag',
+                //     iconFamily: 'Ionicons',
+                //     label: 'Tin nhắn đã ghim',
+                //     typeGroup: "ALL",
+                //     onPress: () => console.log('Tin nhắn đã ghim')
+                // },
+                // {
+                //     id: 'calendar',
+                //     icon: 'calendar',
+                //     iconFamily: 'Ionicons',
+                //     label: 'Lịch nhóm',
+                //     typeGroup: "GROUP",
+                //     onPress: () => console.log('Lịch nhóm')
+                // },
             ]
         },
         {
             id: 'member',
             type: 'member',
             items: [
-                {
-                    id: 'settingGroup',
-                    icon: 'cog',
-                    iconFamily: 'Ionicons',
-                    label: "Cài đặt nhóm",
-                    typeGroup: "GROUP",
-                    onPress: () => console.log('chuyen uyen truong nhom')
-                },
+                // {
+                //     id: 'settingGroup',
+                //     icon: 'cog',
+                //     iconFamily: 'Ionicons',
+                //     label: "Cài đặt nhóm",
+                //     typeGroup: "GROUP",
+                //     onPress: () => console.log('chuyen uyen truong nhom')
+                // },
                 {
                     id: 'media',
                     icon: 'people-circle',
@@ -290,30 +314,30 @@ const GroupDetail = () => {
                 },
             ]
         },
-        {
-            id: 'settings',
-            type: 'switch',
-            items: [
-                {
-                    id: 'pin',
-                    icon: 'pushpin',
-                    iconFamily: 'AntDesign',
-                    label: 'Ghim trò chuyện',
-                    typeGroup: "ALL",
-                    value: isGhimEnabled,
-                    onChange: setIsGhimEnabled
-                },
-                {
-                    id: 'hide',
-                    icon: 'eye-off',
-                    iconFamily: 'Feather',
-                    label: 'Ẩn trò chuyện',
-                    typeGroup: "ALL",
-                    value: isAnEnabled,
-                    onChange: setIsAnEnabled
-                },
-            ]
-        },
+        // {
+        //     id: 'settings',
+        //     type: 'switch',
+        //     items: [
+        //         {
+        //             id: 'pin',
+        //             icon: 'pushpin',
+        //             iconFamily: 'AntDesign',
+        //             label: 'Ghim trò chuyện',
+        //             typeGroup: "ALL",
+        //             value: isGhimEnabled,
+        //             onChange: setIsGhimEnabled
+        //         },
+        //         {
+        //             id: 'hide',
+        //             icon: 'eye-off',
+        //             iconFamily: 'Feather',
+        //             label: 'Ẩn trò chuyện',
+        //             typeGroup: "ALL",
+        //             value: isAnEnabled,
+        //             onChange: setIsAnEnabled
+        //         },
+        //     ]
+        // },
         {
             id: 'actions',
             type: 'menu',
@@ -399,16 +423,20 @@ const GroupDetail = () => {
                     backgroundColor: '#f0f0f0'
                 }}
             />
-            <TouchableOpacity>
-                <Feather name="camera" size={18} color="black" style={{
-                    position: 'absolute',
-                    right: -50,
-                    bottom: 5,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 12,
-                    padding: 5
-                }} />
-            </TouchableOpacity>
+            {
+                groupDetails[groupId].isGroup &&
+                <TouchableOpacity>
+                    <Feather name="camera" size={18} color="black" style={{
+                        position: 'absolute',
+                        right: -50,
+                        bottom: 5,
+                        backgroundColor: '#e0e0e0',
+                        borderRadius: 12,
+                        padding: 5
+                    }} />
+                </TouchableOpacity>
+            }
+
 
             <View flexDirection='row' alignItems='center' flex={1}>
                 <Text color="black" fontSize="$7" fontWeight="bold" textAlign="center" marginTop="$4" marginRight={20}>

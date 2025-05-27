@@ -132,6 +132,10 @@ export const fetchPaginatedMessages = createAsyncThunk(
         ENDPOINTS.CHAT.GET_MESSAGES(groupId),
         { cursor }
       );
+
+
+      console.log("fetchMessages response ", response);
+
       return response;
     } catch (error) {
       dispatch(setError(error.message));

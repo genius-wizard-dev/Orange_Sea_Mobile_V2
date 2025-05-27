@@ -1,262 +1,313 @@
-import React, { useState, useEffect } from 'react';
-import {
-    View,
-    FlatList,
-    Image,
-    StyleSheet,
-    TouchableOpacity,
-    Text,
-    ActivityIndicator,
-    Dimensions,
-    Alert
-} from 'react-native';
-import { XStack, YStack, Button } from 'tamagui';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { Text, XStack, YStack } from 'tamagui';
 import * as ImagePicker from 'expo-image-picker';
-import { pickImage } from '../../utils/imageAccess';
-
-const { width } = Dimensions.get('window');
-const numColumns = 3;
-const imageSize = (width - 32) / numColumns;
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 
 const ImageGallery = ({ onImageSelect, onSendImage }) => {
-    const [selectedImage, setSelectedImage] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [selectedMedia, setSelectedMedia] = useState(null);
 
-    useEffect(() => {
-        checkPermissionAndOpenPicker();
-    }, []);
-
-    const checkPermissionAndOpenPicker = async () => {
-        setLoading(true);
+    const pickMedia = async () => {
         try {
+            // Xin quyền truy cập camera và thư viện ảnh
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
             if (status !== 'granted') {
-                Alert.alert(
-                    "Cần quyền truy cập",
-                    "Ứng dụng cần quyền truy cập vào thư viện ảnh để tiếp tục.",
-                    [
-                        {
-                            text: "Hủy",
-                            style: "cancel"
-                        },
-                        {
-                            text: "Cấp quyền",
-                            onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync()
-                        }
-                    ]
-                );
-                setLoading(false);
+                Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh để chọn file');
                 return;
             }
 
-            // Sau khi có quyền, mở bộ chọn ảnh
-            openImagePicker();
-        } catch (error) {
-            console.error('Lỗi khi kiểm tra quyền:', error);
-            setLoading(false);
-        }
-    };
-
-    const openImagePicker = async () => {
-        try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ImagePicker.MediaTypeOptions.All, // SỬA: Dùng MediaTypeOptions.All
                 allowsEditing: false,
-                quality: 1
+                quality: 0.8,
+                videoMaxDuration: 60, // Giới hạn video 60 giây
             });
 
             if (!result.canceled && result.assets && result.assets.length > 0) {
-                const imageSelected = {
-                    id: `image-${new Date().getTime()}`,
-                    uri: result.assets[0].uri,
-                    width: result.assets[0].width,
-                    height: result.assets[0].height
+                const media = result.assets[0];
+
+                // Auto detect type dựa vào URI/filename
+                const getMediaType = (uri, mimeType) => {
+                    // Kiểm tra mimeType trước
+                    if (mimeType && mimeType.startsWith('video/')) {
+                        return 'VIDEO';
+                    }
+
+                    // Fallback kiểm tra extension từ URI
+                    const extension = uri.toLowerCase().split('.').pop();
+                    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v', 'mpg', 'mpeg'];
+
+                    if (videoExtensions.includes(extension)) {
+                        return 'VIDEO';
+                    }
+
+                    // Mặc định là IMAGE
+                    return 'IMAGE';
                 };
 
-                setSelectedImage(imageSelected);
-                if (onImageSelect) {
-                    onImageSelect(imageSelected);
+                const detectedType = getMediaType(media.uri, media.mimeType);
+
+                // Kiểm tra kích thước file - CẢ ẢNH VÀ VIDEO ĐỀU DƯỚI 10MB
+                const maxSize = 10 * 1024 * 1024; // 10MB cho cả ảnh và video
+
+                if (media.fileSize && media.fileSize > maxSize) {
+                    Alert.alert('Lỗi', `File quá lớn. Vui lòng chọn ${detectedType === 'VIDEO' ? 'video' : 'ảnh'} nhỏ hơn 10MB.`);
+                    return;
                 }
+
+                const mediaData = {
+                    uri: media.uri,
+                    type: media.mimeType || (detectedType === 'VIDEO' ? 'video/mp4' : 'image/jpeg'),
+                    mediaType: detectedType, // 'IMAGE' hoặc 'VIDEO'
+                    width: media.width,
+                    height: media.height,
+                    fileSize: media.fileSize,
+                    duration: media.duration, // Cho video
+                    // Thêm name để FormData hoạt động đúng
+                    name: detectedType === 'VIDEO'
+                        ? `video-${Date.now()}.mp4`
+                        : `image-${Date.now()}.jpg`
+                };
+
+                console.log('Media được chọn:', mediaData);
+                console.log('Detected type:', detectedType);
+                setSelectedMedia(mediaData);
+                onImageSelect && onImageSelect(mediaData);
             }
         } catch (error) {
-            console.error('Lỗi khi chọn ảnh:', error);
-            Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại sau.");
-        } finally {
-            setLoading(false);
+            console.error('Lỗi khi chọn media:', error);
+            Alert.alert('Lỗi', 'Không thể chọn file. Vui lòng thử lại.');
         }
     };
 
-    const handleSendImage = () => {
-        if (selectedImage && onSendImage) {
-            // Tạo đúng định dạng để gửi ảnh
-            const imageData = {
-                uri: selectedImage.uri,
-                type: selectedImage.uri.endsWith('.png') ? 'image/png' : 'image/jpeg',
-                name: `photo-${Date.now()}.${selectedImage.uri.endsWith('.png') ? 'png' : 'jpg'}`,
-                width: selectedImage.width,
-                height: selectedImage.height
-            };
-
-            onSendImage(imageData);
+    const handleSendMedia = () => {
+        console.log('=== handleSendMedia được gọi ===');
+        console.log('selectedMedia:', selectedMedia);
+        console.log('onSendImage function:', typeof onSendImage);
+        
+        if (selectedMedia) {
+            if (typeof onSendImage === 'function') {
+                console.log('Đang gọi onSendImage...');
+                onSendImage(selectedMedia);
+                setSelectedMedia(null);
+                console.log('Đã gọi onSendImage xong');
+            } else {
+                console.error('onSendImage không phải là function!');
+                Alert.alert('Lỗi', 'Chức năng gửi không khả dụng');
+            }
+        } else {
+            console.error('selectedMedia là null');
+            Alert.alert('Lỗi', 'Chưa chọn file nào');
         }
     };
 
-    if (loading) {
+    const handleCancel = () => {
+        setSelectedMedia(null);
+        onImageSelect && onImageSelect(null);
+    };
+
+    const formatFileSize = (bytes) => {
+        if (!bytes) return '';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+
+    const formatDuration = (seconds) => {
+        if (!seconds) return '';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    if (selectedMedia) {
         return (
-            <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color="#FF7A1E" />
-                <Text style={styles.loadingText}>Đang xử lý...</Text>
-            </View>
+            <YStack flex={1} padding={20} justifyContent="center" alignItems="center">
+                {/* Header với nút X */}
+                <XStack
+                    width="100%"
+                    justifyContent="flex-end"
+                    alignItems="center"
+                    marginBottom={20}
+                >
+                    {/* <Text fontSize={18} fontWeight="600" color="#333">
+                        {selectedMedia.mediaType === 'VIDEO' ? 'Xem trước video' : 'Xem trước ảnh'}
+                    </Text> */}
+                    <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
+                        <Ionicons name="close" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </XStack>
+
+                {/* Media preview */}
+                <YStack
+                    backgroundColor="#f8f9fa"
+                    borderRadius={15}
+                    padding={10}
+                    width="100%"
+                    alignItems="center"
+                    marginBottom={30}
+                    borderWidth={1}
+                    borderColor="#e9ecef"
+                >
+                    <View style={styles.mediaContainer}>
+                        <Image
+                            source={{ uri: selectedMedia.uri }}
+                            style={styles.previewMedia}
+                            contentFit="cover"
+                        />
+
+                        {/* Video overlay */}
+                        {selectedMedia.mediaType === 'VIDEO' && (
+                            <View style={styles.videoOverlay}>
+                                <View style={styles.playButton}>
+                                    <Ionicons name="play" size={30} color="white" />
+                                </View>
+                                {selectedMedia.duration && (
+                                    <View style={styles.durationBadge}>
+                                        <Text fontSize={12} color="white" fontWeight="500">
+                                            {formatDuration(selectedMedia.duration)}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Media info */}
+                    <Text fontSize={14} color="#666" marginTop={10}>
+                        {selectedMedia.mediaType === 'VIDEO' ? 'Video' : 'Ảnh'} • {selectedMedia.width}x{selectedMedia.height}
+                        {selectedMedia.fileSize && ` • ${formatFileSize(selectedMedia.fileSize)}`}
+                    </Text>
+                </YStack>
+
+                {/* Action buttons */}
+                <XStack space={15} width="100%">
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.changeButton]}
+                        onPress={pickMedia}
+                    >
+                        <Ionicons name="swap-horizontal" size={20} color="#FF7A1E" />
+                        <Text color="#FF7A1E" fontWeight="500" marginLeft={8}>
+                            Chọn khác
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.sendButton]}
+                        onPress={handleSendMedia}
+                    >
+                        <Ionicons name="send" size={20} color="white" />
+                        <Text color="white" fontWeight="500" marginLeft={8}>
+                            Gửi {selectedMedia.mediaType === 'VIDEO' ? 'video' : 'ảnh'}
+                        </Text>
+                    </TouchableOpacity>
+                </XStack>
+            </YStack>
         );
     }
 
-    const handleCancelImage = () => {
-        setSelectedImage(null);
-        if (onImageSelect) {
-            // Gọi onImageSelect với null để báo hiệu hủy chọn ảnh
-            onImageSelect(null);
-        }
-    };
-
     return (
-        <YStack flex={1}>
-            <YStack flex={1} padding={16} alignItems="center" justifyContent="space-between">
-                {selectedImage ? (
-                    <View style={styles.selectedImageContainer}>
-                        {/* Ảnh đã chọn - đẩy lên cao hơn */}
-                        <View style={styles.selectedImageContainer}>
-                            <Image
-                                source={{ uri: selectedImage.uri }}
-                                style={styles.selectedImagePreview}
-                                resizeMode="contain"
-                            />
-                        </View>
-
-                        {/* Khoảng trống giữa ảnh và nút */}
-                        <View style={{ flex: 0.1 }} />
-                    </View>
-                ) : (
-                    <YStack flex={1} padding={16} alignItems="center" justifyContent="center">
-                        <TouchableOpacity
-                            style={styles.imagePickerPlaceholder}
-                            onPress={openImagePicker}
-                        >
-                            <Ionicons name="images-outline" size={50} color="#65676b" />
-                            <Text style={styles.imagePickerText}>Nhấn để chọn ảnh</Text>
-                        </TouchableOpacity>
-                    </YStack>
-                )}
-            </YStack>
-
-            {selectedImage && (
-                <XStack
-                    justifyContent="space-between"
-                    alignItems="center"
-                    padding={10}
-                    paddingHorizontal={10}
-                    backgroundColor="#f4f4f4"
-                    borderRadius={30}
-                    elevation={1}
+        <YStack flex={1} justifyContent="center" alignItems="center" padding={20}>
+            <TouchableOpacity style={styles.pickButton} onPress={pickMedia}>
+                <Ionicons name="albums-outline" size={50} color="#FF7A1E" />
+                <Text
+                    fontSize={16}
+                    fontWeight="500"
+                    color="#FF7A1E"
+                    marginTop={15}
+                    textAlign="center"
                 >
-                    {/* Nút X để đóng/hủy chọn ảnh */}
-                    <Button
-                        size="$4"
-                        backgroundColor="#e8e1e1"
-                        borderRadius={30}
-                        onPress={handleCancelImage}
-                        marginRight={5}
-                    >
-                        <Ionicons name="close-outline" size={35} color="#FF7A1E" />
-                    </Button>
-
-                    {/* Nút chọn ảnh khác */}
-                    <Button
-                        size="$4"
-                        backgroundColor="#e8e1e1"
-                        borderRadius={30}
-                        onPress={openImagePicker}
-                        paddingHorizontal={15}
-                        icon={<Ionicons name="images-outline" size={20} color="#FF7A1E" />}
-                    >
-                        <Text style={styles.changeButtonText}>Chọn ảnh khác</Text>
-                    </Button>
-
-                    {/* Nút gửi ảnh */}
-                    <Button
-                        size="$4"
-                        backgroundColor="#FF7A1E"
-                        borderRadius={30}
-                        onPress={handleSendImage}
-                        icon={<Ionicons name="send" size={20} color="white" />}
-                    >
-                    </Button>
-                </XStack>
-            )}
+                    Chọn ảnh hoặc video
+                </Text>
+                <Text
+                    fontSize={14}
+                    color="#666"
+                    marginTop={5}
+                    textAlign="center"
+                >
+                    Tối đa 10MB • Video tối đa 60 giây
+                </Text>
+            </TouchableOpacity>
         </YStack>
     );
 };
 
 const styles = StyleSheet.create({
-    centerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20
+    closeButton: {
+        padding: 5,
+        borderRadius: 20,
+        backgroundColor: '#e06b6f',
+        position:"relative",
+        top:40,
+        zIndex: 1,
     },
-    loadingText: {
-        marginTop: 10,
-        color: '#65676b',
+    mediaContainer: {
+        width: 150,
+        height: 150,
+        borderRadius: 10,
+        overflow: 'hidden',
+        position: 'relative',
     },
-    selectedImageContainer: {
+    previewMedia: {
         width: '100%',
-        alignItems: 'center',
-        // flex: 0.5, // Chiếm phần lớn không gian
-        alignItems: 'center',
+        height: '100%',
     },
-    selectedImagePreview: {
-        width: width * 0.8,
-        height: width * 0.8,
-        borderRadius: 12,
-        marginBottom: 16,
-        marginBottom: 20,
-    },
-    changeImageButton: {
-        backgroundColor: '#f0f2f5',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 20
-    },
-    changeImageText: {
-        color: '#FF7A1E',
-        fontWeight: 'bold'
-    },
-    imagePickerPlaceholder: {
-        width: 200,
-        height: 200,
+    videoOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f0f2f5',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderStyle: 'dashed'
     },
-    imagePickerText: {
-        marginTop: 10,
-        color: '#65676b'
+    playButton: {
+        width: 50,
+        height: 50,
+        borderRadius: 30,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    sendButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-        marginLeft: 8
+    durationBadge: {
+        position: 'absolute',
+        bottom: 8,
+        right: 8,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
     },
-    changeButtonText: {
-        fontWeight: '500',
-        fontSize: 15,
-    }
+    actionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 25,
+        minHeight: 40,
+    },
+    changeButton: {
+        backgroundColor: 'white',
+        borderWidth: 2,
+        borderColor: '#FF7A1E',
+    },
+    sendButton: {
+        backgroundColor: '#FF7A1E',
+    },
+    pickButton: {
+        padding: 40,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: '#FF7A1E',
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 122, 30, 0.05)',
+        width: '100%',
+    },
 });
 
 export default ImageGallery;

@@ -178,6 +178,9 @@ const Chat = () => {
         case "VIDEO":
           lastMessageContent = "[Video]";
           break;
+          case "RAW":
+          lastMessageContent = "[🖇️ Tài Liệu ]";
+          break;
         default:
           if (lastMessage.content) {
             const content = lastMessage.content.replace(/\n/g, ' ');

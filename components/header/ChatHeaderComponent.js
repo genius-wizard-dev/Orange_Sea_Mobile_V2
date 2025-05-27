@@ -68,7 +68,7 @@ const ChatHeaderComponent = memo(({ dataDetail, goBack, title, refreshKey, group
                 </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleOpenGroupDetail} style={styles.btnDetail}>
-                <Ionicons name="list-outline" size={28} color="#fff" />
+                <Ionicons name="alert-circle" size={28} color="#fff" />
             </TouchableOpacity>
         </View>
     );
@@ -78,7 +78,7 @@ export default ChatHeaderComponent;
 
 const styles = StyleSheet.create({
     header: {
-        height: 50,
+        height: 40,
         backgroundColor: '#FF7A1E',
         padding: 10,
         paddingBottom: 4,

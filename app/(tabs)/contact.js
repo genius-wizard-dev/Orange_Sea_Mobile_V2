@@ -79,7 +79,7 @@ export default function Contact() {
         });
     };
 
-    console.log("friends", friends)
+    // console.log("friends", friends)
 
 
     return (

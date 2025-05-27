@@ -5,6 +5,7 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import EmojiSelector from 'react-native-emoji-selector';
 import ImageGallery from './ImageGallery';
 import emojiMap from '../../utils/emojiMap';
+import FileGallery from './FileGallery';
 
 const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage, onEditComplete }) => {
     const [message, setMessage] = useState('');
@@ -18,6 +19,8 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
     const bottomSheetHeight = 300;
     const [hasSelectedImage, setHasSelectedImage] = useState(false);
     const [isEditing, setIsEditing] = useState(false); // Thêm state isEditing
+
+    const [hasSelectedFile, setHasSelectedFile] = useState(false);
     const inputRef = useRef(null);
 
     useEffect(() => {
@@ -164,6 +167,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
             // Đóng tab
             setActiveTab(null);
             setHasSelectedImage(false);
+            setHasSelectedFile(false);
             onTabChange && onTabChange(null);
             Animated.parallel([
                 Animated.spring(inputPosition, {
@@ -186,7 +190,7 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
             // Mở tab mới
             setActiveTab(tabName);
             // Nếu là tab image, xóa text để ẩn nút gửi tin nhắn
-            if (tabName === 'images') {
+            if (tabName === 'images' || tabName === 'files') {
                 setMessage('');
             }
             onTabChange && onTabChange(tabName);
@@ -226,16 +230,39 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
         }
     };
 
-    const handleSendImage = (imageData) => {
-        if (imageData) {
-            // Gọi hàm onSendMessage với đúng định dạng
-            onSendMessage({
-                type: 'IMAGE',
-                content: {
-                    ...imageData,
-                    content: ""  // Đảm bảo content là chuỗi rỗng
-                }
-            });
+    const handleSendImage = (mediaData) => {
+        console.log('handleSendImage được gọi với:', mediaData);
+
+        if (!mediaData || !mediaData.uri) {
+            console.error('mediaData không hợp lệ:', mediaData);
+            Alert.alert('Lỗi', 'Dữ liệu ảnh/video không hợp lệ');
+            return;
+        }
+
+        // Xác định type dựa trên mediaType
+        const messageType = mediaData.mediaType === 'VIDEO' ? 'VIDEO' : 'IMAGE';
+
+        console.log('Message type:', messageType);
+        console.log('onSendMessage function:', typeof onSendMessage);
+
+        // Kiểm tra onSendMessage có tồn tại không
+        if (typeof onSendMessage !== 'function') {
+            console.error('onSendMessage không phải là function!');
+            Alert.alert('Lỗi', 'Chức năng gửi tin nhắn không khả dụng');
+            return;
+        }
+
+        // SỬA: Gửi theo format đúng
+        const messageData = {
+            type: messageType,
+            content: "", // Content rỗng cho ảnh/video
+            mediaData: mediaData // Đặt mediaData ở đây
+        };
+
+        console.log('Đang gửi message với data:', messageData);
+
+        try {
+            onSendMessage(messageData);
 
             // Đóng bottom sheet
             closeBottomSheet();
@@ -245,8 +272,15 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
 
             // Đảm bảo message là rỗng
             setMessage('');
+
+            console.log('Đã gọi onSendMessage thành công');
+        } catch (error) {
+            console.error('Lỗi khi gọi onSendMessage:', error);
+            Alert.alert('Lỗi', 'Không thể gửi tin nhắn: ' + error.message);
         }
     };
+
+
 
     const renderTabContent = () => {
         if (!activeTab) return null;
@@ -315,6 +349,21 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
                         </ScrollView>
                     </View>
                 )}
+
+                {activeTab === 'files' && (
+                    <XStack flex={1} alignItems="center" justifyContent="center">
+                        <FileGallery
+                            onFileSelect={(file) => {
+                                setHasSelectedFile(!!file);
+                                if (!file) {
+                                    setMessage('');
+                                }
+                            }}
+                            onSendFile={handleSendFile}
+                        />
+                    </XStack>
+                )}
+
                 {activeTab === 'duplicate' && (
                     <XStack flex={1} alignItems="center" justifyContent="center">
                         <Ionicons name="duplicate-outline" size={50} color="#65676b" />
@@ -338,6 +387,53 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
                 )}
             </YStack>
         );
+    };
+
+    const handleSendFile = (fileData) => {
+        if (fileData) {
+            // Kiểm tra loại file để gửi đúng type
+            const getFileType = (fileData) => {
+                const { type, name } = fileData;
+
+                // Kiểm tra mimeType trước
+                if (type) {
+                    if (type.startsWith('video/')) {
+                        return 'VIDEO';
+                    }
+                    if (type.startsWith('image/')) {
+                        return 'IMAGE';
+                    }
+                }
+
+                // Fallback kiểm tra extension
+                if (name) {
+                    const extension = name.toLowerCase().split('.').pop();
+                    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp', 'm4v'];
+                    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff'];
+
+                    if (videoExtensions.includes(extension)) {
+                        return 'VIDEO';
+                    }
+                    if (imageExtensions.includes(extension)) {
+                        return 'IMAGE';
+                    }
+                }
+
+                return 'RAW';
+            };
+
+            const fileType = getFileType(fileData);
+
+            onSendMessage({
+                type: fileType,
+                content: "", // Content luôn rỗng
+                mediaData: fileData // Truyền fileData riêng
+            });
+
+            closeBottomSheet();
+            setHasSelectedFile(false);
+            setMessage('');
+        }
     };
 
     return (
@@ -447,13 +543,22 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
                                 paddingHorizontal: 5,
                                 paddingVertical: 5
                             }}>
-                                <Pressable onPress={() => toggleTab('duplicate')}>
+
+                                <Pressable onPress={() => toggleTab('files')}>
+                                    <Ionicons
+                                        name="attach-outline"
+                                        size={30}
+                                        color={activeTab === 'files' ? '#0084ff' : '#65676b'}
+                                    />
+                                </Pressable>
+
+                                {/* <Pressable onPress={() => toggleTab('duplicate')}>
                                     <Ionicons
                                         name="duplicate-outline"
                                         size={30}
                                         color={activeTab === 'duplicate' ? '#0084ff' : '#65676b'}
                                     />
-                                </Pressable>
+                                </Pressable> */}
 
                                 <Pressable onPress={() => toggleTab('images')}>
                                     <Ionicons
