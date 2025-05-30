@@ -408,20 +408,39 @@ const MessageList = React.forwardRef(({
         );
     };
 
-    const renderEmptyComponent = () => (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Text fontSize={16} color="#666" textAlign="center">
-                Chưa có tin nhắn nào
-            </Text>
-            <Text fontSize={14} color="#999" textAlign="center" marginTop={8}>
-                Hãy bắt đầu cuộc trò chuyện!
-            </Text>
-        </View>
-    );
+    // const renderEmptyComponent = () => (
+    //     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, transform: [{ scaleY: -1 }] }}>
+    //         <Text fontSize={16} color="#666" textAlign="center">
+    //             Chưa có tin nhắn nào
+    //         </Text>
+    //         <Text fontSize={14} color="#999" textAlign="center" marginTop={8}>
+    //             Hãy bắt đầu cuộc trò chuyện!
+    //         </Text>
+    //     </View>
+    // );
 
 
     if (isLoading) {
         return <MessageListSkeleton />;
+    }
+
+    if (!messages || messages.length === 0) {
+        return (
+            <ImageBackground
+                source={require('../../assets/bgr_mess.jpg')}
+                style={styles.backgroundImage}
+                resizeMode="cover"
+            >
+                <View style={styles.emptyStateContainer}>
+                    <Text style={styles.emptyStateTitle}>
+                        Chưa có tin nhắn nào
+                    </Text>
+                    <Text style={styles.emptyStateSubtitle}>
+                        Hãy bắt đầu cuộc trò chuyện!
+                    </Text>
+                </View>
+            </ImageBackground>
+        );
     }
 
     return (
@@ -446,7 +465,7 @@ const MessageList = React.forwardRef(({
                 onEndReached={loadMore}
                 onEndReachedThreshold={0.05}
                 ListFooterComponent={renderLoadMoreIndicator}
-                ListEmptyComponent={renderEmptyComponent}
+                // ListEmptyComponent={renderEmptyComponent}
                 extraData={forceUpdate}
                 refreshControl={
                     <RefreshControl
@@ -542,6 +561,24 @@ const styles = StyleSheet.create({
     backgroundImage: {
         flex: 1,
         width: '100%',
+    },
+    emptyStateContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    emptyStateTitle: {
+        fontSize: 16,
+        color: "#000",
+        textAlign: "center",
+        fontWeight: "600"
+    },
+    emptyStateSubtitle: {
+        fontSize: 14,
+        color: "#000",
+        textAlign: "center",
+        marginTop: 8
     }
 });
 

@@ -7,7 +7,7 @@ import { ENDPOINTS } from '~/service/api.endpoint';
 import apiService from '~/service/api.service';
 import { setEmailInSecureStore } from '~/utils/token';
 import { RegisterRequest, RegisterRequestSchema, RegisterRespone } from '../../types/auth.register';
-
+import { ToastAndroid } from 'react-native';
 export default function Register() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);

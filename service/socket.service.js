@@ -228,6 +228,39 @@ class SocketService {
         this.socket.emit('close', { profileId, groupId });
     }
 
+    // Thêm vào phần "EMIT EVENTS (CLIENT TO SERVER)"
+
+    /**
+     * Emit event để hủy lời mời kết bạn
+     * @param {string} friendshipId - ID của lời mời kết bạn cần hủy
+     * @returns {Promise<Object>} - Kết quả từ server
+     */
+    emitCancelFriendRequest(friendshipId) {
+        if (!this.socket?.connected) {
+            console.log('Socket không kết nối, không thể hủy lời mời kết bạn');
+            return Promise.reject(new Error('Socket chưa kết nối'));
+        }
+
+        console.log('Emitting deleteFriend event với friendShipId:', friendshipId);
+
+        return new Promise((resolve, reject) => {
+            this.socket.emit("deleteFriend", {
+                friendShipId: friendshipId
+            }, (response) => {
+                console.log('Server response for cancelFriendRequest:', response);
+                if (response?.success) {
+                    resolve({
+                        success: true,
+                        message: "Đã hủy lời mời kết bạn thành công",
+                        friendshipId
+                    });
+                } else {
+                    reject(response?.message || "Không thể hủy lời mời kết bạn");
+                }
+            });
+        });
+    }
+
     /**
      * Register for a chat (combined register + handleGroup)
      * @param {string} profileId - User profile ID

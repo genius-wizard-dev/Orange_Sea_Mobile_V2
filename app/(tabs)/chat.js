@@ -15,6 +15,7 @@ import { useRoute } from '@react-navigation/native';
 import ChatItemSkeleton from '../../components/loading/ChatItemSkeleton';
 import { Button } from 'tamagui';
 
+
 const Chat = () => {
   const router = useRouter();
   const route = useRoute();

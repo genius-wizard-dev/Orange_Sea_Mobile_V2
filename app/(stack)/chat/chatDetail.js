@@ -508,6 +508,9 @@ const ChatDetail = () => {
 
                 return { success: true, data: response.data };
             } else {
+                Alert.alert('Thông báo', response?.error || response?.message || 'Gửi tin nhắn thất bại');
+
+
                 throw new Error(response?.message || 'Gửi tin nhắn thất bại');
             }
         } catch (error) {

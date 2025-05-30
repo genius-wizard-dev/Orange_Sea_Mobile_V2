@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { 
-    sendFriendRequest, 
-    getFriendList, 
+import {
+    sendFriendRequest,
+    getFriendList,
     getReceivedRequests,
     handleFriendRequest,
     deleteFriend,
@@ -49,8 +49,13 @@ const friendSlice = createSlice({
             .addCase(sendFriendRequest.fulfilled, (state, action) => {
                 state.loading = false;
                 // Thêm request mới vào danh sách đã gửi
-                if (action.payload.data) {
-                    state.sentRequests.push(action.payload.data);
+                if (state.sentRequests && state.sentRequests.data) {
+                    state.sentRequests.data.push(action.payload.data);
+                } else {
+                    // Khởi tạo cấu trúc nếu chưa có
+                    state.sentRequests = {
+                        data: [action.payload.data]
+                    };
                 }
             })
             .addCase(sendFriendRequest.rejected, (state, action) => {
@@ -73,9 +78,19 @@ const friendSlice = createSlice({
             })
             // Handle deleteFriend
             .addCase(deleteFriend.fulfilled, (state, action) => {
-                state.friends = state.friends.filter(
-                    friend => friend.id !== action.payload.friendshipId
-                );
+                // Kiểm tra cấu trúc dữ liệu trước khi xử lý
+                if (state.friends && state.friends.data) {
+                    // Lọc ra các bạn bè không có friendshipId trùng với đối tượng bị xóa
+                    state.friends.data = state.friends.data.filter(
+                        friend => friend.id !== action.payload.friendshipId
+                    );
+                }
+
+                // Cập nhật friendshipStatus nếu ID người dùng liên quan đến bạn bè bị xóa
+                if (action.payload.profileId && state.friendshipStatus &&
+                    state.friendshipStatus.profileId === action.payload.profileId) {
+                    state.friendshipStatus.isFriend = false;
+                }
             })
             // Handle getSentRequests
             .addCase(getSentRequests.pending, (state) => {

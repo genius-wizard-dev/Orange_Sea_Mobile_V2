@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import HeaderLeft from "../../components/header/HeaderLeft";
+import HeaderLeft from "../../components/header/HeaderLeft.js";
 // import { TransitionPresets } from '@react-navigation/stack';
 
 export default function StackLayout() {

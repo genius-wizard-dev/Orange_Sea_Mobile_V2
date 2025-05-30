@@ -1,4 +1,4 @@
-import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ToastAndroid } from 'react-native'
 import React, { useState, useEffect, useMemo } from 'react'
 import HeaderLeft from '../../../components/header/HeaderLeft'
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { getGroupDetail } from '../../../redux/thunks/group';
 import { getFriendList } from '../../../redux/thunks/friend';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
 import DefaultAvatar from '../../../components/chat/DefaultAvatar';
+
 
 const AddParticipant = () => {
     const router = useRouter();
@@ -46,9 +47,9 @@ const AddParticipant = () => {
     }, [groupId, dispatch, groupDetails]);
 
 
-    console.log("groupId:", groupId);
+    // console.log("groupId:", groupId);
 
-    console.log("groupDetails[groupId] : ", groupDetails[groupId])
+    // console.log("groupDetails[groupId] : ", groupDetails[groupId])
 
 
 
@@ -68,12 +69,12 @@ const AddParticipant = () => {
         fetchFriendList();
     }, [dispatch]);
 
-    console.log("friends : ", friends)
+    // console.log("friends : ", friends)
 
     const getContacts = () => {
-        if (!friends.data) return [];
+        if (!friends?.data) return [];
 
-        return friends.data.map(friend => {
+        return friends?.data?.map(friend => {
             return {
                 id: friend.profileId,
                 name: friend.name,
@@ -84,7 +85,7 @@ const AddParticipant = () => {
 
     const getExistingParticipantIds = () => {
         if (groupDetails[groupId]?.participants) {
-            return groupDetails[groupId].participants.map(p => p.profileId);
+            return groupDetails[groupId].participants?.map(p => p.profileId);
         }
         return [];
     };
@@ -118,7 +119,7 @@ const AddParticipant = () => {
 
     const isParticipantInGroup = (contactId) => {
         const existingIds = getExistingParticipantIds();
-        return existingIds.includes(contactId);
+        return existingIds?.includes(contactId);
     };
 
     const contacts = getContacts();
@@ -140,8 +141,8 @@ const AddParticipant = () => {
         }
     };
 
-    console.log("contacts ", contacts)
-    console.log("groupDetails[groupId] ", groupDetails[groupId])
+    // console.log("contacts ", contacts)
+    // console.log("groupDetails[groupId] ", groupDetails[groupId])
 
     const handleAddParticipants = async () => {
         if (selectedContacts.length === 0) return;
@@ -150,9 +151,10 @@ const AddParticipant = () => {
 
         try {
             // Chuẩn bị dữ liệu theo định dạng API yêu cầu
-            const participantIds = selectedContacts.map(contact => contact.id);
+            const participantIds = selectedContacts?.map(contact => contact.id);
 
             console.log("Chuẩn bị gửi API thêm thành viên:", participantIds);
+            console.log("Chuẩn bị gửi API thêm thành viên với groupId :", groupId);
 
             // Gọi API để thêm thành viên với định dạng đúng
             const result = await dispatch(addParticipant({
@@ -163,21 +165,13 @@ const AddParticipant = () => {
             // console.log("Kết quả API thêm thành viên:", result);
 
             // Kiểm tra kết quả từ API - API trả về thông tin nhóm đầy đủ nếu thành công
-            if (result && result.id) {
+            if (result && result.data?.groupId) {
                 // Xóa danh sách người đã chọn sau khi thêm thành công
                 setSelectedContacts([]);
+                ToastAndroid.show("Thêm thành viên " + participantIds.length + " thành công", ToastAndroid.SHORT);
 
-                // Cập nhật lại danh sách thành viên hiện tại từ API
-                if (groupId) {
-                    await dispatch(getGroupDetail(groupId));
-                }
+                await dispatch(getGroupDetail(groupId));
 
-                // Hiển thị thông báo thành công (không điều hướng)
-                Alert.alert(
-                    'Thành công',
-                    `Đã thêm ${participantIds.length} thành viên vào nhóm.`,
-                    [{ text: 'OK' }] // Loại bỏ hành động điều hướng khi nhấn OK
-                );
             } else {
                 // Xử lý trường hợp API trả về lỗi
                 Alert.alert(
@@ -204,10 +198,10 @@ const AddParticipant = () => {
             // Khi dữ liệu nhóm được cập nhật, cũng cần kiểm tra lại selectedContacts
             // để loại bỏ những người đã được thêm vào nhóm
             if (selectedContacts.length > 0) {
-                const updatedParticipantIds = groupDetails[groupId].participants.map(p => p.userId);
+                const updatedParticipantIds = groupDetails[groupId].participants?.map(p => p.userId);
                 // Lọc ra các liên hệ chưa được thêm vào nhóm
                 const filteredContacts = selectedContacts.filter(
-                    contact => !updatedParticipantIds.includes(contact.id)
+                    contact => !updatedParticipantIds?.includes(contact.id)
                 );
 
                 // Nếu có sự thay đổi trong danh sách, cập nhật lại state
@@ -250,7 +244,7 @@ const AddParticipant = () => {
             <Text color="gray" fontSize="$4" paddingHorizontal="$4" paddingVertical="$2" backgroundColor="#f5f5f5">
                 {letter}
             </Text>
-            {contactsInGroup.map(contact => renderContactItem(contact))}
+            {contactsInGroup?.map(contact => renderContactItem(contact))}
         </View>
     );
 

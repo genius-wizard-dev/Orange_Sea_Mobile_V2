@@ -33,6 +33,7 @@ import {
   setAccessToken,
   setRefreshToken,
 } from '~/utils/token';
+import { ToastAndroid } from 'react-native';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -82,6 +83,7 @@ export default function Login() {
         if (profileRes.statusCode === 200 && profileRes.data) {
           setUsername('');
           setPassword('');
+          ToastAndroid.show("Đăng nhập thành công", ToastAndroid.SHORT);
           router.replace('/');
         }
 
