@@ -1,5 +1,5 @@
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { View, ImageBackground, Alert } from 'react-native';
+import { View, ImageBackground, Alert, ToastAndroid } from 'react-native';
 import { Avatar, YStack, XStack, Text, Button, Spinner } from 'tamagui';
 import { useEffect, useState } from 'react';
 import { ENDPOINTS } from '../../../service/api.endpoint';
@@ -8,7 +8,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSelector, useDispatch } from 'react-redux';
 import { getProfile } from '~/redux/thunks/profile';
 import HeaderLeft from '~/components/header/HeaderLeft';
-import { checkFriendshipStatus, sendFriendRequest, deleteFriend, getSentRequests, getReceivedRequests, handleFriendRequest } from '~/redux/thunks/friend';
+import {
+  checkFriendshipStatus, sendFriendRequest, deleteFriend,
+  getSentRequests, getReceivedRequests, handleFriendRequest, getFriendList
+} from '~/redux/thunks/friend';
 import DefaultAvatar from '~/components/chat/DefaultAvatar';
 
 const LoadingButton = () => (
@@ -33,7 +36,9 @@ const LoadingButton = () => (
 export default function Info() {
   const dispatch = useDispatch();
   const { profile } = useSelector((state) => state.profile);
-  const { loading: friendLoading, sentRequests, sentRequestsLoading, receivedRequests, friendshipStatus: reduxFriendshipStatus } = useSelector((state) => state.friend);
+  const { loading: friendLoading, friends,
+    sentRequests, sentRequestsLoading, receivedRequests,
+    friendshipStatus: reduxFriendshipStatus } = useSelector((state) => state.friend);
   const params = useLocalSearchParams();
   const router = useRouter();
   const [info, setInfo] = useState(null);
@@ -80,11 +85,11 @@ export default function Info() {
         const isOwnProfile = profileResult?.id === id;
         if (!isOwnProfile) {
           const statusResult = await dispatch(checkFriendshipStatus(id)).unwrap();
-          // console.log('Full status result:', statusResult); // Thêm log chi tiết hơn
 
           await Promise.all([
             dispatch(getSentRequests()),
-            dispatch(getReceivedRequests())
+            dispatch(getReceivedRequests()),
+            dispatch(getFriendList()) // Thêm vào đây để lấy danh sách bạn bè
           ]);
         }
       } catch (error) {
@@ -118,7 +123,7 @@ export default function Info() {
       // console.log(result, 'Send Friend Request Result'); // Debug log
 
       if (result) {
-        Alert.alert('Thông báo', 'Gửi lời mời kết bạn thành công');
+        ToastAndroid.show("Đã gửi lời mời kết bạn", ToastAndroid.SHORT);
         await dispatch(getSentRequests());
 
       } else {
@@ -140,7 +145,7 @@ export default function Info() {
       })).unwrap();
 
       if (result.statusCode === 200) {
-        Alert.alert('Thông báo', 'Đã chấp nhận lời mời kết bạn');
+        ToastAndroid.show("Đã chấp nhận lời mời kết bạn", ToastAndroid.SHORT);
         // Cập nhật lại friendshipStatus
         setFriendshipStatus({
           isFriend: true,
@@ -170,7 +175,7 @@ export default function Info() {
       })).unwrap();
 
       if (result.statusCode === 200) {
-        Alert.alert('Thông báo', 'Đã từ chối lời mời kết bạn');
+        ToastAndroid.show("Đã từ chối lời mời kết bạn", ToastAndroid.SHORT);
         // Refresh lại trạng thái
         await Promise.all([
           dispatch(checkFriendshipStatus(id)),
@@ -185,6 +190,122 @@ export default function Info() {
       setIsHandlingRequest(false);
     }
   };
+
+
+  const handleCancelRequest = async () => {
+    try {
+      // Tìm request id từ danh sách đã gửi
+      const sentRequest = sentRequests?.data?.find(request => request.profileId === id);
+
+      if (!sentRequest) {
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin lời mời kết bạn');
+        return;
+      }
+
+      // Hiển thị loading
+      setIsSending(true);
+
+      // Gọi thunk để hủy lời mời
+      const result = await dispatch(deleteFriend(sentRequest.id)).unwrap();
+
+      console.log('Cancel request result:', result);
+
+      if (result && result.success) {
+        // Hiển thị thông báo thành công
+        ToastAndroid.show("Đã huỷ lời mời kết bạn", ToastAndroid.SHORT);
+
+        // Cập nhật lại danh sách lời mời đã gửi
+        await dispatch(getSentRequests());
+
+        // Cập nhật lại trạng thái kết bạn
+        await dispatch(checkFriendshipStatus(id));
+      } else {
+        Alert.alert('Lỗi', 'Không thể huỷ lời mời kết bạn');
+      }
+    } catch (error) {
+      console.error('Error cancelling request:', error);
+      Alert.alert(
+        'Lỗi',
+        error?.message || 'Có lỗi xảy ra khi huỷ lời mời kết bạn'
+      );
+    } finally {
+      // Tắt loading
+      setIsSending(false);
+    }
+  };
+
+
+  const handleCancelFriendship = async () => {
+    try {
+      // Tìm thông tin bạn bè và friendshipId từ danh sách bạn bè
+      const friendList = friends?.data || [];
+      const friendship = friendList.find(friend => friend.profileId === id);
+
+      if (!friendship) {
+        console.log('Không tìm thấy thông tin bạn bè trong danh sách');
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin bạn bè để huỷ kết bạn');
+        return;
+      }
+
+      // Lấy friendshipId từ field id của đối tượng tìm được
+      const friendshipId = friendship.id;
+      console.log('Đã tìm thấy friendshipId:', friendshipId);
+
+      // Hiển thị confirmation dialog trước khi huỷ kết bạn
+      Alert.alert(
+        "Xác nhận huỷ kết bạn",
+        `Bạn có chắc chắn muốn huỷ kết bạn với ${info?.name || "người dùng này"}?`,
+        [
+          {
+            text: "Huỷ",
+            style: "cancel"
+          },
+          {
+            text: "Xác nhận",
+            style: "destructive",
+            onPress: async () => {
+              // Hiển thị loading
+              setIsSending(true);
+
+              try {
+                // Gọi thunk để huỷ kết bạn, dùng chung với huỷ lời mời
+                const result = await dispatch(deleteFriend(friendshipId)).unwrap();
+
+                console.log('Cancel friendship result:', result);
+
+                if (result && result.success) {
+                  // Hiển thị thông báo thành công
+                  ToastAndroid.show("Đã huỷ kết bạn thành công", ToastAndroid.SHORT);
+
+                  // Cập nhật lại trạng thái kết bạn và danh sách bạn bè
+                  await Promise.all([
+                    dispatch(checkFriendshipStatus(id)),
+                    dispatch(getFriendList())
+                  ]);
+                } else {
+                  Alert.alert('Lỗi', 'Không thể huỷ kết bạn');
+                }
+              } catch (error) {
+                console.error('Error cancelling friendship:', error);
+                Alert.alert(
+                  'Lỗi',
+                  error?.message || 'Có lỗi xảy ra khi huỷ kết bạn'
+                );
+              } finally {
+                // Tắt loading
+                setIsSending(false);
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleCancelFriendship:', error);
+    }
+  };
+
+
+
 
   const renderFriendshipButton = () => {
     if (isOwnProfile) return null;
@@ -252,6 +373,7 @@ export default function Info() {
     // console.log('Current friendshipStatus:', friendshipStatus); // Debug log
 
     // Use reduxFriendshipStatus instead of local state
+    // Trong phần renderFriendshipButton, thay đổi cách gọi handleCancelFriendship
     if (reduxFriendshipStatus?.isFriend) {
       return (
         <XStack space={10} flex={1}>
@@ -270,13 +392,21 @@ export default function Info() {
           </Button>
           <Button
             flex={1}
-            backgroundColor="#E94057"
+            backgroundColor="#f0f0f0"
             borderRadius={15}
             padding={7}
+            onPress={handleCancelFriendship} // Không cần truyền friendshipId nữa
+            disabled={isSending}
           >
-            <XStack alignItems="center" space={5}>
-              <Ionicons name="chatbubble-outline" size={20} color="white" />
-              <Text color="white">Nhắn tin</Text>
+            <XStack alignItems="center" space={5} justifyContent="center">
+              {isSending ? (
+                <Spinner size="small" color="#FF3B30" />
+              ) : (
+                <Ionicons name="person-remove-outline" size={20} color="#FF3B30" />
+              )}
+              <Text color="#FF3B30">
+                {isSending ? "Đang huỷ..." : "Huỷ kết bạn"}
+              </Text>
             </XStack>
           </Button>
         </XStack>
@@ -288,20 +418,41 @@ export default function Info() {
 
     if (hasSentRequest) {
       return (
-        <Button
-          flex={1}
-          backgroundColor="white"
-          borderWidth={1}
-          borderColor="#666"
-          borderRadius={15}
-          padding={7}
-          disabled={true}
-        >
-          <XStack alignItems="center" space={5}>
-            <Ionicons name="time-outline" size={20} color="#666" />
-            <Text color="#666">Đã gửi lời mời</Text>
-          </XStack>
-        </Button>
+        <XStack space={10} flex={1}>
+          <Button
+            flex={1}
+            backgroundColor="white"
+            borderWidth={1}
+            borderColor="#666"
+            borderRadius={15}
+            padding={7}
+            disabled={true}
+          >
+            <XStack alignItems="center" space={5}>
+              <Ionicons name="time-outline" size={20} color="#666" />
+              <Text color="#666">Đã gửi lời mời</Text>
+            </XStack>
+          </Button>
+          <Button
+            flex={1}
+            backgroundColor="#f0f0f0"
+            borderRadius={15}
+            padding={7}
+            onPress={handleCancelRequest}
+            disabled={isSending}
+          >
+            <XStack alignItems="center" space={5} justifyContent="center">
+              {isSending ? (
+                <Spinner size="small" color="#FF3B30" />
+              ) : (
+                <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
+              )}
+              <Text color="#FF3B30">
+                {isSending ? "Đang hủy..." : "Huỷ lời mời"}
+              </Text>
+            </XStack>
+          </Button>
+        </XStack>
       );
     }
 
@@ -352,7 +503,7 @@ export default function Info() {
     </YStack>
   );
 
-  console.log(sentRequests, 'Sent Requests');
+  // console.log(sentRequests, 'Sent Requests');
 
   // Sửa lại điều kiện loading
   if (loading || !profile || !isDataLoaded) {

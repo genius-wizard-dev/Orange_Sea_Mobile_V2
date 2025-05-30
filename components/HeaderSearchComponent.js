@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
         paddingRight: 15,
         paddingLeft: 15,
         flexDirection: "row",
-        borderBottomColor: "#eaeaea",
-        borderWidth: 1
+        // borderBottomColor: "#eaeaea",
+        // borderWidth: 1
     },
     lineSeNavi: {
         height: "100%",

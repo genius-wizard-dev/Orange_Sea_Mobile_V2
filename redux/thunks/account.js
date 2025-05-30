@@ -5,21 +5,16 @@ import apiService from '../../service/api.service';
 
 export const updatePassword = createAsyncThunk(
   'account/updatePassword',
-  async ({ id, currentPassword, newPassword }, { rejectWithValue }) => {
+  async ({ currentPassword, newPassword }, { rejectWithValue }) => {
     try {
-
-      // console.log(id, currentPassword, newPassword)
-
-
+      // Gọi API không cần truyền ID (ID sẽ được xác định từ token)
       const res = await apiService.put(
-        ENDPOINTS.ACCOUNT.PASSWORD(id),
+        ENDPOINTS.ACCOUNT.PASSWORD,
         { currentPassword, newPassword }
       );
-
-      // console.log(res)
       
       if (res.status === 'fail' || res.status === 'error') {
-        throw new Error(res.message  || 'Mật khẩu cũ không chính xác');
+        throw new Error(res.message || 'Mật khẩu cũ không chính xác');
       }
       return res;
     } catch (error) {

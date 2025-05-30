@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { 
-    sendFriendRequest, 
-    getFriendList, 
+import {
+    sendFriendRequest,
+    getFriendList,
     getReceivedRequests,
     handleFriendRequest,
     deleteFriend,
@@ -17,14 +17,63 @@ const initialState = {
     sentRequests: [],
     friendshipStatus: null,
     sentRequestsLoading: false,
+    onlineFriends: [],  //lưu trữ danh sách bạn bè online
+    offlineFriends: [],// lưu trữ danh sách bạn bè offline
+    refreshTrigger: 0,
 };
 
 const friendSlice = createSlice({
     name: 'friend',
     initialState,
-    reducers: {},
+    reducers: {
+        statusUpdated: (state, action) => {
+            const { online, offline } = action.payload;
+            if (Array.isArray(online)) {
+                state.onlineFriends = online;
+            }
+            if (Array.isArray(offline)) {
+                state.offlineFriends = offline;
+            }
+        },
+
+        // Cập nhật trạng thái của một người dùng (từ socket friendOnline/friendOffline)
+        userStatusChanged: (state, action) => {
+            const { profileId, isOnline } = action.payload;
+
+            if (profileId) {
+                // Nếu online, thêm vào danh sách online và loại bỏ khỏi danh sách offline (nếu có)
+                if (isOnline) {
+                    if (!state.onlineFriends.includes(profileId)) {
+                        state.onlineFriends.push(profileId);
+                    }
+                    state.offlineFriends = state.offlineFriends.filter(id => id !== profileId);
+                }
+                // Nếu offline, thêm vào danh sách offline và loại bỏ khỏi danh sách online (nếu có)
+                else {
+                    if (!state.offlineFriends.includes(profileId)) {
+                        state.offlineFriends.push(profileId);
+                    }
+                    state.onlineFriends = state.onlineFriends.filter(id => id !== profileId);
+                }
+            }
+        },
+
+        // Trigger refresh friend list
+        triggerFriendListRefresh: (state) => {
+            state.refreshTrigger += 1;
+        },
+    },
     extraReducers: (builder) => {
         builder
+            .addCase('friend/statusUpdated', (state, action) => {
+                const { online, offline } = action.payload;
+                if (Array.isArray(online)) {
+                    state.onlineFriends = online;
+                }
+                if (Array.isArray(offline)) {
+                    state.offlineFriends = offline;
+                }
+            })
             // Handle getFriendList
             .addCase(getFriendList.pending, (state) => {
                 state.loading = true;
@@ -49,8 +98,13 @@ const friendSlice = createSlice({
             .addCase(sendFriendRequest.fulfilled, (state, action) => {
                 state.loading = false;
                 // Thêm request mới vào danh sách đã gửi
-                if (action.payload.data) {
-                    state.sentRequests.push(action.payload.data);
+                if (state.sentRequests && state.sentRequests.data) {
+                    state.sentRequests.data.push(action.payload.data);
+                } else {
+                    // Khởi tạo cấu trúc nếu chưa có
+                    state.sentRequests = {
+                        data: [action.payload.data]
+                    };
                 }
             })
             .addCase(sendFriendRequest.rejected, (state, action) => {
@@ -73,9 +127,19 @@ const friendSlice = createSlice({
             })
             // Handle deleteFriend
             .addCase(deleteFriend.fulfilled, (state, action) => {
-                state.friends = state.friends.filter(
-                    friend => friend.id !== action.payload.friendshipId
-                );
+                // Kiểm tra cấu trúc dữ liệu trước khi xử lý
+                if (state.friends && state.friends.data) {
+                    // Lọc ra các bạn bè không có friendshipId trùng với đối tượng bị xóa
+                    state.friends.data = state.friends.data.filter(
+                        friend => friend.id !== action.payload.friendshipId
+                    );
+                }
+
+                // Cập nhật friendshipStatus nếu ID người dùng liên quan đến bạn bè bị xóa
+                if (action.payload.profileId && state.friendshipStatus &&
+                    state.friendshipStatus.profileId === action.payload.profileId) {
+                    state.friendshipStatus.isFriend = false;
+                }
             })
             // Handle getSentRequests
             .addCase(getSentRequests.pending, (state) => {
@@ -99,8 +163,11 @@ const friendSlice = createSlice({
             })
             .addCase(checkFriendshipStatus.rejected, (state, action) => {
                 state.error = action.payload;
-            });
+            })
+
+
     },
 });
+export const { statusUpdated, userStatusChanged, triggerFriendListRefresh } = friendSlice.actions;
 
 export default friendSlice.reducer;

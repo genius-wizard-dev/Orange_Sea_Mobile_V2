@@ -12,6 +12,7 @@ const MessageOptionsPopover = ({
     onRecall,
     onDelete,
     onEdit,
+    onForward,
     isMyMessage,
     isRecalled,
     children,
@@ -93,6 +94,16 @@ const MessageOptionsPopover = ({
         }
     };
 
+    const handleForward = async () => {
+        try {
+            onClose();
+            onForward();
+        } catch (error) {
+            console.error('Error forwarding message:', error);
+            onClose();
+        }
+    };
+
     return (
         <>
             <Popover open={isOpen} onOpenChange={onClose}>
@@ -101,7 +112,7 @@ const MessageOptionsPopover = ({
                         style={{
                             zIndex: isOpen ? 10000 : 0,
                             borderWidth: isOpen ? 2 : 0,
-                            borderColor: isOpen ? '#FF7A1E' : 'transparent',    
+                            borderColor: isOpen ? '#FF7A1E' : 'transparent',
                             borderRadius: 12,
                             backgroundColor: isOpen ? 'rgba(128,128,128,0.05)' : 'transparent',
                         }}
@@ -142,10 +153,10 @@ const MessageOptionsPopover = ({
                         }}
                     >
                         <YStack space="$3">
-                            {!isRecalled && message.type!=="RAW" && <Button
+                            {!isRecalled && message.type !== "RAW" && <Button
                                 size="$4"
                                 onPress={handleCopy}
-                                iconAfter={<Ionicons name="copy-outline" size={20} color="#9CA3AF"/>}
+                                iconAfter={<Ionicons name="copy-outline" size={20} color="#9CA3AF" />}
                                 justifyContent="space-between"
                             >
                                 Sao chép
@@ -156,9 +167,9 @@ const MessageOptionsPopover = ({
                                     size="$4"
                                     onPress={handleEdit}
                                     disabled={isEditing}
-                                    iconAfter={isEditing ? 
-                                        <ActivityIndicator size="small" color="#FF7A1E" /> : 
-                                        <Ionicons name="pencil-outline" size={20} color="#3B82F6"/>
+                                    iconAfter={isEditing ?
+                                        <ActivityIndicator size="small" color="#FF7A1E" /> :
+                                        <Ionicons name="pencil-outline" size={20} color="#3B82F6" />
                                     }
                                     justifyContent="space-between"
                                 >
@@ -171,9 +182,9 @@ const MessageOptionsPopover = ({
                                     size="$4"
                                     onPress={handleRecall}
                                     disabled={isRecalling}
-                                    iconAfter={isRecalling ? 
-                                        <ActivityIndicator size="small" color="#FF7A1E" /> : 
-                                        <Ionicons name="refresh-outline" size={20} color="#EF4444"/>
+                                    iconAfter={isRecalling ?
+                                        <ActivityIndicator size="small" color="#FF7A1E" /> :
+                                        <Ionicons name="refresh-outline" size={20} color="#EF4444" />
                                     }
                                     justifyContent="space-between"
                                 >
@@ -185,8 +196,8 @@ const MessageOptionsPopover = ({
                                 size="$4"
                                 onPress={handleDelete}
                                 disabled={isDeleting}
-                                iconAfter={isDeleting ? 
-                                    <ActivityIndicator size="small" color="#FF7A1E" /> : 
+                                iconAfter={isDeleting ?
+                                    <ActivityIndicator size="small" color="#FF7A1E" /> :
                                     <Ionicons name="trash-outline" size={20} color="#EF4444" />
                                 }
                                 justifyContent="space-between"
@@ -196,8 +207,8 @@ const MessageOptionsPopover = ({
 
                             {!isRecalled && <Button
                                 size="$4"
-                                onPress={onClose}
-                                iconAfter={<Ionicons name="arrow-redo-outline" size={20} color="#3B82F6"/>}
+                                onPress={handleForward}
+                                iconAfter={<Ionicons name="arrow-redo-outline" size={20} color="#3B82F6" />}
                                 justifyContent="space-between"
                             >
                                 Chuyển tiếp

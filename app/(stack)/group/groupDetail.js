@@ -1,14 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute, useNavigation, CommonActions } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome, Feather, AntDesign } from '@expo/vector-icons';
-import { Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Image, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, ToastAndroid } from 'react-native';
 import { View, Text, XStack, YStack, ScrollView, Separator, Switch, Button, Input, Adapt, Sheet } from 'tamagui';
 import HeaderLeft from '../../../components/header/HeaderLeft';
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { deleteGroup, getGroupDetail, renameGroup } from '../../../redux/thunks/group';
+import { deleteGroup, getGroupDetail, leaveGroup, renameGroup } from '../../../redux/thunks/group';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
 import EditNamePopover from '../../../components/group/EditNamePopover';
+import { set } from 'zod';
 
 const GroupDetail = () => {
     const { goBackTo } = useLocalSearchParams();
@@ -16,6 +17,7 @@ const GroupDetail = () => {
     const navigation = useNavigation();
     const router = useRouter(); // Thêm useRouter
     const dispatch = useDispatch();
+    const [isLoading, setIsLoading] = useState(false);
 
     // Lấy dataDetail từ params hoặc từ Redux store
 
@@ -25,7 +27,7 @@ const GroupDetail = () => {
     const { profile } = useSelector((state) => state.profile);
 
     // console.log("groupId ", groupId)
-    console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
+    // console.log("groupDetails", JSON.stringify(groupDetails[groupId], null, 2));
     // console.log("profile ", profile)
 
 
@@ -43,7 +45,7 @@ const GroupDetail = () => {
             // Kiểm tra vai trò của người dùng hiện tại
             if (groupDetail.participants) {
                 const currentUserParticipant = groupDetail.participants.find(
-                    p => p.user?.id === profile?.id
+                    p => p.profileId === profile?.id
                 );
                 setIsOwner(currentUserParticipant?.role === "OWNER");
             }
@@ -63,7 +65,7 @@ const GroupDetail = () => {
                         // Kiểm tra vai trò của người dùng hiện tại
                         if (data.participants) {
                             const currentUserParticipant = data.participants.find(
-                                p => p.user?.id === profile?.id
+                                p => p.profileId === profile?.id
                             );
                             setIsOwner(currentUserParticipant?.role === "OWNER");
                         }
@@ -98,7 +100,7 @@ const GroupDetail = () => {
                             ...currentData,
                             name: name
                         });
-                        alert('Đổi tên nhóm thành công!');
+                        ToastAndroid.show("Đổi tên nhóm thành công", ToastAndroid.SHORT);
                         return Promise.resolve();
                     } else {
                         console.error('Lỗi đổi tên nhóm:', result);
@@ -209,6 +211,55 @@ const GroupDetail = () => {
         );
     };
 
+    const handleLeaveGroup = () => {
+        // Hiển thị loading
+        setIsLoading(true);
+
+        // Gọi thunk đúng cách với unwrap() để bắt lỗi
+        dispatch(leaveGroup(groupId))
+            .unwrap() // Quan trọng: dùng unwrap() để có thể sử dụng then/catch
+            .then((response) => {
+                console.log("Kết quả rời nhóm thành công:", response);
+
+                // Hiển thị thông báo thành công
+                ToastAndroid.show("Đã rời khỏi nhóm", ToastAndroid.SHORT);
+
+                // Điều hướng về tab chat
+                setTimeout(() => {
+                    router.replace('/(tab)/chat');
+                }, 300);
+            })
+            .catch((error) => {
+                console.log("Error object:", error);
+
+                // Lấy thông tin lỗi từ response
+                const errorMessage = error?.response?.error ||
+                    "Bạn là trưởng nhóm, cần phải chuyển quyền cho người khác trước khi rời nhóm.";
+
+                // Hiển thị Alert với thông báo lỗi từ API
+                Alert.alert(
+                    "Không thể rời khỏi nhóm",
+                    errorMessage,
+                    [{
+                        text: "Quản lý thành viên",
+                        onPress: () => {
+                            // Điều hướng đến trang quản lý thành viên
+                            navigation.navigate("group/manageMember", {
+                                groupId: currentData.id,
+                                groupName: currentData.name,
+                                fromScreen: 'group/groupDetail',
+                                goBackTo: goBackTo || 'group/groupDetail'
+                            });
+                        }
+                    }]
+                );
+            })
+            .finally(() => {
+                // Tắt loading
+                setIsLoading(false);
+            });
+    };
+
 
     // Định nghĩa các nhóm menu
     const menuGroups = [
@@ -222,6 +273,30 @@ const GroupDetail = () => {
                     label: 'Tìm tin nhắn',
                     typeGroup: "ALL",
                     onPress: () => console.log('Tìm tin nhắn')
+                },
+                {
+                    id: 'profile',
+                    icon: 'person-outline',
+                    label: 'Trang cá nhân',
+                    typeGroup: "ACCOUNT",
+                    onPress: () => {
+                        // Tìm người dùng khác trong cuộc trò chuyện 1-1
+                        const otherUser = currentData?.participants?.find(p =>
+                            p.profileId !== profile?.id
+                        );
+
+                        if (otherUser) {
+                            router.push({
+                                pathname: 'profile/[id]',
+                                params: {
+                                    id: otherUser.profileId || otherUser.id,
+                                    goBack: '/group/groupDetail',
+                                },
+                            });
+                        } else {
+                            Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+                        }
+                    }
                 },
                 {
                     id: 'addMember',
@@ -242,38 +317,41 @@ const GroupDetail = () => {
                     iconFamily: 'Ionicons',
                     label: 'Ảnh, file, link',
                     typeGroup: "ALL",
-                    onPress: () => console.log('Ảnh, file, link')
+                    onPress: () => navigation.navigate("group/manageMedia", {
+                        groupId: currentData.id,
+                        groupName: getDisplayName()
+                    })
                 },
-                {
-                    id: 'pinned',
-                    icon: 'pricetag',
-                    iconFamily: 'Ionicons',
-                    label: 'Tin nhắn đã ghim',
-                    typeGroup: "ALL",
-                    onPress: () => console.log('Tin nhắn đã ghim')
-                },
-                {
-                    id: 'calendar',
-                    icon: 'calendar',
-                    iconFamily: 'Ionicons',
-                    label: 'Lịch nhóm',
-                    typeGroup: "GROUP",
-                    onPress: () => console.log('Lịch nhóm')
-                },
+                // {
+                //     id: 'pinned',
+                //     icon: 'pricetag',
+                //     iconFamily: 'Ionicons',
+                //     label: 'Tin nhắn đã ghim',
+                //     typeGroup: "ALL",
+                //     onPress: () => console.log('Tin nhắn đã ghim')
+                // },
+                // {
+                //     id: 'calendar',
+                //     icon: 'calendar',
+                //     iconFamily: 'Ionicons',
+                //     label: 'Lịch nhóm',
+                //     typeGroup: "GROUP",
+                //     onPress: () => console.log('Lịch nhóm')
+                // },
             ]
         },
         {
             id: 'member',
             type: 'member',
             items: [
-                {
-                    id: 'settingGroup',
-                    icon: 'cog',
-                    iconFamily: 'Ionicons',
-                    label: "Cài đặt nhóm",
-                    typeGroup: "GROUP",
-                    onPress: () => console.log('chuyen uyen truong nhom')
-                },
+                // {
+                //     id: 'settingGroup',
+                //     icon: 'cog',
+                //     iconFamily: 'Ionicons',
+                //     label: "Cài đặt nhóm",
+                //     typeGroup: "GROUP",
+                //     onPress: () => console.log('chuyen uyen truong nhom')
+                // },
                 {
                     id: 'media',
                     icon: 'people-circle',
@@ -290,39 +368,39 @@ const GroupDetail = () => {
                 },
             ]
         },
-        {
-            id: 'settings',
-            type: 'switch',
-            items: [
-                {
-                    id: 'pin',
-                    icon: 'pushpin',
-                    iconFamily: 'AntDesign',
-                    label: 'Ghim trò chuyện',
-                    typeGroup: "ALL",
-                    value: isGhimEnabled,
-                    onChange: setIsGhimEnabled
-                },
-                {
-                    id: 'hide',
-                    icon: 'eye-off',
-                    iconFamily: 'Feather',
-                    label: 'Ẩn trò chuyện',
-                    typeGroup: "ALL",
-                    value: isAnEnabled,
-                    onChange: setIsAnEnabled
-                },
-            ]
-        },
+        // {
+        //     id: 'settings',
+        //     type: 'switch',
+        //     items: [
+        //         {
+        //             id: 'pin',
+        //             icon: 'pushpin',
+        //             iconFamily: 'AntDesign',
+        //             label: 'Ghim trò chuyện',
+        //             typeGroup: "ALL",
+        //             value: isGhimEnabled,
+        //             onChange: setIsGhimEnabled
+        //         },
+        //         {
+        //             id: 'hide',
+        //             icon: 'eye-off',
+        //             iconFamily: 'Feather',
+        //             label: 'Ẩn trò chuyện',
+        //             typeGroup: "ALL",
+        //             value: isAnEnabled,
+        //             onChange: setIsAnEnabled
+        //         },
+        //     ]
+        // },
         {
             id: 'actions',
             type: 'menu',
             items: [
                 // {
-                //     id: 'report',
-                //     icon: 'warning',
-                //     iconFamily: 'AntDesign',
-                //     label: 'Báo xấu',
+                //     id: 'transferOwner',
+                //     icon: 'shield-checkmark-outline',
+                //     iconFamily: 'Ionicons',
+                //     label: 'Chuyển quyền trưởng nhóm',
                 //     typeGroup: "ALL",
                 //     onPress: () => console.log('Báo xấu'),
                 //     textColor: 'black'
@@ -333,10 +411,26 @@ const GroupDetail = () => {
                     iconFamily: 'MaterialIcons',
                     label: 'Rời nhóm',
                     typeGroup: "GROUP",
-                    onPress: () => Alert.alert('Xác nhận', 'Bạn có chắc muốn rời nhóm?'),
+                    onPress: () => {
+                        Alert.alert(
+                            'Xác nhận',
+                            'Bạn có chắc muốn rời nhóm?',
+                            [
+                                {
+                                    text: 'Hủy',
+                                    style: 'cancel'
+                                },
+                                {
+                                    text: 'Rời nhóm',
+                                    style: 'destructive',
+                                    onPress: () => handleLeaveGroup()
+                                }
+                            ]
+                        );
+                    },
                     textColor: '#FF3B30'
                 },
-                ...(isOwner ? [{
+                ...(isOwner && currentData?.isGroup ? [{
                     id: 'deleteGroup',
                     icon: 'delete',
                     iconFamily: 'MaterialIcons',
@@ -399,23 +493,27 @@ const GroupDetail = () => {
                     backgroundColor: '#f0f0f0'
                 }}
             />
-            <TouchableOpacity>
-                <Feather name="camera" size={18} color="black" style={{
-                    position: 'absolute',
-                    right: -50,
-                    bottom: 5,
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 12,
-                    padding: 5
-                }} />
-            </TouchableOpacity>
+            {
+                groupDetails[groupId].isGroup && isOwner &&
+                <TouchableOpacity>
+                    <Feather name="camera" size={18} color="black" style={{
+                        position: 'absolute',
+                        right: -50,
+                        bottom: 5,
+                        backgroundColor: '#e0e0e0',
+                        borderRadius: 12,
+                        padding: 5
+                    }} />
+                </TouchableOpacity>
+            }
+
 
             <View flexDirection='row' alignItems='center' flex={1}>
                 <Text color="black" fontSize="$7" fontWeight="bold" textAlign="center" marginTop="$4" marginRight={20}>
                     {getDisplayName()}
                 </Text>
                 {
-                    currentData.isGroup && (
+                    currentData.isGroup && isOwner && (
 
                         <EditNamePopover
                             isOpen={isEditNameOpen}
@@ -441,8 +539,6 @@ const GroupDetail = () => {
                 }
 
             </View>
-
-            {/* ...existing code... */}
         </YStack>
     );
 
@@ -630,7 +726,12 @@ const GroupDetail = () => {
                 title="Tùy chọn"
             // onGoBack={handleGoBack} 
             />
-
+            {isLoading && (
+                <View style={[styles.overlay, { zIndex: 9999 }]}>
+                    <ActivityIndicator size="large" color="#FF7A1E" />
+                    <Text style={{ marginTop: 10, color: 'white' }}>Đang xử lý...</Text>
+                </View>
+            )}
             <ScrollView>
                 {renderHeader()}
 
@@ -644,8 +745,24 @@ const GroupDetail = () => {
                     </YStack>
                 ))}
             </ScrollView>
+
         </YStack>
     );
 };
 
 export default GroupDetail;
+
+const styles = StyleSheet.create({
+    // Styles hiện có
+
+    overlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center'
+    }
+});

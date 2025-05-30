@@ -52,12 +52,10 @@ export const addParticipant = createAsyncThunk('group/addParticipant', async ({ 
         const res = await apiService.put(ENDPOINTS.GROUP.ADD_PARTICIPANT(groupId), { participantIds });
         // console.log("Kết quả API thêm thành viên:", res);
 
-        // API trả về toàn bộ thông tin nhóm, nên chúng ta có thể trả về nó trực tiếp
-        // và đảm bảo nó bao gồm groupId để sử dụng trong reducer
-        if (res && res.id) {
+        if (res.statusCode === 200) {
             return {
                 ...res,
-                groupId: res.id  // Đảm bảo luôn có trường groupId
+                groupId: res.data.groupId
             };
         } else {
             return rejectWithValue({
@@ -81,7 +79,7 @@ export const removeParticipant = createAsyncThunk(
 
             // Gửi mảng participantIds thay vì participantId đơn lẻ
             const res = await apiService.delete(
-                ENDPOINTS.GROUP.REMOVE_PARTICIPANT(groupId), {  participantIds  } );
+                ENDPOINTS.GROUP.REMOVE_PARTICIPANT(groupId), { participantIds });
 
             console.log("thunk remove participant", res);
 
@@ -110,14 +108,18 @@ export const deleteGroup = createAsyncThunk('group/delete', async (groupId, { re
 export const leaveGroup = createAsyncThunk('group/leave', async (groupId, { rejectWithValue }) => {
     try {
         const res = await apiService.delete(ENDPOINTS.GROUP.LEAVE(groupId));
-
         return { groupId, ...res };
     } catch (error) {
-        return rejectWithValue(error.message);
+        // Trả về đầy đủ thông tin lỗi, không chỉ error.message
+        return rejectWithValue({
+            message: error.message,
+            response: error.response?.data, // Lấy data từ response error
+            status: error.response?.status
+        });
     }
 });
 
-export const transferOwnership = createAsyncThunk('group/transferOwner', async ({ groupId, newOwnerId }, { rejectWithValue }) => {
+export const transferGroupOwnership = createAsyncThunk('group/transferOwner', async ({ groupId, newOwnerId }, { rejectWithValue }) => {
     try {
         const res = await apiService.put(ENDPOINTS.GROUP.TRANSFER_OWNER(groupId), { newOwnerId });
 
