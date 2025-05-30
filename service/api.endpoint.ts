@@ -19,7 +19,7 @@ export const ENDPOINTS = {
   ACCOUNT: {
     INFO: (id: string) => `${BASE_ENDPOINT}/account/${id}`,
     GET_BY_USERNAME: (username: string) => `${BASE_ENDPOINT}/account/username/${username}`,
-    PASSWORD: (id: string) => `${BASE_ENDPOINT}/account/${id}/password`,
+    PASSWORD: `${BASE_ENDPOINT}/account/password`,
   },
   GROUP: {
     LIST: `${BASE_ENDPOINT}/group`,
@@ -49,8 +49,8 @@ export const ENDPOINTS = {
     RECALL: (messageId: string) => `${BASE_ENDPOINT}/chat/recall/${messageId}`,
     DELETE: (messageId: string) => `${BASE_ENDPOINT}/chat/delete/${messageId}`,
     FORWARD: `${BASE_ENDPOINT}/chat/forward`,
-    GET_MESSAGES: (groupId: String) =>`${BASE_ENDPOINT}/chat/messages/${groupId}`,
+    GET_MESSAGES: (groupId: String) => `${BASE_ENDPOINT}/chat/messages/${groupId}`,
     EDIT_MESSAGE: (messageId: String) => `${BASE_ENDPOINT}/chat/edit/${messageId}`,
-    GET_MEDIA: (groupId:String) => `${BASE_ENDPOINT}/chat/media/${groupId}`,
+    GET_MEDIA: (groupId: String) => `${BASE_ENDPOINT}/chat/media/${groupId}`,
   }
 };

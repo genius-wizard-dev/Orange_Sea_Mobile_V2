@@ -5,18 +5,28 @@ import { getProfile } from '../thunks/profile';
 
 interface ProfileState extends BaseState {
   profile: Profile | null;
+  showPasswordUpdatedModal: boolean;
 }
 
 const initialState: ProfileState = {
   status: 'idle',
   profile: null,
   error: null,
+  showPasswordUpdatedModal: false,
 };
 
 const profileSlice = createSlice({
   name: 'profile',
   initialState,
-  reducers: {},
+  reducers: {
+    // Thêm reducers để điều khiển modal
+    showPasswordUpdatedModal: (state) => {
+      state.showPasswordUpdatedModal = true;
+    },
+    hidePasswordUpdatedModal: (state) => {
+      state.showPasswordUpdatedModal = false;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(getProfile.pending, (state) => {
@@ -33,5 +43,8 @@ const profileSlice = createSlice({
       });
   },
 });
+// Export các actions để sử dụng trong components
+export const { showPasswordUpdatedModal, hidePasswordUpdatedModal } = profileSlice.actions;
+
 
 export default profileSlice.reducer;

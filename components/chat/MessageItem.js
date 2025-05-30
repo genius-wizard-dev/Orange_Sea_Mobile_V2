@@ -444,7 +444,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
 
                             >
                                 {/* Hiển thị chỉ báo đã chỉnh sửa */}
-                                {msg.isEdited || msg.originalContent ? (
+                                {msg.isEdited || (msg.originalContent && !msg.isRecalled) ? (
                                     <Text
                                         fontSize={11}
                                         color={isMyMessage ? '#2196F3' : '#2196F3'}
@@ -689,20 +689,23 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                             imageUri={msg.imageUrl}
                                             onClose={handleCloseImageViewer}
                                         />
+                                        {
+                                            !msg.isRecall && <Text
+                                                fontSize={12}
+                                                color={isMyMessage ? '#e4e6eb' : '#65676b'}
+                                                textAlign={isMyMessage ? "right" : "left"}
+                                                marginTop={4}
+                                                backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
+                                                alignSelf={isMyMessage ? "flex-end" : "flex-start"}
+                                            >
 
+                                                {formatTime(updatedAt)}
+                                            </Text>
+                                        }
                                     </>
                                 )}
-                                <Text
-                                    fontSize={12}
-                                    color={isMyMessage ? '#e4e6eb' : '#65676b'}
-                                    textAlign={isMyMessage ? "right" : "left"}
-                                    marginTop={4}
-                                    backgroundColor={isMyMessage ? '#00000000' : '#00000000'}
-                                    alignSelf={isMyMessage ? "flex-end" : "flex-start"}
-                                >
 
-                                    {formatTime(updatedAt)}
-                                </Text>
+
                             </YStack>
                         </XStack>
                     </YStack>

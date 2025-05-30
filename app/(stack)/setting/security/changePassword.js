@@ -6,6 +6,9 @@ import HeaderLeft from '../../../../components/header/HeaderLeft';
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updatePassword } from '../../../../redux/thunks/account';
+import socketService from '../../../../service/socket.service';
+
+import { showPasswordUpdatedModal } from '../../../../redux/slices/profile';
 
 export default function ChangePassword() {
     const router = useRouter();
@@ -22,6 +25,7 @@ export default function ChangePassword() {
     const [showPasswords, setShowPasswords] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Thay đổi phần gọi updatePassword
     const handleUpdatePassword = async () => {
         // Validate passwords
         if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
@@ -37,21 +41,26 @@ export default function ChangePassword() {
         try {
             setLoading(true);
 
+            // Bỏ id khỏi payload - API sẽ tự xác định user từ token
             const result = await dispatch(updatePassword({
-                id: profile?.accountID,
                 currentPassword: passwords.currentPassword,
                 newPassword: passwords.newPassword
             })).unwrap();
 
-            // console.log(result)
-
-
             if (result.statusCode === 200) {
-                alert(result.message);
-                router.back();
+                // Emit sự kiện updatePassword nếu đổi mật khẩu thành công
+                try {
+                    // Thay emitPasswordReset bằng emitPasswordUpdate
+                    await socketService.emitPasswordUpdate();
+                    console.log('Đã thông báo cập nhật mật khẩu thành công');
+                } catch (socketError) {
+                    console.error('Lỗi khi thông báo cập nhật mật khẩu:', socketError);
+                }
+
+                // Hiển thị modal thông báo thay vì alert và back
+                dispatch(showPasswordUpdatedModal());
             }
         } catch (error) {
-            // console.log(error);
             setError(error.message || error || 'Đã có lỗi xảy ra');
         } finally {
             setLoading(false);

@@ -2,6 +2,7 @@ import io from 'socket.io-client';
 import Constants from 'expo-constants';
 import { markGroupAsRead, setMessages, addMessage, setError } from '../redux/slices/chatSlice';
 import { getDeviceId } from '../utils/fingerprint';
+import { statusUpdated, userStatusChanged } from '../redux/slices/friendSlice';
 
 class SocketService {
     socket = null;
@@ -343,6 +344,52 @@ class SocketService {
     // --- SOCKET LISTENERS SETUP ---
 
     /**
+     * Thiết lập lắng nghe trạng thái online/offline của bạn bè
+     * @param {Function} dispatch - Redux dispatch function
+     * @returns {Function} - Cleanup function để loại bỏ listeners
+     */
+    setupFriendStatusListeners(dispatch) {
+        if (!this.socket) return () => { };
+
+        // Lắng nghe sự kiện cập nhật trạng thái online/offline của bạn bè
+        const handleFriendStatusUpdate = (data) => {
+            console.log('Nhận sự kiện cập nhật trạng thái bạn bè:', data);
+
+            // Kiểm tra dữ liệu hợp lệ
+            if (data && Array.isArray(data.online) && Array.isArray(data.offline)) {
+                // Dispatch action để cập nhật store với danh sách bạn bè online/offline
+                dispatch({
+                    type: 'friend/statusUpdated',
+                    payload: {
+                        online: data.online,
+                        offline: data.offline
+                    }
+                });
+
+                // Thêm vào đây - cũng cập nhật cho chatSlice để hiển thị trạng thái trong chat
+                dispatch({
+                    type: 'chat/userStatusUpdated',
+                    payload: {
+                        online: data.online,
+                        offline: data.offline
+                    }
+                });
+            }
+        };
+
+        // Đăng ký lắng nghe sự kiện friendStatus
+        this.socket.on('friendStatus', handleFriendStatusUpdate);
+
+        // Trả về hàm cleanup
+        return () => {
+            this.socket.off('friendStatus', handleFriendStatusUpdate);
+        };
+    }
+
+
+
+
+    /**
      * Set up common socket listeners for app
      * @param {string} profileId - User profile ID
      * @param {Function} dispatch - Redux dispatch function
@@ -364,7 +411,116 @@ class SocketService {
         // Lấy số tin nhắn chưa đọc
         this.socket.emit('getUnreadCounts', { profileId });
 
+        // Yêu cầu danh sách bạn bè online/offline
+        this.socket.emit('getFriendsStatus', { profileId });
+
+
+        this.socket.on('passwordUpdated', () => {
+            console.log('Nhận thông báo mật khẩu đã được cập nhật');
+            dispatch({ type: 'profile/showPasswordUpdatedModal' });
+        });
+
         // --- SERVER TO CLIENT EVENTS ---
+
+        this.socket.on('friendStatus', (data) => {
+            console.log('Nhận sự kiện cập nhật trạng thái bạn bè:', data);
+
+            if (data && Array.isArray(data.online) && Array.isArray(data.offline)) {
+                // Sử dụng action đã export từ friendSlice
+                dispatch(statusUpdated({
+                    online: data.online,
+                    offline: data.offline
+                }));
+
+                // Dispatch cả action cho chat slice nếu cần
+                dispatch({
+                    type: 'chat/friendStatusUpdated',
+                    payload: {
+                        online: data.online,
+                        offline: data.offline
+                    }
+                });
+            }
+        });
+
+
+        // Lắng nghe sự kiện một người bạn online
+        this.socket.on('friendOnline', (data) => {
+            console.log('Người bạn online:', data);
+
+            if (data && data.profileId) {
+                // Sử dụng action đã export từ friendSlice
+                dispatch(userStatusChanged({
+                    profileId: data.profileId,
+                    isOnline: true
+                }));
+
+                // Dispatch cả action cho chat slice nếu cần
+                dispatch({
+                    type: 'chat/updateUserStatus',
+                    payload: {
+                        profileId: data.profileId,
+                        isOnline: true,
+                        lastSeen: new Date().toISOString()
+                    }
+                });
+            }
+        });
+
+        // Lắng nghe sự kiện một người bạn offline
+        this.socket.on('friendOffline', (data) => {
+            console.log('Người bạn offline:', data);
+
+            if (data && data.profileId) {
+                // Sử dụng action đã export từ friendSlice
+                dispatch(userStatusChanged({
+                    profileId: data.profileId,
+                    isOnline: false
+                }));
+
+                // Dispatch cả action cho chat slice nếu cần
+                dispatch({
+                    type: 'chat/updateUserStatus',
+                    payload: {
+                        profileId: data.profileId,
+                        isOnline: false,
+                        lastSeen: new Date().toISOString()
+                    }
+                });
+            }
+        });
+
+
+        this.socket.on('notifyMessage', (message) => {
+            console.log('Notification for new message received:', message);
+
+            // Đảm bảo tin nhắn có định dạng đầy đủ
+            const formattedMessage = {
+                ...message,
+                content: message.content || message.message,
+                createdAt: message.createdAt || new Date().toISOString(),
+                updatedAt: message.updatedAt || new Date().toISOString()
+            };
+
+            // Cập nhật tin nhắn cuối cùng
+            dispatch({
+                type: 'chat/updateLastMessage',
+                payload: {
+                    groupId: message.groupId,
+                    message: formattedMessage
+                }
+            });
+
+            // Tăng số tin nhắn chưa đọc
+            dispatch({
+                type: 'chat/updateUnreadCounts',
+                payload: {
+                    groupId: message.groupId,
+                    increment: 1
+                }
+            });
+        });
+
 
         // Receive new message event
         this.socket.on('receiveMessage', (message) => {
@@ -381,12 +537,24 @@ class SocketService {
         });
 
         // Unread count updates
-        this.socket.on('unreadCountUpdated', (updates) => {
-            console.log('Unread count updated:', updates);
-            dispatch({
-                type: 'chat/unreadCountsUpdated',
-                payload: updates
-            });
+        this.socket.on('unReadMessages', (updates) => {
+            // console.log('Unread count updated:', updates);
+
+            if (Array.isArray(updates)) {
+                // Chuyển mảng thành object với key là groupId
+                const unreadCountsObj = {};
+                updates.forEach(item => {
+                    if (item && item.groupId) {
+                        unreadCountsObj[item.groupId] = item.unreadCount;
+                    }
+                });
+
+                // Cập nhật state với object chứa unreadCounts
+                dispatch({
+                    type: 'chat/setUnreadCounts',
+                    payload: unreadCountsObj
+                });
+            }
         });
 
         // Message recall notifications
@@ -512,7 +680,41 @@ class SocketService {
             this.socket.off('messageDeleted');
             this.socket.off('userStatusUpdate');
             this.socket.off('socketError');
+            this.socket.off('friendOnline');
+            this.socket.off('friendOffline');
+            this.socket.off('unReadMessages');
+            this.socket.off('friendStatus');
+            this.socket.off('notifyMessage');
+            this.socket.off('passwordUpdated');
         };
+    }
+
+    /**
+ * Emit sự kiện updatePassword để thông báo mật khẩu người dùng đã được cập nhật
+ * @returns {Promise} - Promise kết quả từ server
+ */
+    emitPasswordUpdate() {
+        if (!this.socket?.connected) {
+            console.log('Socket không kết nối, không thể emit updatePassword');
+            return Promise.reject(new Error('Socket chưa kết nối'));
+        }
+
+        console.log('Emitting updatePassword event');
+
+        return new Promise((resolve, reject) => {
+            // Sự kiện updatePassword KHÔNG cần dữ liệu (theo tài liệu)
+            this.socket.emit('updatePassword', {}, (response) => {
+                console.log('Server response for updatePassword:', response);
+                if (response?.success) {
+                    resolve({
+                        success: true,
+                        message: "Đã thông báo cập nhật mật khẩu thành công"
+                    });
+                } else {
+                    reject(response?.message || "Không thể thông báo cập nhật mật khẩu");
+                }
+            });
+        });
     }
 
     /**
@@ -689,6 +891,7 @@ class SocketService {
             this.socket.off('messageDelete');
             this.socket.off('messageEdit', handleMessageEdit);
             this.socket.off('notifyMessageEdit', handleMessageEdit);
+
         };
     }
 }

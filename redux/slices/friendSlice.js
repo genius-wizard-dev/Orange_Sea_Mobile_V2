@@ -17,14 +17,63 @@ const initialState = {
     sentRequests: [],
     friendshipStatus: null,
     sentRequestsLoading: false,
+    onlineFriends: [],  //lưu trữ danh sách bạn bè online
+    offlineFriends: [],// lưu trữ danh sách bạn bè offline
+    refreshTrigger: 0,
 };
 
 const friendSlice = createSlice({
     name: 'friend',
     initialState,
-    reducers: {},
+    reducers: {
+        statusUpdated: (state, action) => {
+            const { online, offline } = action.payload;
+            if (Array.isArray(online)) {
+                state.onlineFriends = online;
+            }
+            if (Array.isArray(offline)) {
+                state.offlineFriends = offline;
+            }
+        },
+
+        // Cập nhật trạng thái của một người dùng (từ socket friendOnline/friendOffline)
+        userStatusChanged: (state, action) => {
+            const { profileId, isOnline } = action.payload;
+
+            if (profileId) {
+                // Nếu online, thêm vào danh sách online và loại bỏ khỏi danh sách offline (nếu có)
+                if (isOnline) {
+                    if (!state.onlineFriends.includes(profileId)) {
+                        state.onlineFriends.push(profileId);
+                    }
+                    state.offlineFriends = state.offlineFriends.filter(id => id !== profileId);
+                }
+                // Nếu offline, thêm vào danh sách offline và loại bỏ khỏi danh sách online (nếu có)
+                else {
+                    if (!state.offlineFriends.includes(profileId)) {
+                        state.offlineFriends.push(profileId);
+                    }
+                    state.onlineFriends = state.onlineFriends.filter(id => id !== profileId);
+                }
+            }
+        },
+
+        // Trigger refresh friend list
+        triggerFriendListRefresh: (state) => {
+            state.refreshTrigger += 1;
+        },
+    },
     extraReducers: (builder) => {
         builder
+            .addCase('friend/statusUpdated', (state, action) => {
+                const { online, offline } = action.payload;
+                if (Array.isArray(online)) {
+                    state.onlineFriends = online;
+                }
+                if (Array.isArray(offline)) {
+                    state.offlineFriends = offline;
+                }
+            })
             // Handle getFriendList
             .addCase(getFriendList.pending, (state) => {
                 state.loading = true;
@@ -114,8 +163,11 @@ const friendSlice = createSlice({
             })
             .addCase(checkFriendshipStatus.rejected, (state, action) => {
                 state.error = action.payload;
-            });
+            })
+
+
     },
 });
+export const { statusUpdated, userStatusChanged, triggerFriendListRefresh } = friendSlice.actions;
 
 export default friendSlice.reducer;

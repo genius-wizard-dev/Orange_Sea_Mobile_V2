@@ -21,6 +21,7 @@ const Chat = () => {
   const route = useRoute();
   const dispatch = useDispatch();
   const { groups, loading, groupDetails } = useSelector((state) => state.group);
+  const { onlineFriends, offlineFriends } = useSelector(state => state.friend);
   const { profile } = useSelector((state) => state.profile);
   const unreadCounts = useSelector(state => state.chat.unreadCounts);
   const lastMessages = useSelector(state => state.chat.lastMessages);
@@ -56,57 +57,11 @@ const Chat = () => {
           }
         });
 
-        const nonGroupChats = groupResult.filter(group => !group.isGroup);
-        // console.log('Non group chats:', JSON.stringify(nonGroupChats, null, 2));
-
-        nonGroupChats.forEach(group => {
-          if (!group || !group.id) return;
-
-          const groupDetail = groupDetails[group.id];
-
-          // Nếu là chat cá nhân, lấy thông tin trạng thái người dùng
-          if (!group.isGroup && groupDetail?.participants) {
-            const otherParticipant = groupDetail.participants.find(
-              p => p?.userId !== profile?.id
-            );
-
-            // console.log("otherParticipant ",otherParticipant)
-
-            // Nếu có người tham gia khác, emit trạng thái người dùng của họ
-            if (otherParticipant) {
-              const userStatus = userStatuses[otherParticipant.userId];
-
-              // console.log("userStatus ", userStatus)
-
-              if (userStatus) {
-                // Emit trạng thái người dùng cập nhật vào server
-                socketService.getSocket()?.emit('userStatusUpdate', {
-                  profileId: otherParticipant.userId,
-                  isOnline: userStatus.isOnline,
-                  isActive: userStatus.isActive,
-                  groupId: group.id
-                });
-              }
-
-
-              dispatch(statusUpdated({
-                profileId: otherParticipant.userId,
-                isOnline: userStatus?.isOnline || false, // Cung cấp mặc định nếu không có trạng thái
-                isActive: userStatus?.isActive || false,
-              }));
-
-            }
-          }
-        });
-
-        // const loadDetailsPromises = nonGroupChats.map(async (group) => {
-        //   if (!group || !group.id) return;
-        //   try {
-        //     await dispatch(getGroupDetail(group.id));
-        //   } catch (error) {
-        //     console.log(`Không thể lấy chi tiết nhóm ${group.id}, có thể nhóm đã bị xóa`);
-        //   }
-        // });
+        // Xử lý yêu cầu trạng thái bạn bè thay vì gửi từng người
+        // if (profile?.id && socketService.socket?.connected) {
+        //   // Yêu cầu danh sách bạn bè online/offline từ server
+        //   socketService.socket.emit('getFriendsStatus', { profileId: profile.id });
+        // }
 
         await Promise.all(loadDetailsPromises);
         setIsLoading(false);
@@ -161,7 +116,8 @@ const Chat = () => {
     // }
 
     // Lấy lastMessage từ nhiều nguồn và ưu tiên theo thứ tự
-    const lastMessage = group.lastMessage;
+    const lastMessage = lastMessages[group.id] || group.lastMessage || groupDetails[group.id]?.messages?.[0];
+
 
     // Kiểm tra isRecalled từ messages trong groupDetail nếu có
     const messageInDetail = groupDetail?.messages?.find(m => m.id === lastMessage?.id);
@@ -179,7 +135,7 @@ const Chat = () => {
         case "VIDEO":
           lastMessageContent = "[Video]";
           break;
-          case "RAW":
+        case "RAW":
           lastMessageContent = "[🖇️ Tài Liệu ]";
           break;
         default:
@@ -198,15 +154,35 @@ const Chat = () => {
     );
 
     // Lấy userId từ participant
-    const userStatus = otherParticipant ? userStatuses[otherParticipant.userId] : null;
+    let userStatus = null;
+
+    // Nếu là chat cá nhân, lấy thông tin trạng thái người dùng
+    if (!group.isGroup && otherParticipant) {
+      // Lấy profileId từ otherParticipant
+      const otherProfileId = otherParticipant.profileId || otherParticipant.userId;
+
+      // Kiểm tra trạng thái từ userStatuses
+      userStatus = userStatuses[otherProfileId];
+
+      // Nếu không có, kiểm tra trong friend.onlineFriends và offlineFriends
+      if (!userStatus) {
+        // Lấy danh sách onlineFriends và offlineFriends từ Redux
+
+
+        // Xác định trạng thái dựa trên profileId
+        if (onlineFriends?.includes(otherProfileId)) {
+          userStatus = { isOnline: true };
+        } else if (offlineFriends?.includes(otherProfileId)) {
+          userStatus = { isOnline: false };
+        }
+      }
+    }
 
 
 
     const getStatusColor = (status) => {
-      if (!status) return '#65676b';               // offline (không có status)
-      if (status.isOnline && status.isActive) return '#31a24c'; // online + active
-      if (status.isOnline) return '#FFB800';       // online (nhưng inactive)
-      return '#65676b';                            // offline
+      if (!status || !status.isOnline) return '#65676b'; // offline
+      return '#31a24c'; // online
     };
 
 
@@ -252,13 +228,12 @@ const Chat = () => {
       >
         <View style={styles.avatarContainer}>
           <GroupAvatar group={group} size={50} />
-          {group.isGroup ? "" : <View
+          {!group.isGroup && <View
             style={[
               styles.statusDot,
               { backgroundColor: getStatusColor(userStatus) }
             ]}
-          />
-          }
+          />}
         </View>
         <YStack flex={1}>
           <Text fontSize={16} fontWeight="700" marginBottom={5}>
@@ -271,10 +246,10 @@ const Chat = () => {
         <Text fontSize={12} color="$gray9">
           {lastMessage?.createdAt ? displayTime(lastMessage.createdAt) : ''}
         </Text>
-        {unreadCount > 0 && (
+        {unreadCount > 0 && (  // Đảm bảo chỉ hiển thị khi thực sự có tin nhắn chưa đọc
           <View style={styles.unreadBadge}>
             <Text color="white" fontSize={12} fontWeight="bold">
-              {unreadCount}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </Text>
           </View>
         )}
