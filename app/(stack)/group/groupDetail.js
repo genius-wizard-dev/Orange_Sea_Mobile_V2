@@ -266,7 +266,10 @@ const GroupDetail = () => {
                     iconFamily: 'Ionicons',
                     label: 'Ảnh, file, link',
                     typeGroup: "ALL",
-                    onPress: () => console.log('Ảnh, file, link')
+                    onPress: () => navigation.navigate("group/manageMedia", {
+                        groupId: currentData.id,
+                        groupName: getDisplayName()
+                    })
                 },
                 // {
                 //     id: 'pinned',

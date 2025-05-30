@@ -233,9 +233,9 @@ const ChatDetail = () => {
                             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
                         );
 
-                        console.log('=== INITIAL MESSAGES LOADED ===');
-                        console.log('Messages count:', sortedApiMessages.length);
-                        console.log('NextCursor:', response.data.nextCursor);
+                        // console.log('=== INITIAL MESSAGES LOADED ===');
+                        // console.log('Messages count:', sortedApiMessages.length);
+                        // console.log('NextCursor:', response.data.nextCursor);
 
                         dispatch(setMessages(sortedApiMessages));
                         setNextCursor(response.data.nextCursor || null);
@@ -305,9 +305,9 @@ const ChatDetail = () => {
             return;
         }
 
-        console.log('Type:', type);
-        console.log('Content:', content);
-        console.log('MediaData:', mediaData);
+        // console.log('Type:', type);
+        // console.log('Content:', content);
+        // console.log('MediaData:', mediaData);
 
         // Tạo tin nhắn tạm thời
         const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -336,6 +336,10 @@ const ChatDetail = () => {
 
         // Thêm tin nhắn tạm thời vào UI
         dispatch(addMessage(tempMessage));
+
+        setTimeout(() => {
+            messageListRef.current?.scrollToEnd();
+        }, 100);
 
         try {
             // Đảm bảo socket đã kết nối
@@ -498,6 +502,10 @@ const ChatDetail = () => {
                     senderId: profileId
                 });
 
+                setTimeout(() => {
+                    messageListRef.current?.scrollToEnd();
+                }, 200);
+
                 return { success: true, data: response.data };
             } else {
                 throw new Error(response?.message || 'Gửi tin nhắn thất bại');
@@ -531,6 +539,19 @@ const ChatDetail = () => {
 
         // SỬA: Mapping imageUrl đúng cho tất cả tin nhắn
         const formattedMessages = data.messages.map(msg => {
+
+            // console.log('\n=== CHATDETAIL MAPPING ===');
+            // console.log('Message ID:', msg.id);
+            // console.log('Message type:', msg.type);
+            // console.log('Raw message from handleLoadMoreMessages:', JSON.stringify(msg, null, 2));
+
+            // // SỬA: Debug content fields trong chatDetail
+            // console.log('Content fields in chatDetail:');
+            // console.log('  msg.content:', `"${msg.content}"`, typeof msg.content);
+            // console.log('  msg.message:', `"${msg.message}"`, typeof msg.message);
+            // console.log('  msg.text:', `"${msg.text}"`, typeof msg.text);
+
+
             const imageUrl = msg.fileUrl ||
                 msg.imageUrl ||
                 msg.url ||
@@ -542,9 +563,20 @@ const ChatDetail = () => {
                 msg.path ||
                 msg.link;
 
+
+            const finalContent = msg.content ||
+                msg.message ||
+                msg.text ||
+                msg.body ||
+                msg.data ||
+                '';
+
+            console.log('ChatDetail final content:', `"${finalContent}"`);
+
+
             return {
                 id: msg.id,
-                message: msg.content,
+                message: finalContent,
                 senderId: msg.senderId,
                 groupId: msg.groupId,
                 createdAt: msg.createdAt,
@@ -561,38 +593,52 @@ const ChatDetail = () => {
             };
         });
 
+
+        // console.log('\n=== MESSAGES BEFORE DISPATCH ===');
+        // formattedMessages.forEach((msg, index) => {
+        //     console.log(`Message ${index}: ID=${msg.id}, type=${msg.type}, content="${msg.message}"`);
+        // });
+
         if (data.refresh) {
             // Refresh - replace toàn bộ messages
             console.log('Refreshing messages, total:', formattedMessages.length);
             dispatch(setMessages(formattedMessages));
         } else {
             // Load more - append vào đầu danh sách
-            console.log('Loading more messages, new count:', formattedMessages.length);
-            console.log('Current messages count:', messages.length);
+            // console.log('Loading more messages, new count:', formattedMessages.length);
+            // console.log('Current messages count:', messages.length);
 
             // Lọc tin nhắn trùng lặp dựa trên ID
             const existingIds = new Set(messages.map(msg => msg.id));
             const newMessages = formattedMessages.filter(msg => !existingIds.has(msg.id));
 
-            console.log('New unique messages:', newMessages.length);
+            // console.log('New unique messages:', newMessages.length);
 
             if (newMessages.length > 0) {
-                // Thêm tin nhắn mới vào cuối danh sách (vì inverted=true, sẽ hiện ở đầu)
                 const updatedMessages = [...messages, ...newMessages];
                 console.log('Updated total messages:', updatedMessages.length);
                 dispatch(setMessages(updatedMessages));
+            } else {
+                console.log('No new messages to add - stopping load more');
+                // SỬA: Dừng load more nếu không có tin nhắn mới
+                setNextCursor(null);
             }
         }
 
         // Cập nhật nextCursor nếu có
-        if (data.nextCursor !== undefined) {
+        if (data.nextCursor !== undefined && data.nextCursor !== nextCursor) {
             console.log('Updating nextCursor from', nextCursor, 'to', data.nextCursor);
             setNextCursor(data.nextCursor);
+        } else if (data.nextCursor === nextCursor) {
+            console.log('NextCursor unchanged, stopping load more');
+            setNextCursor(null);
         }
     }, [messages, profileId, dispatch, nextCursor, setNextCursor]);
 
     const handleInputFocus = () => {
-        messageListRef.current?.scrollToEnd({ animated: true });
+        setTimeout(() => {
+            messageListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
     };
 
     const styles = StyleSheet.create({

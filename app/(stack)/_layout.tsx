@@ -41,6 +41,14 @@ export default function StackLayout() {
           presentation: 'modal',
         }}
       />
+      <Stack.Screen
+        name="chat/forwardMessage"
+        options={{
+          title: 'Chuyển tiếp tin nhắn',
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
       {/* <Stack.Screen
         name="chat/chatSetting"
         options={{
@@ -149,6 +157,13 @@ export default function StackLayout() {
         name="group/manageMember"
         options={{
           title: 'Quản lý thành viên',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="group/manageMedia"
+        options={{
+          title: 'Quản lý media',
           headerShown: false,
         }}
       />

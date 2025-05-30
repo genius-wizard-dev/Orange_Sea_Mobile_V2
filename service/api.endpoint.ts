@@ -51,5 +51,6 @@ export const ENDPOINTS = {
     FORWARD: `${BASE_ENDPOINT}/chat/forward`,
     GET_MESSAGES: (groupId: String) =>`${BASE_ENDPOINT}/chat/messages/${groupId}`,
     EDIT_MESSAGE: (messageId: String) => `${BASE_ENDPOINT}/chat/edit/${messageId}`,
+    GET_MEDIA: (groupId:String) => `${BASE_ENDPOINT}/chat/media/${groupId}`,
   }
 };

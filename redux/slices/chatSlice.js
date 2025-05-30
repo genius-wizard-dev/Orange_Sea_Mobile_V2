@@ -16,6 +16,9 @@ const initialState = {
   lastMessages: {},
   userStatuses: {},
   editingMessage: null,
+  groupMedia: {
+    // Cấu trúc: { groupId: { IMAGE: [...], VIDEO: [...], RAW: [...] } }
+  },
 };
 
 const chatSlice = createSlice({
@@ -268,7 +271,52 @@ const chatSlice = createSlice({
         };
       }
     },
+    setGroupMedia: (state, action) => {
+      const { groupId, mediaType, data } = action.payload;
+
+      if (!state.groupMedia[groupId]) {
+        state.groupMedia[groupId] = {};
+      }
+
+      // Cập nhật theo format mới: data.media thay vì data.items
+      state.groupMedia[groupId][mediaType] = data.media || [];
+
+      // Lưu cursor cho phân trang
+      state.groupMedia[groupId][`${mediaType}_cursor`] = data.nextCursor || null;
+
+      // Lưu thêm thông tin hasMore để biết có thể load thêm không
+      state.groupMedia[groupId][`${mediaType}_hasMore`] = data.hasMore || false;
+    },
+
+    appendGroupMedia: (state, action) => {
+      const { groupId, mediaType, data } = action.payload;
+
+      if (!state.groupMedia[groupId]) {
+        state.groupMedia[groupId] = {};
+      }
+
+      if (!state.groupMedia[groupId][mediaType]) {
+        state.groupMedia[groupId][mediaType] = [];
+      }
+
+      // Thêm media mới vào danh sách hiện tại, sử dụng data.media thay vì data.items
+      state.groupMedia[groupId][mediaType] = [
+        ...state.groupMedia[groupId][mediaType],
+        ...(data.media || [])
+      ];
+
+      // Cập nhật cursor
+      state.groupMedia[groupId][`${mediaType}_cursor`] = data.nextCursor || null;
+
+      // Cập nhật hasMore
+      state.groupMedia[groupId][`${mediaType}_hasMore`] = data.hasMore || false;
+    },
   },
+
+
+
+
+
   extraReducers: (builder) => {
     builder
       .addCase('chat/messageReceived', (state, action) => {
@@ -396,7 +444,10 @@ export const {
   statusUpdated,
   recallMessage,
   setEditingMessage,
-  updateMessageContent
+  updateMessageContent,
+
+  setGroupMedia,
+  appendGroupMedia,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

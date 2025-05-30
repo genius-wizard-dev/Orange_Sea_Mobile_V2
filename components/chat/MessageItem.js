@@ -1,7 +1,7 @@
 import { XStack, YStack, Text, Image, Button, Adapt } from 'tamagui';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import VideoPlayer from 'react-native-video';
-// import { Video } from 'expo-av';
+// import VideoPlayer from 'react-native-video';
+import { Video } from 'expo-av';
 import { formatTime } from '../../utils/time';
 import { ActivityIndicator, Pressable, Alert, View, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -15,6 +15,8 @@ import { deleteMessage, setEditingMessage } from '../../redux/slices/chatSlice';
 import DefaultAvatar from './DefaultAvatar';
 import ImageViewer from './ImageViewer';
 
+import { useRouter } from 'expo-router';
+
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 
@@ -26,6 +28,18 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
     const [showImageViewer, setShowImageViewer] = useState(false);
     const [isDownloadingFile, setIsDownloadingFile] = useState(false);
+
+    const router = useRouter();
+
+    // console.log('\n=== MESSAGE ITEM RENDER DEBUG ===');
+    // console.log('Message ID:', msg.id);
+    // console.log('Message type:', msg.type);
+    // console.log('Full msg object keys:', Object.keys(msg));
+    // console.log('msg.message:', `"${msg.message}"`, typeof msg.message);
+    // console.log('msg.content:', `"${msg.content}"`, typeof msg.content);
+    // console.log('Is message empty?', !msg.message);
+    // console.log('Message length:', msg.message?.length || 0);
+
 
 
     useEffect(() => {
@@ -346,6 +360,28 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
     const messageContent = msg.message || msg.content || '';
     const updatedAt = msg.updatedAt || new Date().toISOString();
 
+    const handleForwardMessage = useCallback(() => {
+        handleClose(); // Đóng popup
+
+        // Chuẩn bị dữ liệu cần thiết
+        const messageData = {
+            messageId: msg.id,
+            messageContent: msg.message || msg.content || '',
+            messageType: msg.type || 'TEXT',
+            senderId: msg.sender?.id || msg.senderId,
+            imageUrl: msg.imageUrl || msg.url || msg.fileUrl || msg.image || null,
+            fileName: msg.fileName || null,
+            fileSize: msg.fileSize || null,
+        };
+
+        // Điều hướng đến trang chuyển tiếp và truyền dữ liệu
+        router.push({
+            pathname: '/chat/forwardMessage',
+            params: messageData
+        });
+    }, [msg, router, handleClose]);
+
+
     // console.log("msg:", msg);
     return (
         <MessageOptionsPopover
@@ -354,6 +390,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
             onRecall={handleRecallMessage}
             onDelete={handleDelete}
             onEdit={handleEdit}
+            onForward={handleForwardMessage}
             isMyMessage={isMyMessage}
             isRecalled={msg.isRecalled}
             message={msg}  // Truyền msg vào MessageOptionsPopover
@@ -383,9 +420,9 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                 msg.sender.avatar ? (
                                     <Image
                                         source={{ uri: msg.sender.avatar }}
-                                        width={30}
-                                        height={30}
-                                        borderRadius={13}
+                                        width={29}
+                                        height={29}
+                                        borderRadius={20}
                                         marginTop={5}
                                     />
                                 ) : (
@@ -459,7 +496,7 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                     overflow="hidden"
                                                     backgroundColor="#000" // fallback nếu ảnh chưa load
                                                 >
-                                                    
+
                                                     <Image
                                                         source={{ uri: msg.imageUrl }}
                                                         style={{
@@ -582,21 +619,21 @@ const MessageItem = ({ msg, isMyMessage, showAvatar }) => {
                                                 >
 
                                                     {isVideoPlaying ? (
-                                                        // <Video
-                                                        //     source={{ uri: msg.imageUrl }}
-                                                        //     style={{ width: '100%', height: '100%' }}
-                                                        //     useNativeControls
-                                                        //     resizeMode="contain"
-                                                        //     shouldPlay
-                                                        //     onPlaybackStatusUpdate={(status) => {
-                                                        //         if (status.didJustFinish) {
-                                                        //             setIsVideoPlaying(false);
-                                                        //         }
-                                                        //     }}
-                                                        // />
-                                                        <>
-                                                            <Text>VIDEO</Text>
-                                                        </>
+                                                        <Video
+                                                            source={{ uri: msg.imageUrl }}
+                                                            style={{ width: '100%', height: '100%' }}
+                                                            useNativeControls
+                                                            resizeMode="contain"
+                                                            shouldPlay
+                                                            onPlaybackStatusUpdate={(status) => {
+                                                                if (status.didJustFinish) {
+                                                                    setIsVideoPlaying(false);
+                                                                }
+                                                            }}
+                                                        />
+                                                        // <>
+                                                        //     <Text>VIDEO</Text>
+                                                        // </>
                                                     ) : (
                                                         <>
                                                             <Image

@@ -10,7 +10,7 @@ import socketService from '../../service/socket.service';
 import { setUnreadCounts, updateUnreadCounts, updateLastMessage, updateChatNotification, updateGroup, statusUpdated } from '../../redux/slices/chatSlice';
 import { updateGroupMessages } from '../../redux/slices/groupSlice';
 import { formatTime, displayTime } from '../../utils/time';
-import GroupAvatar from '../../components/group/GroupAvatar';
+import GroupAvatar from '../../components/group/GroupAvatar.js';
 import { useRoute } from '@react-navigation/native';
 import ChatItemSkeleton from '../../components/loading/ChatItemSkeleton';
 import { Button } from 'tamagui';

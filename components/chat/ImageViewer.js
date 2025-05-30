@@ -210,11 +210,13 @@ const ImageViewer = ({ visible, imageUri, onClose }) => {
                         }
                     ]}
                 >
-                    <Image
-                        source={{ uri: imageUri }}
-                        style={styles.fullImage}
-                        resizeMode="contain"
-                    />
+                    <View style={{ width: '100%', height: '100%', borderRadius: 20, overflow: 'hidden',padding: 20 }}>
+                        <Image
+                            source={{ uri: imageUri }}
+                            style={styles.fullImage}
+                            resizeMode="cover"
+                        />
+                    </View>
                 </Animated.View>
             </Animated.View>
         </Modal>
@@ -256,7 +258,7 @@ const styles = StyleSheet.create({
     headerButton: {
         padding: 7,
         backgroundColor: '#FF7A1E',
-        borderRadius: 25,
+        borderRadius: 5,
         marginLeft: 10,
     },
     imageContainer: {
@@ -264,10 +266,13 @@ const styles = StyleSheet.create({
         height: screenHeight * 0.8,
         justifyContent: 'center',
         alignItems: 'center',
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     fullImage: {
         width: '100%',
         height: '100%',
+        borderRadius: 20
     },
     downloadingButton: {
         backgroundColor: 'rgba(255, 122, 30, 0.6)',

@@ -112,6 +112,13 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
                     type: 'TEXT',
                     content: message.trim()
                 });
+
+                // SỬA: Trigger input focus để scroll
+                if (onFocusInput) {
+                    setTimeout(() => {
+                        onFocusInput();
+                    }, 50);
+                }
             }
         }
         setMessage('');
@@ -263,6 +270,12 @@ const MessageInput = ({ onSendMessage, onFocusInput, onTabChange, editingMessage
 
         try {
             onSendMessage(messageData);
+
+            if (onFocusInput) {
+                setTimeout(() => {
+                    onFocusInput();
+                }, 100);
+            }
 
             // Đóng bottom sheet
             closeBottomSheet();

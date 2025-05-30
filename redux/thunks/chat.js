@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { ENDPOINTS } from '../../service/api.endpoint';
 import apiService from '../../service/api.service';
-import { setLoading, setError, addMessage, deleteMessage, updateMessage, setSocket, setSocketConnected, setMessages } from '../slices/chatSlice';
+import { setLoading, setError, addMessage, deleteMessage, updateMessage, setSocket, setSocketConnected, setMessages, setGroupMedia, appendGroupMedia } from '../slices/chatSlice';
 import io from 'socket.io-client';
 import socketService from '../../service/socket.service';
 
@@ -105,17 +105,28 @@ export const deleteMessageThunk = createAsyncThunk(
 
 export const forwardMessage = createAsyncThunk(
   'chat/forwardMessage',
-  async ({ messageId, targetId }, { dispatch }) => {
+  async ({ messageId, groupId }, { dispatch, rejectWithValue }) => {
     try {
       dispatch(setLoading(true));
+
+      console.log('Forwarding message:', { messageId, groupId });
+
       const response = await apiService.post(ENDPOINTS.CHAT.FORWARD, {
         messageId,
-        targetId
+        groupId
       });
-      return response;
+
+      console.log('Forward message API response:', response);
+
+      if (response?.statusCode === 200) {
+        return response.data;
+      }
+
+      return rejectWithValue(response);
     } catch (error) {
-      dispatch(setError(error.message));
-      throw error;
+      console.error('Lỗi khi chuyển tiếp tin nhắn:', error);
+      dispatch(setError(error.message || 'Không thể chuyển tiếp tin nhắn'));
+      return rejectWithValue(error.response?.data || { message: 'Không thể chuyển tiếp tin nhắn' });
     } finally {
       dispatch(setLoading(false));
     }
@@ -132,10 +143,29 @@ export const fetchPaginatedMessages = createAsyncThunk(
         ENDPOINTS.CHAT.GET_MESSAGES(groupId),
         { cursor }
       );
+      // console.log("=== RAW API RESPONSE DETAILED ===");
+      // console.log("Full response:", JSON.stringify(response, null, 2));
 
+      if (response?.data?.messages) {
+        // console.log("=== DETAILED MESSAGES ANALYSIS ===");
+        response.data.messages.forEach((msg, index) => {
+          // console.log(`\n--- Message ${index} ---`);
+          // console.log('ID:', msg.id);
+          // console.log('Type:', msg.type);
+          // console.log('Raw message object:', JSON.stringify(msg, null, 2));
 
-      console.log("fetchMessages response ", response);
+          // Kiểm tra tất cả field có thể chứa content
+          // const contentFields = ['content', 'message', 'text', 'body', 'data'];
+          // contentFields.forEach(field => {
+          //   if (msg[field] !== undefined) {
+          //     console.log(`${field}:`, `"${msg[field]}"`, `(type: ${typeof msg[field]})`);
+          //   }
+          // });
 
+          // Liệt kê tất cả keys
+          // console.log('All keys:', Object.keys(msg));
+        });
+      }
       return response;
     } catch (error) {
       dispatch(setError(error.message));
@@ -214,6 +244,120 @@ export const fetchMessages = createAsyncThunk(
   }
 );
 
+
+// 1. Thunk cho ảnh
+export const fetchGroupImages = createAsyncThunk(
+  'chat/fetchGroupImages',
+  async ({ groupId, limit = 20 }, { dispatch }) => {
+    try {
+      dispatch(setLoading(true));
+
+      console.log(`Fetching IMAGES for group ${groupId} with limit ${limit}`);
+
+      const response = await apiService.get(
+        ENDPOINTS.CHAT.GET_MEDIA(groupId),
+        { type: 'IMAGE', limit }
+      );
+
+      console.log(`API Response for IMAGE media:`, response);
+
+      if (response?.data) {
+        dispatch(setGroupMedia({
+          groupId,
+          mediaType: 'IMAGE',
+          data: response.data
+        }));
+
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error fetching group images:', error);
+      dispatch(setError(error.message || 'Không thể tải hình ảnh'));
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+// 2. Thunk cho video
+export const fetchGroupVideos = createAsyncThunk(
+  'chat/fetchGroupVideos',
+  async ({ groupId, limit = 20 }, { dispatch }) => {
+    try {
+      dispatch(setLoading(true));
+
+      console.log(`Fetching VIDEOS for group ${groupId} with limit ${limit}`);
+
+
+      const response = await apiService.get(
+        ENDPOINTS.CHAT.GET_MEDIA(groupId),
+        { type: 'VIDEO', limit }
+      );
+
+      console.log(`API Response for VIDEO media:`, response);
+
+      if (response?.data) {
+        dispatch(setGroupMedia({
+          groupId,
+          mediaType: 'VIDEO',
+          data: response.data
+        }));
+
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error fetching group videos:', error);
+      dispatch(setError(error.message || 'Không thể tải video'));
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+// 3. Thunk cho file
+export const fetchGroupFiles = createAsyncThunk(
+  'chat/fetchGroupFiles',
+  async ({ groupId, limit = 20 }, { dispatch }) => {
+    try {
+      dispatch(setLoading(true));
+
+      console.log(`Fetching FILES for group ${groupId} with limit ${limit}`);
+
+      const response = await apiService.get(
+        ENDPOINTS.CHAT.GET_MEDIA(groupId),
+        { type: 'RAW', limit }
+      );
+
+      console.log(`API Response for RAW media:`, response);
+
+      if (response?.data) {
+        dispatch(setGroupMedia({
+          groupId,
+          mediaType: 'RAW',
+          data: response.data
+        }));
+
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error fetching group files:', error);
+      dispatch(setError(error.message || 'Không thể tải file'));
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  }
+);
+
+
 export const initializeSocket = createAsyncThunk(
   'chat/initializeSocket',
   async (_, { dispatch }) => {
@@ -235,6 +379,8 @@ export const initializeSocket = createAsyncThunk(
     }
   }
 );
+
+
 
 export const connectSocket = createAsyncThunk(
   'chat/connectSocket',
