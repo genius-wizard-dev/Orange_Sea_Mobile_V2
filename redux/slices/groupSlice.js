@@ -87,10 +87,27 @@ const groupSlice = createSlice({
                     delete state.groupDetails[groupIdToDelete];
                 }
             })
+            .addCase(groupThunks.leaveGroup.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                state.currentOperation = 'leaveGroup';
+            })
             .addCase(groupThunks.leaveGroup.fulfilled, (state, action) => {
+                state.loading = false;
+                state.error = null;
+                state.currentOperation = null;
+
+                // Logic hiện tại của bạn
                 state.groups = state.groups.filter(group => group.id !== action.payload.groupId);
                 delete state.groupDetails[action.payload.groupId];
             })
+            .addCase(groupThunks.leaveGroup.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Không thể rời khỏi nhóm';
+                state.currentOperation = null;
+            })
+
+            
             .addCase(groupThunks.renameGroup.fulfilled, (state, action) => {
                 const { groupId, name } = action.payload.data;
                 const group = state.groups.find(g => g.id === groupId);
@@ -104,11 +121,7 @@ const groupSlice = createSlice({
             .addCase(groupThunks.addParticipant.fulfilled, (state, action) => {
                 console.log("Xử lý thành công thêm thành viên:", action.payload);
 
-                // Kiểm tra xem action.payload có hợp lệ không
-                if (!action.payload || !action.payload.id) {
-                    console.error("Payload không hợp lệ hoặc không có id");
-                    return;
-                }
+
 
                 const groupId = action.payload.id || action.payload.groupId;
 
@@ -124,7 +137,7 @@ const groupSlice = createSlice({
                     lastUpdated: Date.now()
                 };
 
-                console.log("Đã cập nhật thông tin nhóm với thành viên mới:", groupId);
+                // console.log("Đã cập nhật thông tin nhóm với thành viên mới:", groupId);
             })
             .addCase(groupThunks.removeParticipant.fulfilled, (state, action) => {
                 console.log("Reducer removeParticipant.fulfilled với payload:", action.payload);
@@ -152,7 +165,7 @@ const groupSlice = createSlice({
                     console.log("Không tìm thấy thông tin nhóm với ID:", groupId);
                 }
             })
-            .addCase(groupThunks.transferOwnership.fulfilled, (state, action) => {
+            .addCase(groupThunks.transferGroupOwnership.fulfilled, (state, action) => {
                 const { groupId, newOwnerId } = action.payload.data;
                 if (state.groupDetails[groupId]) {
                     state.groupDetails[groupId].ownerId = newOwnerId;

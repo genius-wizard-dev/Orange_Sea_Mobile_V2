@@ -11,10 +11,11 @@ class ApiServiceImpl implements ApiService {
     method: string,
     uri: string,
     data?: object | FormData,
-    contentType?: string
+    contentType?: string,
+    params?: any
   ): Promise<T> {
     try {
-      console.log(`📤 Making ${method} request to ${uri}`, { data });
+      console.log(`📤 Making ${method} request to ${uri}`, { data, params });
       console.log(typeof data);
       // const accessToken = getAccessToken
       let headers: Record<string, string> = {};
@@ -36,14 +37,24 @@ class ApiServiceImpl implements ApiService {
         headers['Content-Type'] = 'application/json';
       }
 
-      const response = await axiosInstance.request<T>({
+
+      const requestConfig: any = {
         method,
         url: uri,
         data,
         headers,
-      });
+      };
+
+      if (params && method === 'GET') {
+        requestConfig.params = params;
+        console.log('📤 Request params:', params);
+      }
+
+      const response = await axiosInstance.request<T>(requestConfig);
 
       return response.data;
+
+
     } catch (error: any) {
       console.dir(error);
       // console.error(`❌ Error in ${method} request to ${uri}:`, error);
@@ -51,8 +62,8 @@ class ApiServiceImpl implements ApiService {
     }
   }
 
-  async get<T>(uri: string, contentType?: string): Promise<T> {
-    return this.request<T>('GET', uri, undefined, contentType);
+  async get<T>(uri: string,params?: any, contentType?: string): Promise<T> {
+    return this.request<T>('GET', uri, undefined, contentType, params);
   }
 
   async post<T>(uri: string, data?: object | FormData, contentType?: string): Promise<T> {

@@ -1,4 +1,4 @@
-import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { FlatList, Image, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ToastAndroid } from 'react-native'
 import React, { useState, useEffect, useMemo } from 'react'
 import HeaderLeft from '../../../components/header/HeaderLeft'
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +10,8 @@ import { addParticipant } from '../../../redux/thunks/group';
 import { getGroupDetail } from '../../../redux/thunks/group';
 import { getFriendList } from '../../../redux/thunks/friend';
 import HeaderNavigation from '../../../components/header/HeaderNavigation';
+import DefaultAvatar from '../../../components/chat/DefaultAvatar';
+
 
 const AddParticipant = () => {
     const router = useRouter();
@@ -26,14 +28,6 @@ const AddParticipant = () => {
 
     // Lấy thông tin nhóm từ Redux store dựa vào groupId
     const groupDetail = useSelector(state => state.group.groupDetails[groupId]);
-
-    // Không còn cần parse JSON
-    useEffect(() => {
-        // Nếu có groupId nhưng chưa có dữ liệu trong store, gọi API để lấy
-        if (groupId && !groupDetail) {
-            dispatch(getGroupDetail(groupId));
-        }
-    }, [groupId, groupDetail, dispatch]);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedContacts, setSelectedContacts] = useState([]);
@@ -52,49 +46,56 @@ const AddParticipant = () => {
         }
     }, [groupId, dispatch, groupDetails]);
 
-    // Fetch danh sách bạn bè nếu chưa có
+
+    // console.log("groupId:", groupId);
+
+    // console.log("groupDetails[groupId] : ", groupDetails[groupId])
+
+
+
+
     useEffect(() => {
-        setIsLoadingContacts(true); // Bắt đầu loading
-        
-        const fetchFriends = async () => {
+        const fetchFriendList = async () => {
+            setIsLoadingContacts(true);
             try {
-                if (friends.length === 0) {
-                    await dispatch(getFriendList()).unwrap();
-                }
+                await dispatch(getFriendList()).unwrap();
             } catch (error) {
                 console.error('Lỗi khi tải danh sách bạn bè:', error);
             } finally {
-                // Dù thành công hay thất bại vẫn tắt loading
                 setIsLoadingContacts(false);
             }
         };
-        
-        fetchFriends();
-    }, [dispatch, friends.length]);
 
-    // Tạo danh sách người liên hệ từ bạn bè
-    const contacts = useMemo(() => {
-        return friends.data?.map(friend => {
-            // Tùy thuộc vào cấu trúc API bạn bè, điều chỉnh dữ liệu cho phù hợp
+        fetchFriendList();
+    }, [dispatch]);
+
+    // console.log("friends : ", friends)
+
+    const getContacts = () => {
+        if (!friends?.data) return [];
+
+        return friends?.data?.map(friend => {
             return {
-                id: friend.profileId || friend.id,
-                name: friend.name || friend.profile?.name,
-                avatarUrl: friend.avatar || friend.profile?.avatar || 'https://via.placeholder.com/100',
-                username: friend.username || friend.profile?.username || `@user${friend.id}`
+                id: friend.profileId,
+                name: friend.name,
+                avatarUrl: friend.avatar,
             };
         });
-    }, [friends]);
+    };
 
-    // Kiểm tra người dùng đã trong nhóm chưa
-    const existingParticipantIds = useMemo(() => {
+    const getExistingParticipantIds = () => {
         if (groupDetails[groupId]?.participants) {
-            return groupDetails[groupId].participants.map(p => p.userId);
+            return groupDetails[groupId].participants?.map(p => p.profileId);
         }
         return [];
-    }, [groupDetails, groupId]);
+    };
+
 
     // Phân loại danh bạ theo chữ cái đầu tiên
-    const contactsByLetter = useMemo(() => {
+    const getContactsByLetter = () => {
+        const contacts = getContacts();
+        if (!contacts) return {};
+
         return contacts.reduce((acc, contact) => {
             const firstLetter = contact.name.charAt(0).toUpperCase();
             if (!acc[firstLetter]) {
@@ -103,21 +104,27 @@ const AddParticipant = () => {
             acc[firstLetter].push(contact);
             return acc;
         }, {});
-    }, [contacts]);
+    };
 
     // Lọc danh bạ theo từ khóa tìm kiếm
-    const filteredContacts = useMemo(() => {
+    // Thay thế useMemo cho filteredContacts
+    const getFilteredContacts = () => {
         if (searchTerm.length === 0) return [];
 
+        const contacts = getContacts();
         return contacts.filter(contact =>
-            contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            contact.username?.toLowerCase().includes(searchTerm.toLowerCase())
+            contact.name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [contacts, searchTerm]);
+    };
 
     const isParticipantInGroup = (contactId) => {
-        return existingParticipantIds.includes(contactId);
+        const existingIds = getExistingParticipantIds();
+        return existingIds?.includes(contactId);
     };
+
+    const contacts = getContacts();
+    const contactsByLetter = getContactsByLetter();
+    const filteredContacts = getFilteredContacts();
 
     const toggleSelectContact = (contact) => {
         // Nếu đã tham gia nhóm, không cho phép chọn
@@ -134,41 +141,37 @@ const AddParticipant = () => {
         }
     };
 
+    // console.log("contacts ", contacts)
+    // console.log("groupDetails[groupId] ", groupDetails[groupId])
+
     const handleAddParticipants = async () => {
         if (selectedContacts.length === 0) return;
-        
+
         setIsSubmitting(true); // Bắt đầu hiển thị loading trên nút
-        
+
         try {
             // Chuẩn bị dữ liệu theo định dạng API yêu cầu
-            const participantIds = selectedContacts.map(contact => contact.id);
-            
+            const participantIds = selectedContacts?.map(contact => contact.id);
+
             console.log("Chuẩn bị gửi API thêm thành viên:", participantIds);
-            
+            console.log("Chuẩn bị gửi API thêm thành viên với groupId :", groupId);
+
             // Gọi API để thêm thành viên với định dạng đúng
             const result = await dispatch(addParticipant({
                 groupId,
                 participantIds: participantIds
             })).unwrap();
-            
+
             // console.log("Kết quả API thêm thành viên:", result);
-            
+
             // Kiểm tra kết quả từ API - API trả về thông tin nhóm đầy đủ nếu thành công
-            if (result && result.id) {
+            if (result && result.data?.groupId) {
                 // Xóa danh sách người đã chọn sau khi thêm thành công
                 setSelectedContacts([]);
-                
-                // Cập nhật lại danh sách thành viên hiện tại từ API
-                if (groupId) {
-                    await dispatch(getGroupDetail(groupId));
-                }
-                
-                // Hiển thị thông báo thành công (không điều hướng)
-                Alert.alert(
-                    'Thành công',
-                    `Đã thêm ${participantIds.length} thành viên vào nhóm.`,
-                    [{ text: 'OK' }] // Loại bỏ hành động điều hướng khi nhấn OK
-                );
+                ToastAndroid.show("Thêm thành viên " + participantIds.length + " thành công", ToastAndroid.SHORT);
+
+                await dispatch(getGroupDetail(groupId));
+
             } else {
                 // Xử lý trường hợp API trả về lỗi
                 Alert.alert(
@@ -195,12 +198,12 @@ const AddParticipant = () => {
             // Khi dữ liệu nhóm được cập nhật, cũng cần kiểm tra lại selectedContacts
             // để loại bỏ những người đã được thêm vào nhóm
             if (selectedContacts.length > 0) {
-                const updatedParticipantIds = groupDetails[groupId].participants.map(p => p.userId);
+                const updatedParticipantIds = groupDetails[groupId].participants?.map(p => p.userId);
                 // Lọc ra các liên hệ chưa được thêm vào nhóm
                 const filteredContacts = selectedContacts.filter(
-                    contact => !updatedParticipantIds.includes(contact.id)
+                    contact => !updatedParticipantIds?.includes(contact.id)
                 );
-                
+
                 // Nếu có sự thay đổi trong danh sách, cập nhật lại state
                 if (filteredContacts.length !== selectedContacts.length) {
                     setSelectedContacts(filteredContacts);
@@ -212,12 +215,12 @@ const AddParticipant = () => {
     // Thêm effect để đảm bảo component luôn được khởi tạo lại mỗi khi được mount
     useEffect(() => {
         console.log('AddParticipant mounted with uniqueKey:', uniqueKey);
-        
+
         // Reset các state quan trọng mỗi khi component mount với key mới
         setSearchTerm('');
         setSelectedContacts([]);
         setIsLoadingContacts(true);
-        
+
         // Fetch danh sách bạn bè mỗi khi component được mount
         const fetchInitialData = async () => {
             try {
@@ -231,7 +234,7 @@ const AddParticipant = () => {
                 setIsLoadingContacts(false);
             }
         };
-        
+
         fetchInitialData();
     }, [uniqueKey, dispatch, groupId]); // Phụ thuộc vào uniqueKey sẽ làm effect này chạy mỗi khi component được mount với key khác
 
@@ -241,7 +244,7 @@ const AddParticipant = () => {
             <Text color="gray" fontSize="$4" paddingHorizontal="$4" paddingVertical="$2" backgroundColor="#f5f5f5">
                 {letter}
             </Text>
-            {contactsInGroup.map(contact => renderContactItem(contact))}
+            {contactsInGroup?.map(contact => renderContactItem(contact))}
         </View>
     );
 
@@ -253,39 +256,60 @@ const AddParticipant = () => {
         return (
             <TouchableOpacity
                 key={contact.id}
-                onPress={() => toggleSelectContact(contact)}
-                disabled={isAlreadyInGroup}
+                onPress={() => !isAlreadyInGroup && toggleSelectContact(contact)}
+                style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 12,
+                    backgroundColor: isSelected ? '#fff3e6' : 'white',
+                    opacity: isAlreadyInGroup ? 0.8 : 1,
+                }}
             >
-                <XStack paddingVertical="$3" paddingHorizontal="$4" alignItems="center">
+                {/* Hiển thị avatar hoặc DefaultAvatar */}
+                {contact.avatarUrl && contact.avatarUrl !== 'https://via.placeholder.com/100' ? (
                     <Image
                         source={{ uri: contact.avatarUrl }}
                         style={styles.avatar}
                     />
-                    <YStack flex={1} marginLeft="$3">
-                        <Text fontSize="$5" fontWeight="500">{contact.name}</Text>
-                        {/* <Text fontSize="$3" color="gray">{contact.username}</Text> */}
-                    </YStack>
+                ) : (
+                    <DefaultAvatar name={contact.name} size={40} />
+                )}
 
-                    {isAlreadyInGroup ? (
-                        // Người dùng đã tham gia nhóm
-                        <Text fontSize="$3" color="#888">Đã tham gia</Text>
-                    ) : (
-                        // Người dùng chưa tham gia nhóm
-                        <View
-                            width={24}
-                            height={24}
-                            borderRadius={12}
-                            borderWidth={1}
-                            borderColor={isSelected ? 'transparent' : '#ccc'}
-                            backgroundColor={isSelected ? '#FF7A1E' : 'transparent'}
-                            alignItems="center"
-                            justifyContent="center"
-                        >
-                            {isSelected && <Ionicons name="checkmark" size={18} color="white" />}
-                        </View>
-                    )}
-                </XStack>
-                <Separator marginLeft="$4" />
+                <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '500' }}>
+                        {contact.name}
+                    </Text>
+                </View>
+
+                {
+                    !isAlreadyInGroup &&
+
+                    <View
+                        width={24}
+                        height={24}
+                        borderRadius={12}
+                        borderWidth={1}
+                        borderColor={isSelected ? 'transparent' : '#ccc'}
+                        backgroundColor={isSelected ? '#FF7A1E' : 'transparent'}
+                        alignItems="center"
+                        justifyContent="center"
+                    >
+                        {isSelected && <Ionicons name="checkmark" size={18} color="white" />}
+                    </View>
+                }
+
+
+
+                {isAlreadyInGroup && (
+                    <Text style={{
+                        fontSize: 15,
+                        color: '#000',
+                        fontStyle: 'italic',
+                        marginRight: 10
+                    }}>
+                        Đã trong nhóm
+                    </Text>
+                )}
             </TouchableOpacity>
         );
     };
@@ -337,6 +361,7 @@ const AddParticipant = () => {
                     placeholder="Tìm tên hoặc số điện thoại"
                     value={searchTerm}
                     onChangeText={setSearchTerm}
+                    placeholderTextColor="#000"
                 />
                 {searchTerm.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchTerm('')}>
@@ -345,7 +370,7 @@ const AddParticipant = () => {
                 )}
             </XStack>
 
-            <XStack
+            {/* <XStack
                 padding="$3"
                 borderRadius={25}
                 margin="$3"
@@ -354,7 +379,7 @@ const AddParticipant = () => {
             >
                 <Ionicons name="link" size={24} color="#FF7A1E" />
                 <Text marginLeft="$2" fontSize="$5" color="#FF7A1E">Mời vào nhóm bằng link</Text>
-            </XStack>
+            </XStack> */}
 
             {searchTerm.length > 0 ? (
                 // Hiển thị kết quả tìm kiếm
@@ -430,6 +455,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 10,
         fontSize: 16,
+        color: 'black',
     },
     addButton: {
         position: 'absolute',

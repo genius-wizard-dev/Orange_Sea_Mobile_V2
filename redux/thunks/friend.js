@@ -1,6 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { ENDPOINTS } from '../../service/api.endpoint';
 import apiService from '../../service/api.service';
+import socketService from '../../service/socket.service';
 
 export const getSearchByPhone = createAsyncThunk(
     'friend/search',
@@ -83,13 +84,14 @@ export const deleteFriend = createAsyncThunk(
     'friend/delete',
     async (friendshipId, { rejectWithValue }) => {
         try {
-            const res = await apiService.delete(ENDPOINTS.FRIEND.DELETE(friendshipId));
-            if (!res.statusCode === 200) {
-                throw new Error(res.message);
-            }
-            return { ...res, friendshipId };
+            // Sử dụng hàm emit từ socket service thay vì tự xử lý socket
+            const result = await socketService.emitCancelFriendRequest(friendshipId);
+            return { ...result, friendshipId };
         } catch (error) {
-            return rejectWithValue(error.message);
+            return rejectWithValue({
+                message: error.message || 'Không thể hủy lời mời kết bạn',
+                friendshipId
+            });
         }
     }
 );
@@ -117,7 +119,7 @@ export const checkFriendshipStatus = createAsyncThunk(
             if (!res.statusCode === 200) {
                 throw new Error(res.message);
             }
-            
+
             return res;
         } catch (error) {
             return rejectWithValue(error.message);

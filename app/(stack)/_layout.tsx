@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import HeaderLeft from "../../components/header/HeaderLeft";
+import HeaderLeft from "../../components/header/HeaderLeft.js";
 // import { TransitionPresets } from '@react-navigation/stack';
 
 export default function StackLayout() {
@@ -37,6 +37,14 @@ export default function StackLayout() {
         name="chat/chatDetail"
         options={{
           title: 'Chi tiết tin nhắn',
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="chat/forwardMessage"
+        options={{
+          title: 'Chuyển tiếp tin nhắn',
           headerShown: false,
           presentation: 'modal',
         }}
@@ -149,6 +157,13 @@ export default function StackLayout() {
         name="group/manageMember"
         options={{
           title: 'Quản lý thành viên',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="group/manageMedia"
+        options={{
+          title: 'Quản lý media',
           headerShown: false,
         }}
       />

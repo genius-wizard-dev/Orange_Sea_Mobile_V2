@@ -63,7 +63,12 @@
     "socket.io-client": "^4.8.1",
     "tamagui": "^1.125.8",
     "uuid": "^11.1.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "expo-file-system": "~18.1.10",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "expo-document-picker": "~13.1.5",
+    "expo-av": "~15.1.4",
+    "@shopify/flash-list": "1.7.6"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

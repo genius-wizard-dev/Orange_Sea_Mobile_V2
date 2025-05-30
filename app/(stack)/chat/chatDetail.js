@@ -1,5 +1,5 @@
 import { StyleSheet, View, KeyboardAvoidingView, Platform, ImageBackground, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native'
-import React, { useEffect, useState, useMemo, useRef } from 'react'
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigation } from '@react-navigation/native';
@@ -8,8 +8,10 @@ import MessageList from '../../../components/chat/MessageList'
 import MessageInput from '../../../components/chat/MessageInput'
 import socketService from '../../../service/socket.service'
 import { editMessageThunk, fetchPaginatedMessages, sendMessage } from '../../../redux/thunks/chat'
-import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage, updateMessageContent, setEditingMessage } from '../../../redux/slices/chatSlice'
+import { setCurrentChat, clearMessages, setMessages, addMessage, deleteMessage, updateMessageContent, setEditingMessage, updateMessageStatus } from '../../../redux/slices/chatSlice'
 import { getGroupDetail } from '../../../redux/thunks/group';
+import MessageListSkeleton from '../../../components/loading/messages/MessageListSkeleton';
+import { YStack } from 'tamagui';
 
 const ChatDetail = () => {
     const dispatch = useDispatch();
@@ -192,39 +194,60 @@ const ChatDetail = () => {
                         fetchPaginatedMessages
                     );
 
-                    // console.log('API fetchPaginatedMessages response:', response);
-                    if (response?.data?.messages) {
-                        console.log('Tin nhắn được tải:', response.data.messages.map(msg => msg.id));
-                    }
-
                     if (response?.error) {
                         console.error('Lỗi khởi tạo chat:', response.message);
                         dispatch(setMessages([]));
                     } else if (response?.data?.messages) {
-                        const apiMessages = response.data.messages.map(msg => ({
-                            id: msg.id,
-                            message: msg.content,
-                            senderId: msg.senderId,
-                            groupId: msg.groupId,
-                            createdAt: msg.createdAt,
-                            type: msg.type,
-                            imageUrl: msg.fileUrl,
-                            isRecalled: msg.isRecalled,
-                            fileName: msg.fileName,
-                            sender: msg.sender,
-                            isMyMessage: msg.senderId === profileId,
-                            isPending: false,
-                        }));
+                        const apiMessages = response.data.messages.map(msg => {
+                            const imageUrl = msg.fileUrl ||
+                                msg.imageUrl ||
+                                msg.url ||
+                                msg.image ||
+                                msg.attachmentUrl ||
+                                msg.file ||
+                                msg.media ||
+                                msg.src ||
+                                msg.path ||
+                                msg.link;
+
+                            return {
+                                id: msg.id,
+                                message: msg.content,
+                                senderId: msg.senderId,
+                                groupId: msg.groupId,
+                                createdAt: msg.createdAt,
+                                updatedAt: msg.updatedAt,
+                                type: msg.type,
+                                imageUrl: imageUrl, // SỬA: Mapping đúng imageUrl
+                                isRecalled: msg.isRecalled,
+                                fileName: msg.fileName,
+                                fileSize: msg.fileSize,
+                                sender: msg.sender,
+                                isMyMessage: msg.senderId === profileId,
+                                originalContent: msg.originalContent,
+                                isPending: false,
+                            };
+                        });
 
                         const sortedApiMessages = [...apiMessages].sort(
                             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
                         );
 
+                        // console.log('=== INITIAL MESSAGES LOADED ===');
+                        // console.log('Messages count:', sortedApiMessages.length);
+                        // console.log('NextCursor:', response.data.nextCursor);
+
                         dispatch(setMessages(sortedApiMessages));
                         setNextCursor(response.data.nextCursor || null);
+                    } else {
+                        // Không có tin nhắn
+                        dispatch(setMessages([]));
+                        setNextCursor(null);
                     }
                 } catch (error) {
                     console.error('Lỗi trong quá trình khởi tạo chat:', error);
+                    dispatch(setMessages([]));
+                    setNextCursor(null);
                 } finally {
                     setIsLoading(false);
                     hasInitializedRef.current = true;
@@ -264,59 +287,59 @@ const ChatDetail = () => {
      * @returns {Promise<Object>} - Result of the send operation
      */
     const handleSendMessage = async (messageData) => {
-        // Xác định loại dữ liệu và nội dung
-        const isTextOnly = typeof messageData === 'string';
-        const isObject = typeof messageData === 'object' && messageData !== null;
+        console.log('=== handleSendMessage được gọi ===');
+        console.log('messageData nhận được:', messageData);
 
-        // Xác định loại tin nhắn và nội dung
-        let type = 'TEXT';
-        let content = null;
+        const { type, content, mediaData } = messageData;
 
-        if (isTextOnly) {
-            type = 'TEXT';
-            content = messageData;
-        } else if (isObject) {
-            type = messageData.type || 'TEXT';
-            content = messageData.content || null;
+        if (!type) {
+            console.error('Thiếu type:', { type, content, mediaData });
+            Alert.alert('Lỗi', 'Dữ liệu tin nhắn không hợp lệ');
+            return;
         }
 
-        // Kiểm tra nội dung
-        if (!content && type === 'TEXT') {
-            console.error('Không có nội dung tin nhắn');
-            return { error: true, message: 'Không có nội dung tin nhắn' };
+        // Kiểm tra mediaData cho IMAGE/VIDEO
+        if ((type === 'IMAGE' || type === 'VIDEO') && (!mediaData || !mediaData.uri)) {
+            console.error('Thiếu mediaData cho IMAGE/VIDEO:', { type, mediaData });
+            Alert.alert('Lỗi', 'Không có dữ liệu ảnh/video');
+            return;
         }
 
-        // Kiểm tra dữ liệu ảnh
-        if (type === 'IMAGE' && (!content || !content.uri)) {
-            console.error('Không có dữ liệu ảnh');
-            return { error: true, message: 'Không có dữ liệu ảnh' };
-        }
+        // console.log('Type:', type);
+        // console.log('Content:', content);
+        // console.log('MediaData:', mediaData);
 
-        // Tạo ID tạm thời cho tin nhắn
-        const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-        // Tạo tin nhắn tạm thời để hiển thị ngay lập tức
-        let pendingMessage = {
-            tempId,
+        // Tạo tin nhắn tạm thời
+        const tempId = `${profileId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const tempMessage = {
             id: tempId,
+            tempId: tempId,
+            message: type === 'TEXT' ? content : '',
+            imageUrl: (type === 'IMAGE' || type === 'VIDEO') ? mediaData?.uri : undefined,
+            fileName: type === 'RAW' ? mediaData?.name : undefined,
+            fileSize: mediaData?.fileSize || undefined,
             senderId: profileId,
             groupId: groupId,
             type: type,
             createdAt: new Date().toISOString(),
-            sender: profile,
+            updatedAt: new Date().toISOString(),
+            isPending: true,
             isMyMessage: true,
-            isPending: true
+            sender: {
+                id: profileId,
+                name: profile?.name || 'You',
+                avatar: profile?.avatar,
+            }
         };
 
-        // Bổ sung thông tin theo loại tin nhắn
-        if (type === 'TEXT') {
-            pendingMessage.message = content;
-        } else if (type === 'IMAGE') {
-            pendingMessage.imageUrl = content.uri;
-        }
+        console.log('Tin nhắn tạm thời được tạo:', tempMessage);
 
-        // Thêm tin nhắn pending vào danh sách
-        dispatch(addMessage(pendingMessage));
+        // Thêm tin nhắn tạm thời vào UI
+        dispatch(addMessage(tempMessage));
+
+        setTimeout(() => {
+            messageListRef.current?.scrollToEnd();
+        }, 100);
 
         try {
             // Đảm bảo socket đã kết nối
@@ -324,7 +347,7 @@ const ChatDetail = () => {
             let response;
 
             if (type === 'TEXT') {
-                // Gửi tin nhắn văn bản
+                console.log('Gửi tin nhắn TEXT');
                 response = await dispatch(sendMessage({
                     message: content,
                     groupId: groupId,
@@ -332,123 +355,318 @@ const ChatDetail = () => {
                     type: 'TEXT'
                 })).unwrap();
             } else if (type === 'IMAGE') {
-                // Tạo FormData để gửi ảnh
+                console.log('Gửi tin nhắn IMAGE');
                 const formData = new FormData();
                 formData.append('file', {
-                    uri: content.uri,
-                    type: content.type || 'image/jpeg',
-                    name: content.name || `image-${Date.now()}.jpg`
+                    uri: mediaData.uri,
+                    type: mediaData.type || 'image/jpeg',
+                    name: mediaData.name || `image-${Date.now()}.jpg`
                 });
                 formData.append('groupId', groupId);
                 formData.append('senderId', profileId);
                 formData.append('type', 'IMAGE');
+                formData.append('content', ''); // Content rỗng
+
+                console.log('FormData cho IMAGE:', {
+                    uri: mediaData.uri,
+                    type: mediaData.type,
+                    name: mediaData.name,
+                    groupId: groupId,
+                    senderId: profileId
+                });
+
+                response = await dispatch(sendMessage(formData)).unwrap();
+            } else if (type === 'VIDEO') {
+                console.log('Gửi tin nhắn VIDEO');
+                const formData = new FormData();
+                formData.append('file', {
+                    uri: mediaData.uri,
+                    type: mediaData.type || 'video/mp4',
+                    name: mediaData.name || `video-${Date.now()}.mp4`
+                });
+                formData.append('groupId', groupId);
+                formData.append('senderId', profileId);
+                formData.append('type', 'VIDEO');
+                formData.append('content', ''); // Content rỗng
+
+                console.log('FormData cho VIDEO:', {
+                    uri: mediaData.uri,
+                    type: mediaData.type,
+                    name: mediaData.name,
+                    groupId: groupId,
+                    senderId: profileId
+                });
+
+                response = await dispatch(sendMessage(formData)).unwrap();
+            } else if (type === 'RAW') {
+                // SỬA: Thêm xử lý cho type RAW
+                console.log('Gửi tin nhắn RAW');
+                const formData = new FormData();
+                formData.append('file', {
+                    uri: mediaData.uri,
+                    type: mediaData.type || 'application/octet-stream',
+                    name: mediaData.name || `file-${Date.now()}.txt`
+                });
+                formData.append('groupId', groupId);
+                formData.append('senderId', profileId);
+                formData.append('type', 'RAW');
                 formData.append('content', '');
 
-                // Gửi ảnh lên server
+                console.log('FormData cho RAW:', {
+                    uri: mediaData.uri,
+                    type: mediaData.type,
+                    name: mediaData.name,
+                    fileSize: mediaData.fileSize,
+                    groupId: groupId,
+                    senderId: profileId
+                });
+
                 response = await dispatch(sendMessage(formData)).unwrap();
             }
 
-            if (response?.statusCode === 200 && response?.data) {
-                // Lấy messageId từ response
-                const messageId = response.data.messageId;
+            console.log('Response từ API:', response);
 
-                // Tạo tin nhắn chính thức từ phản hồi server
-                const newMessage = {
-                    ...pendingMessage,
-                    id: messageId,
-                    tempId: undefined,
+            if (response?.statusCode === 200 && response?.data) {
+                const serverMessage = response.data;
+
+                console.log('=== DEBUG SERVER RESPONSE FULL ===');
+                console.log('Raw response:', JSON.stringify(response, null, 2));
+                console.log('Server message:', JSON.stringify(serverMessage, null, 2));
+                console.log('Server message keys:', Object.keys(serverMessage));
+
+                // SỬA: Kiểm tra tất cả các field có thể chứa URL ảnh
+                const possibleImageFields = [
+                    'imageUrl', 'fileUrl', 'url', 'image', 'attachmentUrl',
+                    'file', 'media', 'src', 'path', 'link'
+                ];
+
+                console.log('=== CHECKING IMAGE FIELDS ===');
+                possibleImageFields.forEach(field => {
+                    if (serverMessage[field]) {
+                        console.log(`Found ${field}:`, serverMessage[field]);
+                    }
+                });
+
+                // SỬA: Mapping với kiểm tra tất cả field có thể
+                const formattedServerMessage = {
+                    id: serverMessage.id,
+                    tempId: tempId,
+                    message: serverMessage.content || serverMessage.message || '',
+                    senderId: serverMessage.senderId || profileId,
+                    groupId: serverMessage.groupId || groupId,
+                    createdAt: serverMessage.createdAt || new Date().toISOString(),
+                    updatedAt: serverMessage.updatedAt || new Date().toISOString(),
+                    type: serverMessage.type || type,
+                    // SỬA: Thử tất cả các field có thể chứa URL
+                    imageUrl: serverMessage.imageUrl ||
+                        serverMessage.fileUrl ||
+                        serverMessage.url ||
+                        serverMessage.image ||
+                        serverMessage.attachmentUrl ||
+                        serverMessage.file ||
+                        serverMessage.media ||
+                        serverMessage.src ||
+                        serverMessage.path ||
+                        serverMessage.link,
+                    fileName: serverMessage.fileName,
+                    fileSize: serverMessage.fileSize,
+                    isRecalled: serverMessage.isRecalled || false,
+                    isEdited: serverMessage.isEdited || false,
+                    originalContent: serverMessage.originalContent,
+                    sender: {
+                        id: profileId,
+                        name: profile?.name || 'You',
+                        avatar: profile?.avatar,
+                    },
+                    isMyMessage: true,
                     isPending: false,
-                    createdAt: response.data.createdAt || new Date().toISOString(),
+                    hasError: false
                 };
 
-                // Cập nhật URL ảnh từ server nếu là tin nhắn ảnh
-                if (type === 'IMAGE' && response.data.fileUrl) {
-                    newMessage.imageUrl = response.data.fileUrl;
-                }
+                // console.log('=== FORMATTED MESSAGE ===');
+                // console.log('Formatted message:', JSON.stringify(formattedServerMessage, null, 2));
+                // console.log('Final imageUrl:', formattedServerMessage.imageUrl);
 
-                dispatch({
-                    type: 'chat/updateMessageStatus',
-                    payload: { tempId, newMessage }
+                // Cập nhật tin nhắn thành công
+                dispatch(updateMessageStatus({
+                    tempId: tempId,
+                    newMessage: formattedServerMessage
+                }));
+
+                console.log('Tin nhắn đã được gửi thành công');
+
+                // Gửi qua socket
+                socketService.getSocket()?.emit('sendMessage', {
+                    ...serverMessage,
+                    groupId: groupId,
+                    senderId: profileId
                 });
 
-                // Thông báo qua socket
-                socketService.emitNewMessage(messageId);
+                setTimeout(() => {
+                    messageListRef.current?.scrollToEnd();
+                }, 200);
 
-                return { success: true, messageId };
+                return { success: true, data: response.data };
             } else {
-                console.log("res API gửi tin nhắn thất bại", response);
-                // Xóa tin nhắn pending nếu API không thành công
-                dispatch({
-                    type: 'chat/deleteMessage',
-                    payload: tempId
-                });
-                return { error: true, message: 'Gửi tin nhắn thất bại', response };
+                Alert.alert('Thông báo', response?.error || response?.message || 'Gửi tin nhắn thất bại');
+
+
+                throw new Error(response?.message || 'Gửi tin nhắn thất bại');
             }
         } catch (error) {
             console.error(`Lỗi khi gửi tin nhắn ${type}:`, error);
 
-            // Xóa tin nhắn pending nếu gửi thất bại
-            dispatch({
-                type: 'chat/deleteMessage',
-                payload: tempId
-            });
+            // Cập nhật tin nhắn với lỗi
+            dispatch(updateMessageStatus({
+                tempId: tempId,
+                newMessage: {
+                    ...tempMessage,
+                    isPending: false,
+                    hasError: true,
+                    errorMessage: error.message || 'Gửi tin nhắn thất bại'
+                }
+            }));
 
-            return {
-                error: true,
-                message: `Không thể gửi ${type === 'TEXT' ? 'tin nhắn' : 'ảnh'}. Vui lòng thử lại sau.`,
-                originalError: error
-            };
+            return { success: false, error: error.message };
         }
     };
 
-    const handleLoadMoreMessages = (data) => {
-        if (data?.messages?.length > 0) {
-            const formattedMessages = data.messages.map(msg => ({
+    const handleLoadMoreMessages = useCallback((data) => {
+        console.log('=== HANDLE LOAD MORE MESSAGES ===');
+        console.log('Data received:', data);
+
+        if (!data?.messages?.length) {
+            console.log('No messages in data');
+            return;
+        }
+
+        // SỬA: Mapping imageUrl đúng cho tất cả tin nhắn
+        const formattedMessages = data.messages.map(msg => {
+
+            // console.log('\n=== CHATDETAIL MAPPING ===');
+            // console.log('Message ID:', msg.id);
+            // console.log('Message type:', msg.type);
+            // console.log('Raw message from handleLoadMoreMessages:', JSON.stringify(msg, null, 2));
+
+            // // SỬA: Debug content fields trong chatDetail
+            // console.log('Content fields in chatDetail:');
+            // console.log('  msg.content:', `"${msg.content}"`, typeof msg.content);
+            // console.log('  msg.message:', `"${msg.message}"`, typeof msg.message);
+            // console.log('  msg.text:', `"${msg.text}"`, typeof msg.text);
+
+
+            const imageUrl = msg.fileUrl ||
+                msg.imageUrl ||
+                msg.url ||
+                msg.image ||
+                msg.attachmentUrl ||
+                msg.file ||
+                msg.media ||
+                msg.src ||
+                msg.path ||
+                msg.link;
+
+
+            const finalContent = msg.content ||
+                msg.message ||
+                msg.text ||
+                msg.body ||
+                msg.data ||
+                '';
+
+            console.log('ChatDetail final content:', `"${finalContent}"`);
+
+
+            return {
                 id: msg.id,
-                message: msg.content,
+                message: finalContent,
                 senderId: msg.senderId,
                 groupId: msg.groupId,
                 createdAt: msg.createdAt,
+                updatedAt: msg.updatedAt,
                 type: msg.type,
-                imageUrl: msg.fileUrl,
+                imageUrl: imageUrl, // SỬA: Sử dụng imageUrl đã detect
                 isRecalled: msg.isRecalled,
                 fileName: msg.fileName,
+                fileSize: msg.fileSize,
                 sender: msg.sender,
                 isMyMessage: msg.senderId === profileId,
+                originalContent: msg.originalContent,
                 isPending: false
-            }));
+            };
+        });
+
+
+        // console.log('\n=== MESSAGES BEFORE DISPATCH ===');
+        // formattedMessages.forEach((msg, index) => {
+        //     console.log(`Message ${index}: ID=${msg.id}, type=${msg.type}, content="${msg.message}"`);
+        // });
+
+        if (data.refresh) {
+            // Refresh - replace toàn bộ messages
+            console.log('Refreshing messages, total:', formattedMessages.length);
+            dispatch(setMessages(formattedMessages));
+        } else {
+            // Load more - append vào đầu danh sách
+            // console.log('Loading more messages, new count:', formattedMessages.length);
+            // console.log('Current messages count:', messages.length);
 
             // Lọc tin nhắn trùng lặp dựa trên ID
             const existingIds = new Set(messages.map(msg => msg.id));
             const newMessages = formattedMessages.filter(msg => !existingIds.has(msg.id));
 
+            // console.log('New unique messages:', newMessages.length);
+
             if (newMessages.length > 0) {
-                // Thêm tin nhắn mới vào đầu danh sách (vì inverted)
-                const updatedMessages = [...newMessages, ...messages];
+                const updatedMessages = [...messages, ...newMessages];
+                console.log('Updated total messages:', updatedMessages.length);
                 dispatch(setMessages(updatedMessages));
+            } else {
+                console.log('No new messages to add - stopping load more');
+                // SỬA: Dừng load more nếu không có tin nhắn mới
+                setNextCursor(null);
             }
         }
-    };
+
+        // Cập nhật nextCursor nếu có
+        if (data.nextCursor !== undefined && data.nextCursor !== nextCursor) {
+            console.log('Updating nextCursor from', nextCursor, 'to', data.nextCursor);
+            setNextCursor(data.nextCursor);
+        } else if (data.nextCursor === nextCursor) {
+            console.log('NextCursor unchanged, stopping load more');
+            setNextCursor(null);
+        }
+    }, [messages, profileId, dispatch, nextCursor, setNextCursor]);
 
     const handleInputFocus = () => {
-        messageListRef.current?.scrollToEnd({ animated: true });
+        setTimeout(() => {
+            messageListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
     };
 
     const styles = StyleSheet.create({
         container: {
             flex: 1,
-            backgroundColor: 'white',
+            backgroundColor: '#FF7A1E',
+
         },
         backgroundImage: {
             flex: 1,
             width: '100%',
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            overflow: 'hidden',
+            marginTop: 10,
+
         }
     });
 
     const dynamicStyles = {
         contentContainer: {
             flex: 1,
-            paddingBottom: activeTab ? bottomSheetHeight + 65 : 65
+            backgroundColor: '#FF7A1E',
+            position: 'relative',
+
         }
     };
 
@@ -528,13 +746,10 @@ const ChatDetail = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.container}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 70 : 0}
+            elevation={1}
         >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                <ImageBackground
-                    source={require('../../../assets/bgr_mess.jpg')}
-                    style={styles.backgroundImage}
-                    resizeMode="cover"
-                >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} elevation={1}>
+                <YStack style={{ flex: 1, }}>
                     <ChatHeaderComponent
                         dataDetail={currentGroupDetail}
                         goBack={goBack}
@@ -543,27 +758,38 @@ const ChatDetail = () => {
                         groupId={groupId}
                         onDebug={debugMessages} // Thêm debug nếu cần
                     />
-                    <View style={dynamicStyles.contentContainer}>
-                        <MessageList
-                            ref={messageListRef}
-                            messages={messages}
-                            profileId={profileId}
-                            isLoading={isLoading}
-                            groupId={groupId}
-                            nextCursor={nextCursor}
-                            setNextCursor={setNextCursor}
-                            onLoadMoreMessages={handleLoadMoreMessages}
-                            key={refreshKey} // Force re-render when refreshKey changes
-                        />
-                        <MessageInput
-                            onSendMessage={handleSendMessage}
-                            onFocusInput={handleInputFocus}
-                            onTabChange={setActiveTab}
-                            editingMessage={editingMessage} // Thêm dòng này
-                            onEditComplete={handleEditComplete}
-                        />
-                    </View>
-                </ImageBackground>
+                    <YStack style={dynamicStyles.contentContainer} elevation={1}>
+
+                        <ImageBackground
+                            source={require('../../../assets/bgr_mess.jpg')}
+                            style={styles.backgroundImage}
+                            resizeMode="cover"
+
+                        >
+
+                            <MessageList
+                                ref={messageListRef}
+                                messages={messages}
+                                profileId={profileId}
+                                isLoading={isLoading}
+                                groupId={groupId}
+                                nextCursor={nextCursor}
+                                setNextCursor={setNextCursor}
+                                onLoadMoreMessages={handleLoadMoreMessages}
+                                key={refreshKey}
+                            />
+                            <MessageInput
+                                onSendMessage={handleSendMessage}
+                                onFocusInput={handleInputFocus}
+                                onTabChange={setActiveTab}
+                                editingMessage={editingMessage} // Thêm dòng này
+                                onEditComplete={handleEditComplete}
+                            />
+                        </ImageBackground>
+
+
+                    </YStack>
+                </YStack>
             </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
     );

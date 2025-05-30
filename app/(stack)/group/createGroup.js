@@ -1,4 +1,4 @@
-import { YStack, XStack, Text, Input, Button, ScrollView, Image } from 'tamagui'
+import { YStack, XStack, Text, Input, Button, ScrollView, Image, Spinner } from 'tamagui'
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useRouter } from 'expo-router'
@@ -8,7 +8,7 @@ import InputField from '../../../components/InputField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getFriendList } from '../../../redux/thunks/friend'
 import { createGroup as createGroupAction } from '../../../redux/thunks/group'
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, ToastAndroid } from 'react-native';
 
 const DEFAULT_AVATAR = "https://res.cloudinary.com/dubwmognz/image/upload/v1744715587/profile-avatars/profile_67fe2aaf936aacebb59fb978.png";
 const DEFAULT_GROUP_IMAGE = "https://i.ibb.co/jvVzkvBm/bgr-default.png";
@@ -73,8 +73,9 @@ const SearchBar = ({ searchText, setSearchText }) => {
 const createGroup = () => {
     const dispatch = useDispatch();
     const router = useRouter();
-    const { friends } = useSelector(state => state.friend);
-    const { profile } = useSelector(state => state.profile); // Thêm profile selector
+    const { friends, loading: friendsLoading } = useSelector(state => state.friend);
+    const { profile } = useSelector((state) => state.profile);
+
     const [selectedUsers, setSelectedUsers] = useState([]);
     const [searchText, setSearchText] = useState('');
     const [groupName, setGroupName] = useState('');
@@ -85,6 +86,11 @@ const createGroup = () => {
     useEffect(() => {
         dispatch(getFriendList());
     }, [dispatch]);
+
+    const filteredFriends = friends?.data?.filter(friend =>
+        friend.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        (friend.phone && friend.phone.includes(searchText))
+    ) || [];
 
     const toggleUserSelection = (user) => {
         if (selectedUsers.find(u => u.id === user.id)) {
@@ -123,11 +129,16 @@ const createGroup = () => {
 
             const result = await dispatch(createGroupAction(groupData)).unwrap();
 
-            if (result?.id) {
+            if (result.statusCode === 200 && result.data?.groupId) {
+                ToastAndroid.show("Tạo nhóm thành công", ToastAndroid.SHORT);
+
+                console.log("groupId: ", result.data?.groupId);
+                console.log("profileId: ", profile?.id,)
+
                 router.replace({
                     pathname: '/chat/chatDetail',
                     params: {
-                        groupId: result.id,
+                        groupId: result.data?.groupId,
                         profileId: profile?.id,
                         goBack: '/chat'
                     }
@@ -140,6 +151,8 @@ const createGroup = () => {
             setIsLoading(false);
         }
     };
+
+    console.log("friends data:", friends);
 
     return (
         <YStack flex={1} backgroundColor="$background">
@@ -160,52 +173,74 @@ const createGroup = () => {
 
                 <ScrollView
                     flex={1}
-                    contentContainerStyle={{ paddingBottom: selectedUsers.length > 0 ? 100 : 0 }}
+                    contentContainerStyle={{
+                        paddingBottom: selectedUsers.length > 0 ? 100 : 0,
+                        flex: friendsLoading ? 1 : undefined // Đảm bảo chiếm đủ không gian khi loading
+                    }}
                     backgroundColor="$background"
                 >
-                    {friends.data.map(user => (
-                        <Button
-                            key={user.id}
-                            onPress={() => toggleUserSelection(user)}
-                            flexDirection="row"
-                            alignItems="center"
-                            padding="$4"
-                            borderBottomWidth={1}
-                            borderBottomColor="$gray5"
-                            backgroundColor="#ffffff"
-                            pressStyle={{ transform: [{ scale: 0.99 }], }}
-                            height={70}
-                        >
-                            <Image
-                                source={{ uri: user.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
-                                width={46}
-                                height={46}
-                                borderRadius={23}
-                            />
-                            <YStack flex={1} marginLeft="$4" background="#ffffff">
-                                <Text fontSize={16} fontWeight="500" color="$color">
-                                    {user.name}
-                                </Text>
-                                <Text fontSize={14} color="#cccccc" marginTop="$1">
-                                    1 tiếng trước
-                                </Text>
-                            </YStack>
-                            <XStack
-                                width={24}
-                                height={24}
-                                borderRadius={12}
-                                borderWidth={1}
-                                borderColor={selectedUsers.find(u => u.id === user.id) ? '$blue10' : '#bcbcbc'}
-                                backgroundColor={selectedUsers.find(u => u.id === user.id) ? '$blue10' : 'transparent'}
-                                justifyContent="center"
+                    {friendsLoading ? (
+                        // Hiển thị Spinner khi đang tải danh sách bạn bè
+                        <YStack flex={1} justifyContent="center" alignItems="center" padding="$8">
+                            <Spinner size="large" color="$blue10" />
+                            <Text color="$gray10" marginTop="$4" textAlign="center">
+                                Đang tải danh sách bạn bè...
+                            </Text>
+                        </YStack>
+                    ) : filteredFriends.length === 0 ? (
+                        // Hiển thị trạng thái khi không có kết quả
+                        <YStack flex={1} justifyContent="center" alignItems="center" padding="$8">
+                            <Ionicons name="people-outline" size={50} color="#ccc" />
+                            <Text color="$gray10" marginTop="$4" textAlign="center">
+                                {searchText ? 'Không tìm thấy bạn bè nào phù hợp' : 'Bạn chưa có người bạn nào'}
+                            </Text>
+                        </YStack>
+                    ) : (
+                        // Hiển thị danh sách bạn bè
+                        filteredFriends.map(user => (
+                            <Button
+                                key={user.id}
+                                onPress={() => toggleUserSelection(user)}
+                                flexDirection="row"
                                 alignItems="center"
+                                padding="$4"
+                                borderBottomWidth={1}
+                                borderBottomColor="$gray5"
+                                backgroundColor="#ffffff"
+                                pressStyle={{ transform: [{ scale: 0.99 }], }}
+                                height={70}
                             >
-                                {selectedUsers.find(u => u.id === user.id) && (
-                                    <Ionicons name="checkmark" size={16} color="#fff" />
-                                )}
-                            </XStack>
-                        </Button>
-                    ))}
+                                <Image
+                                    source={{ uri: user.avatar || 'https://i.ibb.co/jvVzkvBm/bgr-default.png' }}
+                                    width={46}
+                                    height={46}
+                                    borderRadius={23}
+                                />
+                                <YStack flex={1} marginLeft="$4" background="#ffffff">
+                                    <Text fontSize={16} fontWeight="500" color="$color">
+                                        {user.name}
+                                    </Text>
+                                    {/* <Text fontSize={14} color="#cccccc" marginTop="$1">
+                                        {user.lastActive || "1 tiếng trước"}
+                                    </Text> */}
+                                </YStack>
+                                <XStack
+                                    width={24}
+                                    height={24}
+                                    borderRadius={12}
+                                    borderWidth={1}
+                                    borderColor={selectedUsers.find(u => u.id === user.id) ? '$blue10' : '#bcbcbc'}
+                                    backgroundColor={selectedUsers.find(u => u.id === user.id) ? '$blue10' : 'transparent'}
+                                    justifyContent="center"
+                                    alignItems="center"
+                                >
+                                    {selectedUsers.find(u => u.id === user.id) && (
+                                        <Ionicons name="checkmark" size={16} color="#fff" />
+                                    )}
+                                </XStack>
+                            </Button>
+                        ))
+                    )}
                 </ScrollView>
             </YStack>
 
